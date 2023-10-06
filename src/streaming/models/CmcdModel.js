@@ -237,7 +237,7 @@ function CmcdModel() {
             } else if (request.type === HTTPRequest.LICENSE) {
                 return _getCmcdDataForLicense(request);
             }
-            else if (request.type == HTTPRequest.CONTENT_STEERING_TYPE){
+            else if (request.type == HTTPRequest.CONTENT_STEERING_TYPE) {
                 return _getCmcdDataForSteering(request);
             }
 
