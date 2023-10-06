@@ -61,7 +61,6 @@ const STREAM_TYPES = {
 const RTP_SAFETY_FACTOR = 5;
 
 function CmcdModel() {
-
     let dashManifestModel,
         instance,
         internalData,
@@ -142,7 +141,6 @@ function CmcdModel() {
                 const cmcdData = _getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = _buildFinalString(filteredCmcdData);
-
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
                     url: request.url,
                     mediaType: request.mediaType,
@@ -238,6 +236,9 @@ function CmcdModel() {
                 return _getCmcdDataForOther(request);
             } else if (request.type === HTTPRequest.LICENSE) {
                 return _getCmcdDataForLicense(request);
+            }
+            else if (request.type == HTTPRequest.CONTENT_STEERING_TYPE){
+                return _getCmcdDataForSteering(request);
             }
 
             return cmcdData;
@@ -379,6 +380,13 @@ function CmcdModel() {
         return data;
     }
 
+    function _getCmcdDataForSteering() {
+        const data = _getGenericCmcdData();
+
+        data.ot = OBJECT_TYPES.OTHER;
+        return data;
+    }
+
 
     function _getGenericCmcdData() {
         const data = {};
@@ -405,7 +413,6 @@ function CmcdModel() {
         if (internalData.sf) {
             data.sf = internalData.sf;
         }
-
         return data;
     }
 

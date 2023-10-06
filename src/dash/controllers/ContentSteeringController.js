@@ -40,10 +40,12 @@ import URLUtils from '../../streaming/utils/URLUtils';
 import BaseURL from '../vo/BaseURL';
 import MpdLocation from '../vo/MpdLocation';
 import Utils from '../../core/Utils.js';
+import { HTTPRequest } from '../../streaming/vo/metrics/HTTPRequest';
 
 const QUERY_PARAMETER_KEYS = {
     THROUGHPUT: '_DASH_throughput',
     PATHWAY: '_DASH_pathway',
+    CMCD: 'CMCD',
     URL: 'url'
 };
 
@@ -52,7 +54,6 @@ const THROUGHPUT_SAMPLES = 4;
 function ContentSteeringController() {
     const context = this.context;
     const urlUtils = URLUtils(context).getInstance();
-
     let instance,
         logger,
         currentSteeringResponseData,
@@ -67,6 +68,7 @@ function ContentSteeringController() {
         requestModifier,
         serviceDescriptionController,
         eventBus,
+        cmcdModel,
         adapter;
 
     function setup() {
@@ -100,6 +102,9 @@ function ContentSteeringController() {
         }
         if (config.eventBus) {
             eventBus = config.eventBus;
+        }
+        if (config.cmcdModel) {
+            cmcdModel = config.cmcdModel;
         }
     }
 
@@ -239,7 +244,6 @@ function ContentSteeringController() {
                     resolve();
                     return;
                 }
-
                 const url = _getSteeringServerUrl(steeringDataFromManifest);
                 const request = new ContentSteeringRequest(url);
                 urlLoader.load({
@@ -342,6 +346,14 @@ function ContentSteeringController() {
             additionalQueryParameter.push({
                 key: QUERY_PARAMETER_KEYS.THROUGHPUT,
                 value: throughputString
+            });
+            const cmcdParams = cmcdModel.getQueryParameter({
+                url,
+                type: HTTPRequest.CONTENT_STEERING_TYPE
+            });
+            additionalQueryParameter.push({
+                key: QUERY_PARAMETER_KEYS.CMCD,
+                value: cmcdParams.value
             });
         }
 

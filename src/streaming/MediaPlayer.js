@@ -404,6 +404,7 @@ function MediaPlayer() {
                 manifestModel,
                 serviceDescriptionController,
                 eventBus,
+                cmcdModel,
                 requestModifier: RequestModifier(context).getInstance()
             })
 
