@@ -1,5 +1,5 @@
 import Utils from '../../src/core/Utils'
-import {expect} from 'chai';
+import { expect } from 'chai';
 
 describe('Utils', () => {
     describe('getRelativeUrl', () => {
@@ -107,6 +107,39 @@ describe('Utils', () => {
 
         it('Should return false if url has no protocol', () => {
             expect(Utils.stringHasProtocol('dash.akamaized.net')).to.be.false;
+        })
+    })
+
+    describe('addAditionalQueryParameterToUrl', () => {
+        const url = 'https://localhost:3000/test';
+
+        it('Should add CMCD query param to MediaSegment request type', () => {
+            const params = [{ key: 'CMCD', value: 'CMCD_value' }];
+            const requestType = 'MediaSegment';
+            const result = `${url}?CMCD=CMCD_value`;
+
+            expect(Utils.addAditionalQueryParameterToUrl(url, params, requestType)).to.be.equal(result);
+        });
+
+        it('Should add _STEERING_CMCD and not add CMCD query param to ContentSteering request type', () => {
+            const requestType = 'ContentSteering';
+            const params = [{ key: 'CMCD', value: 'CMCD_value' },
+                { key: '_DASH_pathway', value: 'pathway_value' },
+                { key: '_DASH_throughput', value: 'throughput_value' },
+                { key: '_STEERING_CMCD', value: 'steering_value' }];
+            const result = `${url}?_DASH_pathway=pathway_value&_DASH_throughput=throughput_value&_STEERING_CMCD=steering_value`;
+
+            expect(Utils.addAditionalQueryParameterToUrl(url, params, requestType)).to.be.equal(result);
+        });
+
+        it('Should add _STEERING_CMCD query param to ContentSteering request type', () => {
+            const requestType = 'ContentSteering';
+            const params = [{ key: '_DASH_pathway', value: 'pathway_value' },
+                { key: '_DASH_throughput', value: 'throughput_value' },
+                { key: '_STEERING_CMCD', value: 'steering_value' }];
+            const result = `${url}?_DASH_pathway=pathway_value&_DASH_throughput=throughput_value&_STEERING_CMCD=steering_value`;
+
+            expect(Utils.addAditionalQueryParameterToUrl(url, params, requestType)).to.be.equal(result);
         })
     })
 })
