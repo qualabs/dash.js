@@ -45,7 +45,7 @@ import { HTTPRequest } from '../../streaming/vo/metrics/HTTPRequest';
 const QUERY_PARAMETER_KEYS = {
     THROUGHPUT: '_DASH_throughput',
     PATHWAY: '_DASH_pathway',
-    CMCD: 'CMCD',
+    CMCD: '_STEERING_CMCD',
     URL: 'url'
 };
 
@@ -351,13 +351,14 @@ function ContentSteeringController() {
                 url,
                 type: HTTPRequest.CONTENT_STEERING_TYPE
             });
+            const cmcdBase64 = btoa(cmcdParams.value);
             additionalQueryParameter.push({
                 key: QUERY_PARAMETER_KEYS.CMCD,
-                value: cmcdParams.value
+                value: cmcdBase64
             });
         }
 
-        url = Utils.addAditionalQueryParameterToUrl(url, additionalQueryParameter);
+        url = Utils.addAditionalQueryParameterToUrl(url, additionalQueryParameter,HTTPRequest.CONTENT_STEERING_TYPE);
         return url;
     }
 

@@ -36,6 +36,8 @@
 
 import path from 'path-browserify'
 import { UAParser } from 'ua-parser-js'
+import { HTTPRequest } from '../streaming/vo/metrics/HTTPRequest';
+
 
 class Utils {
     static mixin(dest, source, copy) {
@@ -77,7 +79,7 @@ class Utils {
         return Utils.mixin(r, src, Utils.clone);
     }
 
-    static addAditionalQueryParameterToUrl(url, params) {
+    static addAditionalQueryParameterToUrl(url, params, requestType = '') {
         try {
             if (!params || params.length === 0) {
                 return url;
@@ -87,7 +89,9 @@ class Utils {
 
             params.forEach((param) => {
                 if (param.key && param.value) {
-                    modifiedUrl.searchParams.set(param.key, param.value);
+                    if(!(requestType == HTTPRequest.CONTENT_STEERING_TYPE && param.key =='CMCD')){
+                        modifiedUrl.searchParams.set(param.key, param.value);
+                    }
                 }
             });
 

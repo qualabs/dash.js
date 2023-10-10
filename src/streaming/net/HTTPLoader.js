@@ -310,7 +310,7 @@ function HTTPLoader(cfg) {
             const cmcdMode = settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
-                modifiedUrl = Utils.addAditionalQueryParameterToUrl(modifiedUrl, additionalQueryParameter);
+                modifiedUrl = Utils.addAditionalQueryParameterToUrl(modifiedUrl, additionalQueryParameter,request.type);
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
                 headers = cmcdModel.getHeaderParameters(request);
             }
