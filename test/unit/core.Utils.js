@@ -126,8 +126,8 @@ describe('Utils', () => {
             const params = [{ key: 'CMCD', value: 'CMCD_value' },
                 { key: '_DASH_pathway', value: 'pathway_value' },
                 { key: '_DASH_throughput', value: 'throughput_value' },
-                { key: '_STEERING_CMCD', value: 'steering_value' }];
-            const result = `${url}?_DASH_pathway=pathway_value&_DASH_throughput=throughput_value&_STEERING_CMCD=steering_value`;
+                { key: '_steering_CMCD', value: 'steering_value' }];
+            const result = `${url}?_steering_CMCD=steering_value&_DASH_pathway=pathway_value&_DASH_throughput=throughput_value`;
 
             expect(Utils.addAditionalQueryParameterToUrl(url, params, requestType)).to.be.equal(result);
         });
