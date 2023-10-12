@@ -95,7 +95,7 @@ class Utils {
                     else{
                         var cmcdValue = param.value;
                         const cmcdBase64 = btoa(cmcdValue);
-                        modifiedUrl.searchParams.set("_steering_CMCD", cmcdBase64);
+                        modifiedUrl.searchParams.set('_steering_CMCD', cmcdBase64);
                     }
 
                 }

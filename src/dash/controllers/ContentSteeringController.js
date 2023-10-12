@@ -67,7 +67,6 @@ function ContentSteeringController() {
         requestModifier,
         serviceDescriptionController,
         eventBus,
-        cmcdModel,
         adapter;
 
     function setup() {
@@ -101,9 +100,6 @@ function ContentSteeringController() {
         }
         if (config.eventBus) {
             eventBus = config.eventBus;
-        }
-        if (config.cmcdModel) {
-            cmcdModel = config.cmcdModel;
         }
     }
 
