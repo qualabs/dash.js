@@ -92,12 +92,6 @@ class Utils {
                     if(!(requestType == HTTPRequest.CONTENT_STEERING_TYPE && param.key =='CMCD')){
                         modifiedUrl.searchParams.set(param.key, param.value);
                     }
-                    else{
-                        var cmcdValue = param.value;
-                        const cmcdBase64 = btoa(cmcdValue);
-                        modifiedUrl.searchParams.set('_steering_CMCD', cmcdBase64);
-                    }
-
                 }
             });
 
