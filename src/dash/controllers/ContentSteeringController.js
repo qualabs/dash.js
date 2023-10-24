@@ -45,7 +45,7 @@ import { HTTPRequest } from '../../streaming/vo/metrics/HTTPRequest';
 const QUERY_PARAMETER_KEYS = {
     THROUGHPUT: '_DASH_throughput',
     PATHWAY: '_DASH_pathway',
-    CMCD: '_steering_CMCD',
+    STEERING_CMCD: '_steering_CMCD',
     URL: 'url'
 };
 
@@ -239,11 +239,12 @@ function ContentSteeringController() {
     function loadSteeringData() {
         return new Promise((resolve) => {
             try {
-                const steeringDataFromManifest = getSteeringDataFromManifest();
+                var steeringDataFromManifest = getSteeringDataFromManifest();
                 if (!steeringDataFromManifest || !steeringDataFromManifest.serverUrl) {
                     resolve();
                     return;
                 }
+                steeringDataFromManifest.CMCD_ENABLE = true;
                 const url = _getSteeringServerUrl(steeringDataFromManifest);
                 const request = new ContentSteeringRequest(url);
                 urlLoader.load({
@@ -348,18 +349,20 @@ function ContentSteeringController() {
                 value: throughputString
             });
 
-            const cmcdParams = cmcdModel.getQueryParameter({
-                url,
-                type: HTTPRequest.CONTENT_STEERING_TYPE
-            });
-            const cmcdBase64 = btoa(cmcdParams.value);
-            additionalQueryParameter.push({
-                key: QUERY_PARAMETER_KEYS.CMCD,
-                value: cmcdBase64
-            });
+            if (steeringDataFromManifest.CMCD_ENABLE){
+                const cmcdParams = cmcdModel.getCmcdParamForSteering({
+                    url,
+                    type: HTTPRequest.CONTENT_STEERING_TYPE
+                });
+                const cmcdBase64 = btoa(cmcdParams.value);
+                additionalQueryParameter.push({
+                    key: QUERY_PARAMETER_KEYS.STEERING_CMCD,
+                    value: cmcdBase64
+                });
+            }
         }
 
-        url = Utils.addAditionalQueryParameterToUrl(url, additionalQueryParameter,HTTPRequest.CONTENT_STEERING_TYPE);
+        url = Utils.addAditionalQueryParameterToUrl(url, additionalQueryParameter);
         return url;
     }
 

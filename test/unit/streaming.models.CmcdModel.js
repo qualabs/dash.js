@@ -215,35 +215,6 @@ describe('CmcdModel', function () {
                 expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
             });
 
-            it('getHeaderParameters() returns correct metrics for content steering type', function () {
-                const REQUEST_TYPE = HTTPRequest.CONTENT_STEERING_TYPE;
-                const MEDIA_TYPE = 'video';
-                const MANIFEST_OBJECT_TYPE = 'o';
-
-                let request = {
-                    type: REQUEST_TYPE,
-                    mediaType: MEDIA_TYPE
-                };
-
-                let headers = cmcdModel.getHeaderParameters(request);
-                expect(headers).to.have.property(SESSION_HEADER_NAME);
-                expect(typeof headers[SESSION_HEADER_NAME]).to.equal('string');
-                expect(headers).to.have.property(OBJECT_HEADER_NAME);
-                expect(typeof headers[OBJECT_HEADER_NAME]).to.equal('string');
-                expect(headers).to.have.property(REQUEST_HEADER_NAME);
-                expect(typeof headers[REQUEST_HEADER_NAME]).to.equal('string');
-                expect(headers).to.have.property(STATUS_HEADER_NAME);
-                expect(typeof headers[STATUS_HEADER_NAME]).to.equal('string');
-
-                let metrics = parseQuery(headers[SESSION_HEADER_NAME]);
-                expect(metrics).to.have.property('sid');
-                expect(metrics).to.not.have.property('cid');
-                metrics = parseQuery(headers[OBJECT_HEADER_NAME]);
-                expect(metrics).to.have.property('ot');
-                expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
-                expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
-            });
-
             it('getHeaderParameters() recognizes playback rate change through events', function () {
                 const REQUEST_TYPE = HTTPRequest.MEDIA_SEGMENT_TYPE;
                 const MEDIA_TYPE = 'video';
@@ -464,6 +435,31 @@ describe('CmcdModel', function () {
             });
         })
 
+        describe('getCmcdParamForSteering()', () => {
+            it('getCmcdParamForSteering() returns correct data', function () {
+                const REQUEST_TYPE = HTTPRequest.MPD_TYPE;
+                const MEDIA_TYPE = 'ot';
+                const MANIFEST_OBJECT_TYPE = 'm';
+
+                let request = {
+                    type: REQUEST_TYPE,
+                    mediaType: MEDIA_TYPE
+                };
+
+                let parameters = cmcdModel.getQueryParameter(request);
+                expect(parameters).to.have.property('key');
+                expect(parameters.key).to.equal('CMCD');
+                expect(parameters).to.have.property('value');
+                expect(typeof parameters.value).to.equal('string');
+
+                let metrics = parseQuery(parameters.value);
+                expect(metrics).to.have.property('sid');
+                expect(metrics).to.not.have.property('cid');
+                expect(metrics).to.have.property('ot');
+                expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
+            });
+        })
+
         describe('getQueryParameter()', () => {
             it('getQueryParameter() returns correct metrics for MPD', function () {
                 const REQUEST_TYPE = HTTPRequest.MPD_TYPE;
@@ -599,30 +595,6 @@ describe('CmcdModel', function () {
                 expect(metrics).to.have.property('ot');
                 expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
             });
-
-            it('getQueryParameters() returns correct metrics for content steering type', function () {
-                const REQUEST_TYPE = HTTPRequest.CONTENT_STEERING_TYPE;
-                const MEDIA_TYPE = 'video';
-                const MANIFEST_OBJECT_TYPE = 'o';
-
-                let request = {
-                    type: REQUEST_TYPE,
-                    mediaType: MEDIA_TYPE
-                };
-
-                let parameters = cmcdModel.getQueryParameter(request);
-                expect(parameters).to.have.property('key');
-                expect(parameters.key).to.equal('CMCD');
-                expect(parameters).to.have.property('value');
-                expect(typeof parameters.value).to.equal('string');
-
-                let metrics = parseQuery(parameters.value);
-                expect(metrics).to.have.property('sid');
-                expect(metrics).to.not.have.property('cid');
-                expect(metrics).to.have.property('ot');
-                expect(metrics.ot).to.equal(MANIFEST_OBJECT_TYPE);
-            });
-
             it('getQueryParameter() recognizes playback rate change through events', function () {
                 const REQUEST_TYPE = HTTPRequest.MEDIA_SEGMENT_TYPE;
                 const MEDIA_TYPE = 'video';

@@ -123,12 +123,12 @@ function HTTPLoader(cfg) {
             const responseStatus = httpRequest.response ? httpRequest.response.status : null;
             const responseHeaders = httpRequest.response && httpRequest.response.getAllResponseHeaders ? httpRequest.response.getAllResponseHeaders() :
                 httpRequest.response ? httpRequest.response.responseHeaders : null;
-    
+
             const cmsd = responseHeaders && settings.get().streaming.cmsd && settings.get().streaming.cmsd.enabled ? cmsdModel.parseResponseHeaders(responseHeaders, request.mediaType) : null;
-    
+
             dashMetrics.addHttpRequest(request, responseUrl, responseStatus, responseHeaders, success ? traces : null, cmsd);
         }
-    
+
         const handleLoaded = function (success) {
             needFailureReport = false;
 
@@ -310,7 +310,7 @@ function HTTPLoader(cfg) {
             const cmcdMode = settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
-                modifiedUrl = Utils.addAditionalQueryParameterToUrl(modifiedUrl, additionalQueryParameter,request.type);
+                modifiedUrl = Utils.addAditionalQueryParameterToUrl(modifiedUrl, additionalQueryParameter);
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
                 headers = cmcdModel.getHeaderParameters(request);
             }

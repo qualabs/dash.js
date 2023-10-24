@@ -159,6 +159,26 @@ function CmcdModel() {
         }
     }
 
+    function getCmcdParamForSteering(request) {
+        try {
+                const cmcdData = _getCmcdDataForSteering(request);
+                const filteredCmcdData = _applyWhitelist(cmcdData);
+                const finalPayloadString = _buildFinalString(filteredCmcdData);
+                eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
+                    url: request.url,
+                    mediaType: request.mediaType,
+                    cmcdData,
+                    cmcdString: finalPayloadString
+                });
+                return {
+                    key: CMCD_REQUEST_FIELD_NAME,
+                    value: finalPayloadString
+                };
+        } catch (e) {
+            return null;
+        }
+    }
+
     function _applyWhitelist(cmcdData) {
         try {
             const enabledCMCDKeys = settings.get().streaming.cmcd.enabledKeys;
@@ -236,10 +256,7 @@ function CmcdModel() {
                 return _getCmcdDataForOther(request);
             } else if (request.type === HTTPRequest.LICENSE) {
                 return _getCmcdDataForLicense(request);
-            } else if (request.type === HTTPRequest.CONTENT_STEERING_TYPE) {
-                return _getCmcdDataForSteering(request);
             }
-
             return cmcdData;
         } catch (e) {
             return null;
@@ -614,6 +631,7 @@ function CmcdModel() {
 
     instance = {
         getQueryParameter,
+        getCmcdParamForSteering,
         getHeaderParameters,
         setConfig,
         reset,
