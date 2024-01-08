@@ -45,6 +45,7 @@ import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 
 const CMCD_VERSION = 1;
+const CMCD_ALL_KEYS = '*';
 const RTP_SAFETY_FACTOR = 5;
 
 function CmcdModel() {
@@ -56,6 +57,7 @@ function CmcdModel() {
         dashMetrics,
         playbackController,
         throughputController,
+        serviceDescriptionController,
         streamProcessors,
         _isStartup,
         _bufferLevelStarved,
@@ -96,6 +98,10 @@ function CmcdModel() {
 
         if (config.playbackController) {
             playbackController = config.playbackController;
+        }
+
+        if (config.serviceDescriptionController) {
+            serviceDescriptionController = config.serviceDescriptionController;
         }
     }
 
@@ -155,7 +161,21 @@ function CmcdModel() {
 
     function _applyWhitelist(cmcdData) {
         try {
-            const enabledCMCDKeys = settings.get().streaming.cmcd.enabledKeys;
+            const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
+            let enabledCMCDKeys = settings.get().streaming.cmcd.enabledKeys;
+
+            if (
+                settings.get().streaming.applyCMCDParameters &&
+                serviceDescription.clientDataReporting && 
+                serviceDescription.clientDataReporting.CMCDParameters) 
+            {
+                enabledCMCDKeys = serviceDescription.clientDataReporting.CMCDParameters.keys;
+                enabledCMCDKeys = enabledCMCDKeys ? enabledCMCDKeys.split(' ') : [CMCD_ALL_KEYS];
+
+                if (enabledCMCDKeys.length === 1 && enabledCMCDKeys[0] === CMCD_ALL_KEYS) {
+                    return cmcdData;
+                }
+            }
 
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
@@ -349,11 +369,22 @@ function CmcdModel() {
 
     function _getGenericCmcdData() {
         const data = {};
+        const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
 
         data.v = CMCD_VERSION;
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
+
+        if (
+            settings.get().streaming.applyCMCDParameters &&
+            serviceDescription.clientDataReporting && 
+            serviceDescription.clientDataReporting.CMCDParameters
+        ) {
+            const cmcdParameters = serviceDescription.clientDataReporting.CMCDParameters;
+            cid = cmcdParameters.contentID || cid;
+            data.sid = cmcdParameters.sessionID || data.sid;
+        }
 
         data.sid = `${data.sid}`;
 

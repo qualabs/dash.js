@@ -2336,7 +2336,8 @@ function MediaPlayer() {
             abrController,
             dashMetrics,
             playbackController,
-            throughputController
+            throughputController,
+            serviceDescriptionController,
         });
 
         cmsdModel.setConfig({});
