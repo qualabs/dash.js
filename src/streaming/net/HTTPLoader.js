@@ -559,9 +559,9 @@ function HTTPLoader(cfg) {
      * @private
      */
     function _updateRequestUrlAndHeaders(request) {
-
-        if (settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled) {
-            const cmcdMode = settings.get().streaming.cmcd.mode;
+        if (cmcdModel.isCmcdEnabled()) {
+            const cmcdParameters = cmcdModel.getCmcdParametersMDP();
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
                 request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
