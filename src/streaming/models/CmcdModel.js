@@ -134,9 +134,15 @@ function CmcdModel() {
         streamProcessors = activeStream.getProcessors();
     }
 
+    function _belongsServiceLocations(request){
+        const serviceLocationArrays = request?.mediaInfo?.streamInfo?.manifestInfo?.serviceDescriptions[0]?.clientDataReporting?.serviceLocationsArray;
+        const actualCdn = request?.serviceLocation;
+        return serviceLocationArrays.some(location => location === actualCdn)
+    }
+
     function getQueryParameter(request) {
         try {
-            if (isCmcdEnabled()) {
+            if (_belongsServiceLocations(request) && isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
@@ -187,7 +193,7 @@ function CmcdModel() {
 
     function getHeaderParameters(request) {
         try {
-            if (isCmcdEnabled()) {
+            if (_belongsServiceLocations(request) && isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const headers = toCmcdHeaders(filteredCmcdData)

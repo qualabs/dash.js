@@ -1264,11 +1264,13 @@ function DashManifestModel() {
         }
 
         if(element.hasOwnProperty(DashConstants.SERVICE_LOCATIONS)){
-            entry.serviceLocations = element[DashConstants.SERVICE_LOCATION];
+            entry.serviceLocations = element[DashConstants.SERVICE_LOCATIONS];
+            entry.serviceLocationsArray = entry.serviceLocations.split(' ');
         }
 
         if(element.hasOwnProperty(DashConstants.ADAPTATION_SETS)){
             entry.adaptationSets = element[DashConstants.ADAPTATION_SETS];
+            entry.adaptationSetsArray = entry.adaptationSets.split(' ');
         }
 
         return entry;
