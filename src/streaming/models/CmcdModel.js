@@ -134,15 +134,27 @@ function CmcdModel() {
         streamProcessors = activeStream.getProcessors();
     }
 
-    function _belongsServiceLocations(request){
-        const serviceLocationArrays = request?.mediaInfo?.streamInfo?.manifestInfo?.serviceDescriptions[0]?.clientDataReporting?.serviceLocationsArray;
+    function _getClienDataReportingFiltersFromRequest(request) {
+        const serviceLocationsArray = request?.mediaInfo?.streamInfo?.manifestInfo?.serviceDescriptions?.[0]?.clientDataReporting?.serviceLocationsArray ?? [];
+        const adaptationSetsArray = request?.mediaInfo?.streamInfo?.manifestInfo?.serviceDescriptions?.[0]?.clientDataReporting?.adaptationSetsArray ?? [];
+        
+        return {serviceLocationsArray, adaptationSetsArray};
+    }
+
+    function _applyClientDataReportingFilters(request) {
+        const {serviceLocationsArray, adaptationSetsArray } = _getClienDataReportingFiltersFromRequest(request);
         const actualCdn = request?.serviceLocation;
-        return serviceLocationArrays.some(location => location === actualCdn)
+        const actualAdaptationId = request?.mediaInfo?.id?.toString();
+
+        const isServiceLocationAvailable = (serviceLocationsArray.length === 0 || serviceLocationsArray.includes(actualCdn));
+        const isAdaptationsAvailable = (adaptationSetsArray.length === 0 || adaptationSetsArray.includes(actualAdaptationId));
+
+        return isServiceLocationAvailable && isAdaptationsAvailable;
     }
 
     function getQueryParameter(request) {
         try {
-            if (_belongsServiceLocations(request) && isCmcdEnabled()) {
+            if (_applyClientDataReportingFilters(request) && isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
@@ -193,7 +205,7 @@ function CmcdModel() {
 
     function getHeaderParameters(request) {
         try {
-            if (_belongsServiceLocations(request) && isCmcdEnabled()) {
+            if (_applyClientDataReportingFilters(request) && isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const headers = toCmcdHeaders(filteredCmcdData)
