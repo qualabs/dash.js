@@ -134,20 +134,9 @@ function CmcdModel() {
         streamProcessors = activeStream.getProcessors();
     }
 
-    function _applyClientDataReportingFilters(request) {
-        const {serviceLocationsArray, adaptationSetsArray } = serviceDescriptionController.getServiceDescriptionSettings().clientDataReporting;
-        const actualCdn = request?.serviceLocation;
-        const actualAdaptationId = request?.mediaInfo?.id?.toString();
-
-        const isServiceLocationAvailable = (serviceLocationsArray.length === 0 || serviceLocationsArray.includes(actualCdn));
-        const isAdaptationsAvailable = (adaptationSetsArray.length === 0 || adaptationSetsArray.includes(actualAdaptationId));
-
-        return isServiceLocationAvailable && isAdaptationsAvailable;
-    }
-
     function getQueryParameter(request) {
         try {
-            if (_applyClientDataReportingFilters(request) && isCmcdEnabled()) {
+            if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
@@ -198,7 +187,7 @@ function CmcdModel() {
 
     function getHeaderParameters(request) {
         try {
-            if (_applyClientDataReportingFilters(request) && isCmcdEnabled()) {
+            if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const headers = toCmcdHeaders(filteredCmcdData)

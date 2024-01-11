@@ -51,6 +51,7 @@ import AbrController from './controllers/AbrController.js';
 import SchemeLoaderFactory from './net/SchemeLoaderFactory.js';
 import VideoModel from './models/VideoModel.js';
 import CmcdModel from './models/CmcdModel.js';
+import ClientDataReportingModel from './models/ClientDataReportingModel';
 import CmsdModel from './models/CmsdModel.js';
 import DOMStorage from './utils/DOMStorage.js';
 import Debug from './../core/Debug.js';
@@ -165,6 +166,7 @@ function MediaPlayer() {
         manifestModel,
         cmcdModel,
         cmsdModel,
+        clientDataReportingModel,
         videoModel,
         uriFragmentModel,
         domStorage,
@@ -349,6 +351,8 @@ function MediaPlayer() {
             cmcdModel = CmcdModel(context).getInstance();
 
             cmsdModel = CmsdModel(context).getInstance();
+
+            clientDataReportingModel = ClientDataReportingModel(context).getInstance();
 
             dashMetrics = DashMetrics(context).getInstance({
                 settings: settings
@@ -2339,6 +2343,10 @@ function MediaPlayer() {
             throughputController,
             serviceDescriptionController,
         });
+
+        clientDataReportingModel.setConfig({
+            serviceDescriptionController
+        })
 
         cmsdModel.setConfig({});
 
