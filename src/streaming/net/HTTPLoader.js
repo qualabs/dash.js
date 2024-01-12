@@ -564,7 +564,8 @@ function HTTPLoader(cfg) {
     function _updateRequestUrlAndHeaders(request) {
         const currentServiceLocation = request?.serviceLocation;
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
-        const isIncludedFilters = clientDataReportingModel.isIncludedFilters(currentServiceLocation,currentAdaptationSetId);
+        const isIncludedFilters = clientDataReportingModel.serviceLocationIncluded(currentServiceLocation) &&
+            clientDataReportingModel.adaptationSetIncluded(currentAdaptationSetId);
         if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
