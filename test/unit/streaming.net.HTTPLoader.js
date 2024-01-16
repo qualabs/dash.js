@@ -1,10 +1,12 @@
-import HTTPLoader from '../../src/streaming/net/HTTPLoader.js';
-import Errors from '../../src/core/errors/Errors.js';
-import ErrorHandler from '../../src/streaming/utils/ErrorHandler.js';
-import DashMetrics from '../../src/dash/DashMetrics.js';
-import MediaPlayerModelMock from './mocks/MediaPlayerModelMock.js';
-import {HTTPRequest} from '../../src/streaming/vo/metrics/HTTPRequest.js';
-import Settings from '../../src/core/Settings.js';
+import HTTPLoader from '../../src/streaming/net/HTTPLoader';
+import Errors from '../../src/core/errors/Errors';
+import ErrorHandler from '../../src/streaming/utils/ErrorHandler';
+import DashMetrics from '../../src/dash/DashMetrics';
+import MediaPlayerModelMock from './mocks/MediaPlayerModelMock';
+import ServiceDescriptionControllerMock from './mocks/ServiceDescriptionControllerMock';
+import {HTTPRequest} from '../../src/streaming/vo/metrics/HTTPRequest';
+import Settings from '../../src/core/Settings';
+import ClientDataReportingModel from '../../src/streaming/models/ClientDataReportingModel';
 
 import {expect} from 'chai';
 import sinon from 'sinon';
@@ -18,6 +20,8 @@ let httpLoader;
 let settings = Settings(context).getInstance();
 
 describe('HTTPLoader', function () {
+    let serviceDescriptionControllerMock = new ServiceDescriptionControllerMock();
+    let clientDataReportingModel;
 
 
     beforeEach(function () {
@@ -25,6 +29,11 @@ describe('HTTPLoader', function () {
         mediaPlayerModelMock = new MediaPlayerModelMock();
         errHandler = ErrorHandler(context).getInstance();
         dashMetrics = DashMetrics(context).getInstance();
+        clientDataReportingModel = ClientDataReportingModel(context).getInstance();
+
+        clientDataReportingModel.setConfig({
+            serviceDescriptionController: serviceDescriptionControllerMock,
+        });
     });
 
     beforeEach(function () {

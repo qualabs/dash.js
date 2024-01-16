@@ -11,6 +11,10 @@ import ThroughputControllerMock from './mocks/ThroughputControllerMock.js';
 import {decodeCmcd} from '@svta/common-media-library';
 
 import {expect} from 'chai';
+import AbrControllerMock from './mocks/AbrControllerMock';
+import DashMetricsMock from './mocks/DashMetricsMock';
+import PlaybackControllerMock from './mocks/PlaybackControllerMock';
+import ServiceDescriptionControllerMock from './mocks/ServiceDescriptionControllerMock';
 
 const context = {};
 
@@ -28,6 +32,7 @@ describe('CmcdModel', function () {
     let dashMetricsMock = new DashMetricsMock();
     let playbackControllerMock = new PlaybackControllerMock();
     const throughputControllerMock = new ThroughputControllerMock();
+    let serviceDescriptionControllerMock = new ServiceDescriptionControllerMock();
 
     let settings = Settings(context).getInstance();
 
@@ -50,7 +55,8 @@ describe('CmcdModel', function () {
                 abrController: abrControllerMock,
                 dashMetrics: dashMetricsMock,
                 playbackController: playbackControllerMock,
-                throughputController: throughputControllerMock
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock
             });
         });
 

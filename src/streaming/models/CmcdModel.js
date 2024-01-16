@@ -229,8 +229,8 @@ function CmcdModel() {
     }
 
     function _isIncludedInRequestFilter(type){
-        const {includeInRequests} = getCmcdParametersFromManifest();
-        const includeInRequestsArray = includeInRequests.split(' ');
+        const { includeInRequests } = getCmcdParametersFromManifest();
+        const includeInRequestsArray = includeInRequests?.split(' ');
 
         if(!includeInRequests || includeInRequestsArray.find(include => include === '*')){
             return true;
@@ -250,7 +250,7 @@ function CmcdModel() {
         try {
             let cmcdData = null;
 
-            if(_isIncludedInRequestFilter(request.type)){
+            if(_isIncludedInRequestFilter(request.type)) {
                 if (request.type === HTTPRequest.MPD_TYPE) {
                     return _getCmcdDataForMpd(request);
                 } else if (request.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
