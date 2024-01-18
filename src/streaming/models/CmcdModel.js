@@ -235,15 +235,16 @@ function CmcdModel() {
         if(!includeInRequests || includeInRequestsArray.find(include => include === '*')){
             return true;
         }
- 
-        const filtersTypes = {
-            'segment': HTTPRequest.INIT_SEGMENT_TYPE | HTTPRequest.MEDIA_SEGMENT_TYPE,
-            'xlink': HTTPRequest.XLINK_EXPANSION_TYPE,
-            'mpd': HTTPRequest.MPD_TYPE,
-            'steering': HTTPRequest.CONTENT_STEERING_TYPE,
-        }
 
-        return includeInRequestsArray.some(include => filtersTypes[include] === type);
+        const filtersTypes = {
+            [HTTPRequest.INIT_SEGMENT_TYPE]: 'segment',
+            [HTTPRequest.MEDIA_SEGMENT_TYPE]: 'segment',
+            [HTTPRequest.XLINK_EXPANSION_TYPE]: 'xlink',
+            [HTTPRequest.MPD_TYPE]: 'mpd',
+            [HTTPRequest.CONTENT_STEERING_TYPE]: 'steering',
+        };
+
+        return includeInRequestsArray.some(include => filtersTypes[type] === include);
     }
 
     function getCmcdData(request) {
@@ -266,7 +267,6 @@ function CmcdModel() {
                     return _getCmcdDataForSteering(request);
                 }
             }
-
             return cmcdData;
         } catch (e) {
             return null;
