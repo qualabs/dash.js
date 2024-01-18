@@ -47,6 +47,7 @@ describe('CmcdModel', function () {
         cmcdModel.reset();
         cmcdModel = null;
         settings.reset();
+        serviceDescriptionControllerMock.reset();
     });
 
     describe('if configured', function () {
