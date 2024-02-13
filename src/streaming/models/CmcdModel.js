@@ -165,7 +165,7 @@ function CmcdModel() {
     function _applyWhitelist(cmcdData) {
         try {
             const cmcdParameters = getCmcdParametersFromManifest();
-            const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys : settings.get().streaming.cmcd.enabledKeys;
+            const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys.split(' ') : settings.get().streaming.cmcd.enabledKeys;
 
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
