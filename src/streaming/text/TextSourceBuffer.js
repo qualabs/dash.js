@@ -37,7 +37,7 @@ import FactoryMaker from '../../core/FactoryMaker';
 import Debug from '../../core/Debug';
 import EmbeddedTextHtmlRender from './EmbeddedTextHtmlRender';
 import ISOBoxer from 'codem-isoboxer';
-import cea608parser from '../../../externals/cea608-parser';
+import Cea608Parser, { extractCea608DataFromRange, findCea608Nalus } from '@svta/common-media-library/cea/608/cea-608-parser';
 import EventBus from '../../core/EventBus';
 import Events from '../../core/events/Events';
 import DashJSError from '../vo/DashJSError';
@@ -493,7 +493,7 @@ function TextSourceBuffer(config) {
             }
 
             const handler = _makeCueAdderForIndex(trackIdx);
-            embeddedCea608FieldParsers[i] = new cea608parser.Cea608Parser(i + 1, {
+            embeddedCea608FieldParsers[i] = new Cea608Parser(i + 1, {
                 newCue: handler
             }, null);
         }
@@ -539,11 +539,11 @@ function TextSourceBuffer(config) {
         const raw = new DataView(data);
         for (let i = 0; i < samples.length; i++) {
             const sample = samples[i];
-            const cea608Ranges = cea608parser.findCea608Nalus(raw, sample.offset, sample.size);
+            const cea608Ranges = findCea608Nalus(raw, sample.offset, sample.size);
             let lastSampleTime = null;
             let idx = 0;
             for (let j = 0; j < cea608Ranges.length; j++) {
-                const ccData = cea608parser.extractCea608DataFromRange(raw, cea608Ranges[j]);
+                const ccData = extractCea608DataFromRange(raw, cea608Ranges[j]);
                 for (let k = 0; k < 2; k++) {
                     if (ccData[k].length > 0) {
                         if (sample.cts !== lastSampleTime) {
