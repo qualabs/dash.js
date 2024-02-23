@@ -2,7 +2,7 @@ import DashAdapter from '../../src/dash/DashAdapter';
 import MediaInfo from '../../src/dash/vo/MediaInfo';
 import Constants from '../../src/streaming/constants/Constants';
 import DashConstants from '../../src/dash/constants/DashConstants';
-import cea608parser from '../../externals/cea608-parser';
+import cea608parser from '@svta/common-media-library/captions/cea608-708/Cea608Parser.js';
 
 import VoHelper from './helpers/VOHelper';
 import PatchHelper from './helpers/PatchHelper.js';
