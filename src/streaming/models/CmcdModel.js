@@ -172,7 +172,7 @@ function CmcdModel() {
 
     function _applyWhitelist(cmcdData) {
         try {
-            const cmcdParameters = getCmcdParametersMDP();
+            const cmcdParameters = getCmcdParametersFromManifest();
             let enabledCMCDKeys = settings.get().streaming.cmcd.enabledKeys;
 
             if (cmcdParameters.version) {
@@ -219,12 +219,12 @@ function CmcdModel() {
     }
 
     function isCmcdEnabled() {
-        const cmcdParameters = getCmcdParametersMDP();
+        const cmcdParameters = getCmcdParametersFromManifest();
 
         return cmcdParameters.version ? true : settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled;
     }
 
-    function getCmcdParametersMDP() {
+    function getCmcdParametersFromManifest() {
         const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
         let cmcdParameters = {};
 
@@ -396,7 +396,7 @@ function CmcdModel() {
 
 
     function _getGenericCmcdData() {
-        const cmcdParameters = getCmcdParametersMDP();
+        const cmcdParameters = getCmcdParametersFromManifest();
         const data = {};
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
@@ -595,7 +595,7 @@ function CmcdModel() {
         getCmcdData,
         getQueryParameter,
         getHeaderParameters,
-        getCmcdParametersMDP,
+        getCmcdParametersFromManifest,
         setConfig,
         reset,
         initialize,

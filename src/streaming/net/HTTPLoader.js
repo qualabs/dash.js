@@ -560,7 +560,7 @@ function HTTPLoader(cfg) {
      */
     function _updateRequestUrlAndHeaders(request) {
         if (cmcdModel.isCmcdEnabled()) {
-            const cmcdParameters = cmcdModel.getCmcdParametersMDP();
+            const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
