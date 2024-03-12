@@ -1,7 +1,8 @@
-import ServiceDescriptionControllerMock from './mocks/ServiceDescriptionControllerMock';
-import ClientDataReportingModel from '../../src/streaming/models/ClientDataReportingModel';
+import ServiceDescriptionControllerMock from './mocks/ServiceDescriptionControllerMock.js';
+import ClientDataReportingModel from '../../src/streaming/models/ClientDataReportingModel.js';
 
-const expect = require('chai').expect;
+import { expect } from 'chai';
+
 const context = {};
 
 describe('ClientDataReportingModel', function () {

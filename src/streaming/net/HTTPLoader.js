@@ -35,7 +35,7 @@ import FactoryMaker from '../../core/FactoryMaker.js';
 import DashJSError from '../vo/DashJSError.js';
 import CmcdModel from '../models/CmcdModel.js';
 import CmsdModel from '../models/CmsdModel.js';
-import ClientDataReportingModel from '../models/ClientDataReportingModel';
+import ClientDataReportingModel from '../models/ClientDataReportingModel.js';
 import Utils from '../../core/Utils.js';
 import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';

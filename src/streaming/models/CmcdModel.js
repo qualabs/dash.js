@@ -36,7 +36,7 @@ import Settings from '../../core/Settings.js';
 import Constants from '../../streaming/constants/Constants.js';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
-import Debug from '../../core/Debug';
+import Debug from '../../core/Debug.js';
 import Utils from '../../core/Utils.js';
 import {CMCD_PARAM} from '@svta/common-media-library/cmcd/CMCD_PARAM';
 import {CmcdObjectType} from '@svta/common-media-library/cmcd/CmcdObjectType';
@@ -166,7 +166,6 @@ function CmcdModel() {
         try {
             const cmcdParameters = getCmcdParametersFromManifest();
             const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys.split(' ') : settings.get().streaming.cmcd.enabledKeys;
-
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
                 .reduce((obj, key) => {
@@ -183,7 +182,7 @@ function CmcdModel() {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
-                const headers = toCmcdHeaders(filteredCmcdData)
+                const headers = toCmcdHeaders(filteredCmcdData);
 
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
                     url: request.url,
@@ -207,11 +206,11 @@ function CmcdModel() {
 
     function canBeEnabled(cmcdParameters) {
         if (Object.keys(cmcdParameters).length) {
-            if(!cmcdParameters.version){
+            if (!cmcdParameters.version) {
                 logger.error(`version parameter must be defined.`);
                 return false;
             }
-            if(!cmcdParameters.keys){
+            if (!cmcdParameters.keys) {
                 logger.error(`keys parameter must be defined.`);
                 return false;
             }
@@ -219,19 +218,20 @@ function CmcdModel() {
         return cmcdParameters.version ? true : settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled;
     }
 
-    function checkIncludeInRequests(cmcdParameters){
+    function checkIncludeInRequests(cmcdParameters) {
         let enabledRequests = settings.get().streaming.cmcd.includeInRequests;
 
-        if(cmcdParameters.version){
-            if(!cmcdParameters.includeInRequests)
+        if (cmcdParameters.version){
+            enabledRequests = cmcdParameters.includeInRequests?.split(' ') ?? [CMCD_ALL_REQUESTS];
+            if (!enabledRequests || enabledRequests.some(k => k === CMCD_ALL_REQUESTS)) {
                 return true
-            enabledRequests = cmcdParameters.includeInRequests.split(' ');
+            }
         }
 
         const defaultAvailableRequests = Constants.CMCD_AVAILABLE_REQUESTS;
         const invalidRequests = enabledRequests.filter(k => !defaultAvailableRequests.includes(k));
 
-        if(invalidRequests.length == enabledRequests.length){
+        if (invalidRequests.length == enabledRequests.length) {
             logger.error(`None of the request types are supported.`);
             return false;
         }
@@ -248,7 +248,7 @@ function CmcdModel() {
         const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys.split(' ') : settings.get().streaming.cmcd.enabledKeys;
         const invalidKeys = enabledCMCDKeys.filter(k => !defaultAvailableKeys.includes(k));
 
-        if(invalidKeys.length == enabledCMCDKeys.length){
+        if (invalidKeys.length == enabledCMCDKeys.length && enabledCMCDKeys.length > 0) {
             logger.error(`None of the keys are implemented.`);
             return false;
         }
@@ -283,7 +283,7 @@ function CmcdModel() {
             includeInRequestsArray = includeInRequests ? includeInRequests.split(' ') : [CMCD_ALL_REQUESTS];
         }
 
-        if(includeInRequestsArray.find(t => t === CMCD_ALL_REQUESTS)){
+        if (includeInRequestsArray.find(t => t === CMCD_ALL_REQUESTS)) {
             return true;
         }
 
@@ -293,6 +293,7 @@ function CmcdModel() {
             [HTTPRequest.XLINK_EXPANSION_TYPE]: 'xlink',
             [HTTPRequest.MPD_TYPE]: 'mpd',
             [HTTPRequest.CONTENT_STEERING_TYPE]: 'steering',
+            [HTTPRequest.OTHER_TYPE]: 'other',
         };
 
         return includeInRequestsArray.some(t => filtersTypes[type] === t);
@@ -302,7 +303,7 @@ function CmcdModel() {
         try {
             let cmcdData = null;
 
-            if(_isIncludedInRequestFilter(request.type)) {
+            if (_isIncludedInRequestFilter(request.type)) {
                 if (request.type === HTTPRequest.MPD_TYPE) {
                     return _getCmcdDataForMpd(request);
                 } else if (request.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
@@ -314,8 +315,6 @@ function CmcdModel() {
                     return _getCmcdDataForOther(request);
                 } else if (request.type === HTTPRequest.LICENSE) {
                     return _getCmcdDataForLicense(request);
-                } else if (request.type === HTTPRequest.CONTENT_STEERING_TYPE) {
-                    return _getCmcdDataForSteering(request);
                 }
             }
             return cmcdData;
@@ -347,7 +346,7 @@ function CmcdModel() {
         const mtp = _getMeasuredThroughputByType(request.mediaType);
         const dl = _getDeadlineByType(request.mediaType);
         const bl = _getBufferLevelByType(request.mediaType);
-        const tb = _getTopBitrateByType(request.representation.mediaInfo);
+        const tb = _getTopBitrateByType(request.representation?.mediaInfo);
         const pr = internalData.pr;
 
         const nextRequest = _probeNextRequest(request.mediaType);

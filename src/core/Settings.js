@@ -1274,7 +1274,7 @@ function Settings() {
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
-                includeInRequests: ['mpd', 'segment']
+                includeInRequests: ['mpd', 'segment', 'other']
             },
             cmsd: {
                 enabled: false,

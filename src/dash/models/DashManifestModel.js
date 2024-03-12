@@ -50,7 +50,7 @@ import Errors from '../../core/errors/Errors.js';
 import MpdLocation from '../vo/MpdLocation.js';
 import PatchLocation from '../vo/PatchLocation.js';
 import ContentProtection from '../vo/ContentProtection.js';
-import ClientDataReporting from '../vo/ClientDataReporting';
+import ClientDataReporting from '../vo/ClientDataReporting.js';
 
 function DashManifestModel() {
     let instance,
@@ -1256,19 +1256,19 @@ function DashManifestModel() {
         return entry;
     }
 
-    function _createClientDataResportingInstance(element){
+    function _createClientDataResportingInstance(element) {
         const entry = new ClientDataReporting();
 
         if (element.hasOwnProperty(DashConstants.CMCD_PARAMETERS)) {
             entry.CMCDParameters = element[DashConstants.CMCD_PARAMETERS];
         }
 
-        if(element.hasOwnProperty(DashConstants.SERVICE_LOCATIONS) && element[DashConstants.SERVICE_LOCATIONS] !== ''){
+        if (element.hasOwnProperty(DashConstants.SERVICE_LOCATIONS) && element[DashConstants.SERVICE_LOCATIONS] !== '') {
             entry.serviceLocations = element[DashConstants.SERVICE_LOCATIONS];
             entry.serviceLocationsArray = entry.serviceLocations.toString().split(' ');
         }
 
-        if(element.hasOwnProperty(DashConstants.ADAPTATION_SETS) && element[DashConstants.ADAPTATION_SETS] !== ''){
+        if (element.hasOwnProperty(DashConstants.ADAPTATION_SETS) && element[DashConstants.ADAPTATION_SETS] !== '') {
             entry.adaptationSets = element[DashConstants.ADAPTATION_SETS];
             entry.adaptationSetsArray = entry.adaptationSets.toString().split(' ');
         }

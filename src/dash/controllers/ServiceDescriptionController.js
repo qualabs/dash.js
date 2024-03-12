@@ -130,7 +130,7 @@ function ServiceDescriptionController() {
             _applyServiceDescriptionContentSteering(sd);
         }
 
-        if(sd.clientDataReporting){
+        if (sd.clientDataReporting) {
             _applyServiceDescriptionClientDataReporting(sd);
         }
     }
