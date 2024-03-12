@@ -36,6 +36,7 @@ import Settings from '../../core/Settings.js';
 import Constants from '../../streaming/constants/Constants.js';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
+import Debug from '../../core/Debug.js';
 import Utils from '../../core/Utils.js';
 import {CMCD_PARAM} from '@svta/common-media-library/cmcd/CMCD_PARAM';
 import {CmcdObjectType} from '@svta/common-media-library/cmcd/CmcdObjectType';
@@ -45,17 +46,20 @@ import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 
 const CMCD_VERSION = 1;
+const CMCD_ALL_REQUESTS = '*';
 const RTP_SAFETY_FACTOR = 5;
 
 function CmcdModel() {
 
     let dashManifestModel,
         instance,
+        logger,
         internalData,
         abrController,
         dashMetrics,
         playbackController,
         throughputController,
+        serviceDescriptionController,
         streamProcessors,
         _isStartup,
         _bufferLevelStarved,
@@ -64,10 +68,11 @@ function CmcdModel() {
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
     let settings = Settings(context).getInstance();
+    let debug = Debug(context).getInstance();
 
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
-
+        logger = debug.getLogger(instance);
         _resetInitialSettings();
     }
 
@@ -96,6 +101,10 @@ function CmcdModel() {
 
         if (config.playbackController) {
             playbackController = config.playbackController;
+        }
+
+        if (config.serviceDescriptionController) {
+            serviceDescriptionController = config.serviceDescriptionController;
         }
     }
 
@@ -130,7 +139,7 @@ function CmcdModel() {
 
     function getQueryParameter(request) {
         try {
-            if (settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled) {
+            if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
@@ -155,13 +164,12 @@ function CmcdModel() {
 
     function _applyWhitelist(cmcdData) {
         try {
-            const enabledCMCDKeys = settings.get().streaming.cmcd.enabledKeys;
-
+            const cmcdParameters = getCmcdParametersFromManifest();
+            const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys.split(' ') : settings.get().streaming.cmcd.enabledKeys;
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
                 .reduce((obj, key) => {
                     obj[key] = cmcdData[key];
-
                     return obj;
                 }, {});
         } catch (e) {
@@ -171,10 +179,10 @@ function CmcdModel() {
 
     function getHeaderParameters(request) {
         try {
-            if (settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled) {
+            if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
-                const headers = toCmcdHeaders(filteredCmcdData)
+                const headers = toCmcdHeaders(filteredCmcdData);
 
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
                     url: request.url,
@@ -191,22 +199,124 @@ function CmcdModel() {
         }
     }
 
+    function isCmcdEnabled() {
+        const cmcdParameters = getCmcdParametersFromManifest();
+        return canBeEnabled(cmcdParameters) && checkIncludeInRequests(cmcdParameters) && checkAvailableKeys(cmcdParameters);
+    }
+
+    function canBeEnabled(cmcdParameters) {
+        if (Object.keys(cmcdParameters).length) {
+            if (!cmcdParameters.version) {
+                logger.error(`version parameter must be defined.`);
+                return false;
+            }
+            if (!cmcdParameters.keys) {
+                logger.error(`keys parameter must be defined.`);
+                return false;
+            }
+        }
+        return cmcdParameters.version ? true : settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled;
+    }
+
+    function checkIncludeInRequests(cmcdParameters) {
+        let enabledRequests = settings.get().streaming.cmcd.includeInRequests;
+
+        if (cmcdParameters.version){
+            enabledRequests = cmcdParameters.includeInRequests?.split(' ') ?? [CMCD_ALL_REQUESTS];
+            if (!enabledRequests || enabledRequests.some(k => k === CMCD_ALL_REQUESTS)) {
+                return true
+            }
+        }
+
+        const defaultAvailableRequests = Constants.CMCD_AVAILABLE_REQUESTS;
+        const invalidRequests = enabledRequests.filter(k => !defaultAvailableRequests.includes(k));
+
+        if (invalidRequests.length == enabledRequests.length) {
+            logger.error(`None of the request types are supported.`);
+            return false;
+        }
+
+        invalidRequests.map((k) => {
+            logger.warn(`request type ${k} is not supported.`);
+        });
+        
+        return true;
+    }
+
+    function checkAvailableKeys(cmcdParameters){
+        const defaultAvailableKeys = Constants.CMCD_AVAILABLE_KEYS; 
+        const enabledCMCDKeys = cmcdParameters.version ? cmcdParameters.keys.split(' ') : settings.get().streaming.cmcd.enabledKeys;
+        const invalidKeys = enabledCMCDKeys.filter(k => !defaultAvailableKeys.includes(k));
+
+        if (invalidKeys.length == enabledCMCDKeys.length && enabledCMCDKeys.length > 0) {
+            logger.error(`None of the keys are implemented.`);
+            return false;
+        }
+        invalidKeys.map((k) => {
+            logger.warn(`key parameter ${k} is not implemented.`);
+        });
+
+        return true;
+    }
+
+    function getCmcdParametersFromManifest() {
+        let cmcdParameters = {};
+        if (serviceDescriptionController) {
+            const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
+            if (
+                settings.get().streaming.applyCMCDParameters &&
+                serviceDescription.clientDataReporting && 
+                serviceDescription.clientDataReporting.CMCDParameters
+            ) {
+                cmcdParameters = serviceDescription.clientDataReporting.CMCDParameters;
+            }
+        }
+        return cmcdParameters;
+    }
+
+    function _isIncludedInRequestFilter(type){
+        const cmcdParameters = getCmcdParametersFromManifest();
+        let includeInRequestsArray = settings.get().streaming.cmcd.includeInRequests;
+
+        if (cmcdParameters.version) {
+            const includeInRequests = cmcdParameters.includeInRequests;
+            includeInRequestsArray = includeInRequests ? includeInRequests.split(' ') : [CMCD_ALL_REQUESTS];
+        }
+
+        if (includeInRequestsArray.find(t => t === CMCD_ALL_REQUESTS)) {
+            return true;
+        }
+
+        const filtersTypes = {
+            [HTTPRequest.INIT_SEGMENT_TYPE]: 'segment',
+            [HTTPRequest.MEDIA_SEGMENT_TYPE]: 'segment',
+            [HTTPRequest.XLINK_EXPANSION_TYPE]: 'xlink',
+            [HTTPRequest.MPD_TYPE]: 'mpd',
+            [HTTPRequest.CONTENT_STEERING_TYPE]: 'steering',
+            [HTTPRequest.OTHER_TYPE]: 'other',
+        };
+
+        return includeInRequestsArray.some(t => filtersTypes[type] === t);
+    }
+
     function getCmcdData(request) {
         try {
             let cmcdData = null;
-            if (request.type === HTTPRequest.MPD_TYPE) {
-                return _getCmcdDataForMpd(request);
-            } else if (request.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
-                _initForMediaType(request.mediaType);
-                return _getCmcdDataForMediaSegment(request);
-            } else if (request.type === HTTPRequest.INIT_SEGMENT_TYPE) {
-                return _getCmcdDataForInitSegment(request);
-            } else if (request.type === HTTPRequest.OTHER_TYPE || request.type === HTTPRequest.XLINK_EXPANSION_TYPE) {
-                return _getCmcdDataForOther(request);
-            } else if (request.type === HTTPRequest.LICENSE) {
-                return _getCmcdDataForLicense(request);
-            }
 
+            if (_isIncludedInRequestFilter(request.type)) {
+                if (request.type === HTTPRequest.MPD_TYPE) {
+                    return _getCmcdDataForMpd(request);
+                } else if (request.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
+                    _initForMediaType(request.mediaType);
+                    return _getCmcdDataForMediaSegment(request);
+                } else if (request.type === HTTPRequest.INIT_SEGMENT_TYPE) {
+                    return _getCmcdDataForInitSegment(request);
+                } else if (request.type === HTTPRequest.OTHER_TYPE || request.type === HTTPRequest.XLINK_EXPANSION_TYPE) {
+                    return _getCmcdDataForOther(request);
+                } else if (request.type === HTTPRequest.LICENSE) {
+                    return _getCmcdDataForLicense(request);
+                }
+            }
             return cmcdData;
         } catch (e) {
             return null;
@@ -236,7 +346,7 @@ function CmcdModel() {
         const mtp = _getMeasuredThroughputByType(request.mediaType);
         const dl = _getDeadlineByType(request.mediaType);
         const bl = _getBufferLevelByType(request.mediaType);
-        const tb = _getTopBitrateByType(request.representation.mediaInfo);
+        const tb = _getTopBitrateByType(request.representation?.mediaInfo);
         const pr = internalData.pr;
 
         const nextRequest = _probeNextRequest(request.mediaType);
@@ -348,12 +458,16 @@ function CmcdModel() {
 
 
     function _getGenericCmcdData() {
+        const cmcdParameters = getCmcdParametersFromManifest();
         const data = {};
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
 
-        data.v = CMCD_VERSION;
+        data.v = cmcdParameters.version ? cmcdParameters.version : CMCD_VERSION;
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
+
+        cid = cmcdParameters.contentID ? cmcdParameters.contentID : cid;
+        data.sid = cmcdParameters.sessionID ? cmcdParameters.sessionID : data.sid;
 
         data.sid = `${data.sid}`;
 
@@ -543,9 +657,11 @@ function CmcdModel() {
         getCmcdData,
         getQueryParameter,
         getHeaderParameters,
+        getCmcdParametersFromManifest,
         setConfig,
         reset,
-        initialize
+        initialize,
+        isCmcdEnabled,
     };
 
     setup();

@@ -35,6 +35,7 @@ import FactoryMaker from '../../core/FactoryMaker.js';
 import DashJSError from '../vo/DashJSError.js';
 import CmcdModel from '../models/CmcdModel.js';
 import CmsdModel from '../models/CmsdModel.js';
+import ClientDataReportingModel from '../models/ClientDataReportingModel.js';
 import Utils from '../../core/Utils.js';
 import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';
@@ -72,6 +73,7 @@ function HTTPLoader(cfg) {
         cmsdModel,
         xhrLoader,
         fetchLoader,
+        clientDataReportingModel,
         customParametersModel,
         logger;
 
@@ -81,6 +83,7 @@ function HTTPLoader(cfg) {
         delayedRequests = [];
         retryRequests = [];
         cmcdModel = CmcdModel(context).getInstance();
+        clientDataReportingModel = ClientDataReportingModel(context).getInstance();
         cmsdModel = CmsdModel(context).getInstance();
         customParametersModel = CustomParametersModel(context).getInstance();
 
@@ -559,9 +562,13 @@ function HTTPLoader(cfg) {
      * @private
      */
     function _updateRequestUrlAndHeaders(request) {
-
-        if (settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled) {
-            const cmcdMode = settings.get().streaming.cmcd.mode;
+        const currentServiceLocation = request?.serviceLocation;
+        const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
+        const isIncludedFilters = clientDataReportingModel.serviceLocationIncluded(currentServiceLocation) &&
+            clientDataReportingModel.adaptationSetIncluded(currentAdaptationSetId);
+        if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
+            const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
                 request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
