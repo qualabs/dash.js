@@ -848,7 +848,7 @@ import Events from './events/Events.js';
  * @property {Array.<string>} [includeInRequests]
  * Specifies which HTTP GET requests shall carry parameters.
  * 
- * If not specified this value defaults to ['mpd', 'segment'].
+ * If not specified this value defaults to ['mpd', 'segment', 'other'].
  */
 
 /**
