@@ -30,9 +30,6 @@
  */
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Debug from '../../core/Debug.js';
-import URLLoader from '../../streaming/net/URLLoader.js';
-import Errors from '../../core/errors/Errors.js';
-import ContentSteeringRequest from '../vo/ContentSteeringRequest.js';
 import ContentSteeringResponse from '../vo/ContentSteeringResponse.js';
 import DashConstants from '../constants/DashConstants.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
@@ -40,6 +37,7 @@ import URLUtils from '../../streaming/utils/URLUtils.js';
 import BaseURL from '../vo/BaseURL.js';
 import MpdLocation from '../vo/MpdLocation.js';
 import Utils from '../../core/Utils.js';
+import { callContentSteeringServer } from '@svta/common-media-library/content-steering.js';
 
 const QUERY_PARAMETER_KEYS = {
     THROUGHPUT: '_DASH_throughput',
@@ -59,10 +57,6 @@ function ContentSteeringController() {
         serviceLocationList,
         throughputList,
         nextRequestTimer,
-        urlLoader,
-        errHandler,
-        dashMetrics,
-        mediaPlayerModel,
         manifestModel,
         serviceDescriptionController,
         throughputController,
@@ -79,15 +73,6 @@ function ContentSteeringController() {
 
         if (config.adapter) {
             adapter = config.adapter;
-        }
-        if (config.errHandler) {
-            errHandler = config.errHandler;
-        }
-        if (config.dashMetrics) {
-            dashMetrics = config.dashMetrics;
-        }
-        if (config.mediaPlayerModel) {
-            mediaPlayerModel = config.mediaPlayerModel;
         }
         if (config.manifestModel) {
             manifestModel = config.manifestModel;
@@ -107,16 +92,10 @@ function ContentSteeringController() {
      * Initialize the steering controller by instantiating classes and registering observer callback
      */
     function initialize() {
-        urlLoader = URLLoader(context).create({
-            errHandler,
-            dashMetrics,
-            mediaPlayerModel,
-            errors: Errors
-        });
         eventBus.on(MediaPlayerEvents.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, instance);
         eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, instance);
         eventBus.on(MediaPlayerEvents.THROUGHPUT_MEASUREMENT_STORED, _onThroughputMeasurementStored, instance);
-
+        
     }
 
     /**
@@ -187,7 +166,7 @@ function ContentSteeringController() {
      * @returns {object}
      */
     function getSteeringDataFromManifest() {
-        const manifest = manifestModel.getValue()
+        const manifest = manifestModel.getValue();
         let contentSteeringData = adapter.getContentSteering(manifest);
 
         if (!contentSteeringData) {
@@ -206,6 +185,24 @@ function ContentSteeringController() {
         return !!steeringDataFromManifest && steeringDataFromManifest.queryBeforeStart;
     }
 
+    function onSuccess(response) {
+        _handleSteeringResponse(response.data);
+        eventBus.trigger(MediaPlayerEvents.CONTENT_STEERING_REQUEST_COMPLETED, {
+            currentSteeringResponseData,
+            url: response.url
+        });
+    }
+
+    function onError(response) {
+        _handleSteeringResponseError(response.data, response);
+    }
+
+    function complete() {
+        // Clear everything except for the current entry
+        serviceLocationList.baseUrl.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.baseUrl);
+        serviceLocationList.location.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.location);
+    }
+
     /**
      * Load the steering data from the steering server
      * @returns {Promise}
@@ -218,28 +215,10 @@ function ContentSteeringController() {
                     resolve();
                     return;
                 }
-
                 const url = _getSteeringServerUrl(steeringDataFromManifest);
-                const request = new ContentSteeringRequest(url);
-                urlLoader.load({
-                    request: request,
-                    success: (data) => {
-                        _handleSteeringResponse(data);
-                        eventBus.trigger(MediaPlayerEvents.CONTENT_STEERING_REQUEST_COMPLETED, {
-                            currentSteeringResponseData,
-                            url
-                        });
-                        resolve();
-                    },
-                    error: (e, error, statusText, response) => {
-                        _handleSteeringResponseError(e, response);
-                        resolve(e);
-                    },
-                    complete: () => {
-                        // Clear everything except for the current entry
-                        serviceLocationList.baseUrl.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.baseUrl);
-                        serviceLocationList.location.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.location);
-                    }
+                callContentSteeringServer(url, onSuccess, onError, null).then(() => {
+                    complete();
+                    resolve();
                 });
             } catch (e) {
                 resolve(e);
@@ -526,7 +505,7 @@ function ContentSteeringController() {
                     break;
                 // 429 Too Many Requests. Replace existing TTL value with Retry-After header if present
                 case 429:
-                    const retryAfter = response && response.getResponseHeader ? response.getResponseHeader('retry-after') : null;
+                    const retryAfter = response && response.headers ? response.headers['retry-after'] : null;
                     if (retryAfter !== null) {
                         if (!currentSteeringResponseData) {
                             currentSteeringResponseData = {};
