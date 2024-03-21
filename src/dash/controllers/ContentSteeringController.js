@@ -94,8 +94,7 @@ function ContentSteeringController() {
     function initialize() {
         eventBus.on(MediaPlayerEvents.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, instance);
         eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, instance);
-        eventBus.on(MediaPlayerEvents.THROUGHPUT_MEASUREMENT_STORED, _onThroughputMeasurementStored, instance);
-        
+        eventBus.on(MediaPlayerEvents.THROUGHPUT_MEASUREMENT_STORED, _onThroughputMeasurementStored, instance);   
     }
 
     /**
@@ -185,7 +184,12 @@ function ContentSteeringController() {
         return !!steeringDataFromManifest && steeringDataFromManifest.queryBeforeStart;
     }
 
-    function onSuccess(response) {
+    /**
+     * This function, executes when the Content Steering server returns an success response.
+     * @param {object} response
+     * @private
+     */
+    function _onSuccess(response) {
         _handleSteeringResponse(response.data);
         eventBus.trigger(MediaPlayerEvents.CONTENT_STEERING_REQUEST_COMPLETED, {
             currentSteeringResponseData,
@@ -193,12 +197,20 @@ function ContentSteeringController() {
         });
     }
 
-    function onError(response) {
+    /**
+     * This function, executes when the Content Steering server returns an error response.
+     * @param {object} response
+     * @private
+     */
+    function _onError(response) {
         _handleSteeringResponseError(response.data, response);
     }
 
-    function complete() {
-        // Clear everything except for the current entry
+    /**
+     * Clear everything except for the current entry after call to the Content Steering server 
+     * @private
+     */
+    function _complete() {
         serviceLocationList.baseUrl.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.baseUrl);
         serviceLocationList.location.all = _getClearedServiceLocationListAfterSteeringRequest(serviceLocationList.location);
     }
@@ -216,8 +228,8 @@ function ContentSteeringController() {
                     return;
                 }
                 const url = _getSteeringServerUrl(steeringDataFromManifest);
-                callContentSteeringServer(url, onSuccess, onError, null).then(() => {
-                    complete();
+                callContentSteeringServer(url, _onSuccess, _onError, null).then(() => {
+                    _complete();
                     resolve();
                 });
             } catch (e) {
