@@ -33,7 +33,7 @@ import Debug from '../../core/Debug.js';
 import URLLoader from '../../streaming/net/URLLoader.js';
 import Errors from '../../core/errors/Errors.js';
 import ContentSteeringRequest from '../vo/ContentSteeringRequest.js';
-import ContentSteeringResponse from '../vo/ContentSteeringResponse.js';
+import { ContentSteeringResponse } from '@svta/common-media-library/contentSteering.js';
 import DashConstants from '../constants/DashConstants.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
 import URLUtils from '../../streaming/utils/URLUtils.js';
