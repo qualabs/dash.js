@@ -33,12 +33,12 @@
  * @ignore
  */
 class ContentSteeringResponse {
-    constructor() {
-        this.version = null;
-        this.ttl = 300;
-        this.reloadUri = null;
-        this.pathwayPriority = [];
-        this.pathwayClones = [];
+    constructor(response = null) {
+        this.version = response?.VERSION ?? 1;
+        this.ttl = response?.TTL ?? 300;
+        this.reloadUri = response?.['RELOAD-URI'] ?? null;
+        this.pathwayPriority = response?.['PATHWAY-PRIORITY'] ?? null;
+        this.pathwayClones = response?.['PATHWAY-CLONES'] ?? [];
     }
 }
 
