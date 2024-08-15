@@ -228,6 +228,31 @@ function HTTPLoader(cfg) {
         };
 
         const _onRequestEnd = function (aborted = false) {
+            // TODO: Add url as a streaming cmcd config
+            var url = 'http://localhost:3000/server';
+            // TODO: Refactor headers mode
+            var headers = {
+                'Content-Type': 'application/json'
+            };
+            const cmcdVersion = settings.get().streaming.cmcd.version ? settings.get().streaming.cmcd.version : 1;
+            // Get the CMCD data from the request
+            if (cmcdVersion === 2){
+                if (httpRequest.customData.request.cmcdMode === Constants.CMCD_MODE_QUERY){
+                    url = Utils.addAditionalQueryParameterToUrl(url, httpRequest.customData.request.cmcdQueryParams);
+                } else if (httpRequest.customData.request.cmcdMode === Constants.CMCD_MODE_HEADER){
+                    headers = httpRequest.customData.request.cmcdHeaders;
+                }
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                }).then(response => {
+                    console.log('CMCD data sent successfully:', response);
+                }).catch(error => {
+                    console.error('Error sending CMCD data:', error);
+                });
+            }
+
             // Remove the request from our list of requests
             if (httpRequests.indexOf(httpRequest) !== -1) {
                 httpRequests.splice(httpRequests.indexOf(httpRequest), 1);
@@ -603,14 +628,27 @@ function HTTPLoader(cfg) {
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
+        // TODO: Check if we can get this from cmcdParameters
+        const cmcdVersion = settings.get().streaming.cmcd.version || 1;
         if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
+            request.customData = request.customData || {};
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
-                request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
+                if (cmcdVersion === 1){
+                    request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
+                } else if (cmcdVersion === 2){
+                    request.cmcdQueryParams = additionalQueryParameter;
+                    request.cmcdMode = Constants.CMCD_MODE_QUERY;
+                }
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
+                if (cmcdVersion === 1){
+                    request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
+                } else if (cmcdVersion === 2){
+                    request.cmcdHeaders = cmcdModel.getHeaderParameters(request);
+                    request.cmcdMode = Constants.CMCD_MODE_HEADER;
+                }
             }
         }
     }

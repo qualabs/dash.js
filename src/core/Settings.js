@@ -1293,6 +1293,7 @@ function Settings() {
             cmcd: {
                 applyParametersFromMpd: true,
                 enabled: false,
+                version: 1,
                 sid: null,
                 cid: null,
                 rtp: null,
