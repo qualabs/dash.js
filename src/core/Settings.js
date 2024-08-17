@@ -1300,7 +1300,13 @@ function Settings() {
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
-                includeInRequests: ['segment']
+                includeInRequests: ['segment'],
+                reporting: {
+                    mode: 1,
+                    requestUrl: 'http://localhost:3000/cmcd_server',
+                    requestMethod: 'POST',
+                    requestHeaders: {}
+                }
             },
             cmsd: {
                 enabled: false,

@@ -228,24 +228,16 @@ function HTTPLoader(cfg) {
         };
 
         const _onRequestEnd = function (aborted = false) {
-            // TODO: Add url as a streaming cmcd config
-            var url = 'http://localhost:3000/server';
-            // TODO: Refactor headers mode
-            var headers = {
-                'Content-Type': 'application/json'
-            };
-            const cmcdVersion = settings.get().streaming.cmcd.version ? settings.get().streaming.cmcd.version : 1;
-            // Get the CMCD data from the request
-            if (cmcdVersion === 2){
-                if (httpRequest.customData.request.cmcdMode === Constants.CMCD_MODE_QUERY){
-                    url = Utils.addAditionalQueryParameterToUrl(url, httpRequest.customData.request.cmcdQueryParams);
-                } else if (httpRequest.customData.request.cmcdMode === Constants.CMCD_MODE_HEADER){
-                    headers = httpRequest.customData.request.cmcdHeaders;
-                }
+            const cmcdVersion = httpRequest.customData.request.cmcdVersion;
+            const cmcdReportingMode = httpRequest.customData.request.cmcdReportingMode;
+            if (cmcdVersion === 2 && cmcdReportingMode === 2){
+                const requestUrl = httpRequest.customData.request.cmcdReportingUrl;
+                const requestMethod = httpRequest.customData.request.cmcdReportingMethod;
+                const requestHeaders = httpRequest.customData.request.cmcdHeaders;
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: headers,
+                fetch(requestUrl, {
+                    method: requestMethod,
+                    headers: requestHeaders,
                 }).then(response => {
                     console.log('CMCD data sent successfully:', response);
                 }).catch(error => {
@@ -628,26 +620,39 @@ function HTTPLoader(cfg) {
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
-        // TODO: Check if we can get this from cmcdParameters
-        const cmcdVersion = settings.get().streaming.cmcd.version || 1;
         if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
+            const cmcdVersion = cmcdParameters.version ? cmcdParameters.version : settings.get().streaming.cmcd.version;
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            request.customData = request.customData || {};
+            const cmcdReportingMode = settings.get().streaming.cmcd.reporting.mode;
+            const cmcdReportingMethod = settings.get().streaming.cmcd.reporting.method;
+            const cmcdReportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
+            // Set common cmcd params
+            if (cmcdVersion == 2 && cmcdReportingMode == 2){
+                Object.assign(request, {
+                    cmcdVersion,
+                    cmcdMode,
+                    cmcdReportingMode,
+                    cmcdReportingMethod,
+                    cmcdReportingUrl
+                });
+            }
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const additionalQueryParameter = _getAdditionalQueryParameter(request);
-                if (cmcdVersion === 1){
+                if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode === 1)){
                     request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
                 } else if (cmcdVersion === 2){
-                    request.cmcdQueryParams = additionalQueryParameter;
-                    request.cmcdMode = Constants.CMCD_MODE_QUERY;
+                    const reportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
+                    request.cmcdReportingUrl = Utils.addAditionalQueryParameterToUrl(reportingUrl, additionalQueryParameter);
                 }
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                if (cmcdVersion === 1){
+                if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode === 1)){
                     request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
                 } else if (cmcdVersion === 2){
-                    request.cmcdHeaders = cmcdModel.getHeaderParameters(request);
-                    request.cmcdMode = Constants.CMCD_MODE_HEADER;
+                    // Group custom and cmcd data headers
+                    const reportingHeaders = settings.get().streaming.cmcd.reporting.requestHeaders;
+                    const cmcdHeaders = cmcdModel.getHeaderParameters(request);
+                    request.cmcdHeaders = { ...reportingHeaders, ...cmcdHeaders};
                 }
             }
         }
