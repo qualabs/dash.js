@@ -230,7 +230,7 @@ function HTTPLoader(cfg) {
         const _onRequestEnd = function (aborted = false) {
             const cmcdVersion = httpRequest.customData.request.cmcdVersion;
             const cmcdReportingMode = httpRequest.customData.request.cmcdReportingMode;
-            if (cmcdVersion === 2 && cmcdReportingMode === 2){
+            if (cmcdVersion === 2 && cmcdReportingMode.includes(2)){
                 const requestUrl = httpRequest.customData.request.cmcdReportingUrl;
                 const requestMethod = httpRequest.customData.request.cmcdReportingMethod;
                 const requestHeaders = httpRequest.customData.request.cmcdHeaders;
@@ -628,7 +628,7 @@ function HTTPLoader(cfg) {
             const cmcdReportingMethod = settings.get().streaming.cmcd.reporting.method;
             const cmcdReportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
             // Set common cmcd params
-            if (cmcdVersion == 2 && cmcdReportingMode == 2){
+            if (cmcdVersion == 2 && cmcdReportingMode.includes(2)){
                 Object.assign(request, {
                     cmcdVersion,
                     cmcdMode,
@@ -653,9 +653,10 @@ function HTTPLoader(cfg) {
     function _handleCmcdQueryMode(request, cmcdVersion, cmcdReportingMode) {
         const additionalQueryParameter = _getAdditionalQueryParameter(request);
 
-        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode === 1)) {
+        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode.includes(1))) {
             request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
-        } else if (cmcdVersion === 2 && cmcdReportingMode === 2) {
+        } 
+        if (cmcdVersion === 2 && cmcdReportingMode.includes(2)) {
             const reportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
             request.cmcdReportingUrl = Utils.addAditionalQueryParameterToUrl(reportingUrl, additionalQueryParameter);
         }
@@ -668,9 +669,10 @@ function HTTPLoader(cfg) {
      */
     function _handleCmcdHeadersMode(request, cmcdVersion, cmcdReportingMode) {
         const cmcdHeaders = cmcdModel.getHeaderParameters(request);
-        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode === 1)) {
+        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode.includes(1))) {
             request.headers = Object.assign(request.headers, cmcdHeaders);
-        } else if (cmcdVersion === 2 && cmcdReportingMode === 2) {
+        }
+        if (cmcdVersion === 2 && cmcdReportingMode.includes(2)) {
             const reportingHeaders = settings.get().streaming.cmcd.reporting.requestHeaders;
             request.cmcdHeaders = { ...reportingHeaders, ...cmcdHeaders };
         }

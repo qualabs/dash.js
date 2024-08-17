@@ -1302,7 +1302,7 @@ function Settings() {
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
                 includeInRequests: ['segment'],
                 reporting: {
-                    mode: 1,
+                    mode: [1],
                     requestUrl: 'http://localhost:3000/cmcd_server',
                     requestMethod: 'POST',
                     requestHeaders: {}
