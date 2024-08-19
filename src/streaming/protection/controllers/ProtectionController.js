@@ -822,7 +822,8 @@ function ProtectionController(config) {
         const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
 
         if (cmcdModel.isCmcdEnabled()) {
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
+            // TODO: Add support for all modes
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.reporting.responseMode.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const cmcdParams = cmcdModel.getQueryParameter({
                     url: request.url,
@@ -846,7 +847,7 @@ function ProtectionController(config) {
         }
 
         if (cmcdModel.isCmcdEnabled()) {
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.reporting.requestMode.mode;
             if (cmcdMode === Constants.CMCD_MODE_HEADER) {
                 const cmcdHeaders = cmcdModel.getHeaderParameters({
                     url: request.url,

@@ -228,12 +228,12 @@ function HTTPLoader(cfg) {
         };
 
         const _onRequestEnd = function (aborted = false) {
-            const cmcdVersion = httpRequest.customData.request.cmcdVersion;
-            const cmcdReportingMode = httpRequest.customData.request.cmcdReportingMode;
-            if (cmcdVersion === 2 && cmcdReportingMode.includes(2)){
-                const requestUrl = httpRequest.customData.request.cmcdReportingUrl;
-                const requestMethod = httpRequest.customData.request.cmcdReportingMethod;
-                const requestHeaders = httpRequest.customData.request.cmcdHeaders;
+            const cmcdReportingModes = httpRequest.customData.request.cmcdReportingModes;
+            
+            if (cmcdReportingModes.includes(2)){
+                const requestUrl = httpRequest.customData.request.cmcdMode2Url;
+                const requestMethod = httpRequest.customData.request.cmcdMode2Method;
+                const requestHeaders = httpRequest.customData.request.cmcdMode2Headers;
 
                 fetch(requestUrl, {
                     method: requestMethod,
@@ -623,58 +623,40 @@ function HTTPLoader(cfg) {
         if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
             const cmcdVersion = cmcdParameters.version ? cmcdParameters.version : settings.get().streaming.cmcd.version;
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            const cmcdReportingMode = settings.get().streaming.cmcd.reporting.mode;
-            const cmcdReportingMethod = settings.get().streaming.cmcd.reporting.method;
-            const cmcdReportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
+            const cmcdReportingModes = settings.get().streaming.cmcd.reporting.enabledModes;
             // Set common cmcd params
-            if (cmcdVersion == 2 && cmcdReportingMode.includes(2)){
+            request.cmcdReportingModes = cmcdReportingModes;
+
+            if (cmcdReportingModes.includes(1)){
+                const cmcdMode1RequestMode = settings.get().streaming.cmcd.reporting.requestMode.mode;
+                if (cmcdMode1RequestMode === Constants.CMCD_MODE_QUERY) {
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request);
+                    request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
+                } else if (cmcdMode1RequestMode === Constants.CMCD_MODE_HEADER) {
+                    request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
+                }
+
+            }
+
+            if (cmcdReportingModes.includes(2)){
+                const cmcdMode2Url = settings.get().streaming.cmcd.reporting.responseMode.requestUrl;
+                const cmcdMode2Method = settings.get().streaming.cmcd.reporting.responseMode.requestMethod;
+                const cmcdMode2RequestMode = settings.get().streaming.cmcd.reporting.responseMode.mode;
                 Object.assign(request, {
                     cmcdVersion,
-                    cmcdMode,
-                    cmcdReportingMode,
-                    cmcdReportingMethod,
-                    cmcdReportingUrl
+                    cmcdMode2RequestMode,
+                    cmcdMode2Method,
+                    cmcdMode2Url
                 });
+                if (cmcdMode2RequestMode === Constants.CMCD_MODE_QUERY){
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request);
+                    request.cmcdMode2Url = Utils.addAditionalQueryParameterToUrl(cmcdMode2Url, additionalQueryParameter);
+                } else if (cmcdMode2RequestMode === Constants.CMCD_MODE_HEADER){
+                    const cmcdHeaders = cmcdModel.getHeaderParameters(request);
+                    const reportingHeaders = settings.get().streaming.cmcd.reporting.responseMode.requestHeaders;
+                    request.cmcdMode2Headers = { ...reportingHeaders, ...cmcdHeaders};
+                }
             }
-            if (cmcdMode === Constants.CMCD_MODE_QUERY) {
-                _handleCmcdQueryMode(request, cmcdVersion, cmcdReportingMode);
-            } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                _handleCmcdHeadersMode(request, cmcdVersion, cmcdReportingMode);
-            }
-        }
-    }
-
-    /**
-     * Handles the CMCD Query mode based on the CMCD version
-     * @param {object} request
-     * @private
-     */
-    function _handleCmcdQueryMode(request, cmcdVersion, cmcdReportingMode) {
-        const additionalQueryParameter = _getAdditionalQueryParameter(request);
-
-        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode.includes(1))) {
-            request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
-        } 
-        if (cmcdVersion === 2 && cmcdReportingMode.includes(2)) {
-            const reportingUrl = settings.get().streaming.cmcd.reporting.requestUrl;
-            request.cmcdReportingUrl = Utils.addAditionalQueryParameterToUrl(reportingUrl, additionalQueryParameter);
-        }
-    }
-
-    /**
-     * Handles the CMCD Headers mode based on the CMCD version
-     * @param {object} request
-     * @private
-     */
-    function _handleCmcdHeadersMode(request, cmcdVersion, cmcdReportingMode) {
-        const cmcdHeaders = cmcdModel.getHeaderParameters(request);
-        if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdReportingMode.includes(1))) {
-            request.headers = Object.assign(request.headers, cmcdHeaders);
-        }
-        if (cmcdVersion === 2 && cmcdReportingMode.includes(2)) {
-            const reportingHeaders = settings.get().streaming.cmcd.reporting.requestHeaders;
-            request.cmcdHeaders = { ...reportingHeaders, ...cmcdHeaders };
         }
     }
 
