@@ -846,7 +846,7 @@ function ProtectionController(config) {
         }
 
         if (cmcdModel.isCmcdEnabled()) {
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.reporting.requestMode.mode;
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_HEADER) {
                 const cmcdHeaders = cmcdModel.getHeaderParameters({
                     url: request.url,

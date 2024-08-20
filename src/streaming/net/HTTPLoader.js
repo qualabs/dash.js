@@ -652,7 +652,6 @@ function HTTPLoader(cfg) {
         try {
             const additionalQueryParameter = [];
             const cmcdQueryParameter = cmcdModel.getQueryParameter(request);
-            console.warn(`cmcdQueryparams: ${cmcdQueryParameter}`)
 
             if (cmcdQueryParameter) {
                 additionalQueryParameter.push(cmcdQueryParameter);
