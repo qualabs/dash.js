@@ -2394,8 +2394,7 @@ app.controller('DashController', ['$scope', '$window', 'sources', 'contributors'
             $scope.cmcdRtpSafetyFactor = currentConfig.streaming.cmcd.rtpSafetyFactor;
         }
 
-        // TODO: Add support for all modes
-        $scope.cmcdMode = currentConfig.streaming.cmcd.reporting.responseMode.mode;
+        $scope.cmcdMode = currentConfig.streaming.cmcd.mode;
 
         if (currentConfig.streaming.cmcd.enabledKeys) {
             $scope.cmcdEnabledKeys = currentConfig.streaming.cmcd.enabledKeys;
