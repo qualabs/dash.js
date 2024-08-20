@@ -822,8 +822,7 @@ function ProtectionController(config) {
         const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
 
         if (cmcdModel.isCmcdEnabled()) {
-            // TODO: Add support for all modes
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.reporting.responseMode.mode;
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
                 const cmcdParams = cmcdModel.getQueryParameter({
                     url: request.url,

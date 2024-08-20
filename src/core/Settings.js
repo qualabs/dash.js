@@ -1297,10 +1297,10 @@ function Settings() {
                 cid: null,
                 rtp: null,
                 rtpSafetyFactor: 5,
+                mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
                 includeInRequests: ['segment'],
                 reporting: {
-                    enabledModes: [1],
                     requestMode: {
                         enabled: true,
                         mode: Constants.CMCD_MODE_QUERY,

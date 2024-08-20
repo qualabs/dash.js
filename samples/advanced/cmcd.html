@@ -48,13 +48,12 @@
                     cmcd: {
                         enabled: true, /* enable reporting of cmcd parameters */
                         reporting: {
-                            enabledModes: [1,2],
                             requestMode: {
                                 enabled: true,
                                 mode: CMCD_MODE_QUERY,
                             },
                             responseMode: {
-                                enabled: false,
+                                enabled: true,
                                 mode: CMCD_MODE_HEADER,
                                 requestUrl: 'http://localhost:3000/cmcd_server',
                                 requestMethod: 'GET',
@@ -72,18 +71,27 @@
             player.attachSource(url);
         }
 
+        // TODO: Needs to be commented to make both modes work
         function handleCmcdDataGeneratedEvent(event) {
-            log('type: ' + event.mediaType);
-            log('file: ' + event.url.split('/').pop())
-            // TODO: Add support for all modes
-            var mode = player.getSettings().streaming.cmcd.reporting.requestMode.mode;
-            var data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
-            var keys = Object.keys(data);
-            keys = keys.sort();
-            for (var key of keys) {
-                log(key.padEnd(4) + ': ' + event.cmcdData[key]);
-            }
-            log('');
+            // log('type: ' + event.mediaType);
+            // log('file: ' + event.url.split('/').pop())
+            // // TODO: Add support for all modes
+            // const settings = player.getSettings().streaming.cmcd.reporting;
+            // if (settings.requestMode?.enabled){
+            //     var mode = settings.requestMode.mode;
+            //     var data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
+            // }
+            // if(settings.responseMode?.enabled){
+            //     var mode = settings.responseMode.mode;
+            //     var data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
+            // }
+            // //var data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
+            // var keys = Object.keys(data);
+            // keys = keys.sort();
+            // for (var key of keys) {
+            //     log(key.padEnd(4) + ': ' + event.cmcdData[key]);
+            // }
+            // log('');
         }
 
         function getKeysForQueryMode(event) {
