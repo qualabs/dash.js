@@ -1293,6 +1293,7 @@ function Settings() {
             cmcd: {
                 applyParametersFromMpd: true,
                 enabled: false,
+                version: 2,
                 sid: null,
                 cid: null,
                 rtp: null,
@@ -1303,11 +1304,11 @@ function Settings() {
                 reporting: {
                     requestMode: {
                         enabled: true,
-                        mode: Constants.CMCD_MODE_QUERY,
+                        mode: null,
                     },
                     responseMode: {
                         enabled: false,
-                        mode: Constants.CMCD_MODE_QUERY,
+                        mode: null,
                         requestUrl: 'http://localhost:3000/cmcd_server',
                         requestMethod: 'POST',
                         requestHeaders: {}

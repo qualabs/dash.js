@@ -149,19 +149,21 @@ function CmcdModel() {
         streamProcessors = activeStream.getStreamProcessors();
     }
 
-    function getQueryParameter(request) {
+    function getQueryParameter(request, triggerEvent = true) {
         try {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
 
-                eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
-                    url: request.url,
-                    mediaType: request.mediaType,
-                    cmcdData,
-                    cmcdString: finalPayloadString
-                });
+                if (triggerEvent){
+                    eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
+                        url: request.url,
+                        mediaType: request.mediaType,
+                        cmcdData,
+                        cmcdString: finalPayloadString
+                    });
+                }
                 return {
                     key: CMCD_PARAM,
                     value: finalPayloadString
