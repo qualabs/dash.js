@@ -622,6 +622,7 @@ function HTTPLoader(cfg) {
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
             var cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             
+            // Always get both queries and headers for now
             const additionalQueryParameter = _getAdditionalQueryParameter(request);
             const cmcdHeaders = cmcdModel.getHeaderParameters(request);
 
