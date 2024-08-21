@@ -228,16 +228,18 @@ function HTTPLoader(cfg) {
         };
 
         const _onRequestEnd = function (aborted = false) {
-            const cmcdResponseMode = httpRequest.customData.request.cmcdResponseMode;
-            if (cmcdResponseMode.enabled){
-                fetch(cmcdResponseMode.requestUrl, {
-                    method: cmcdResponseMode.requestMethod,
-                    headers: cmcdResponseMode.requestHeaders,
-                }).then(response => {
-                    console.log('CMCD data sent successfully:', response);
-                }).catch(error => {
-                    console.error('Error sending CMCD data:', error);
-                });
+            if (httpRequest.customData.request.cmcdVersion === 2) {
+                const cmcdResponseMode = httpRequest.customData.request.cmcdResponseMode;
+                if (cmcdResponseMode.enabled){
+                    fetch(cmcdResponseMode.requestUrl, {
+                        method: cmcdResponseMode.requestMethod,
+                        headers: cmcdResponseMode.requestHeaders,
+                    }).then(response => {
+                        console.log('CMCD data sent successfully:', response);
+                    }).catch(error => {
+                        console.error('Error sending CMCD data:', error);
+                    });
+                }
             }
 
             // Remove the request from our list of requests
@@ -617,36 +619,46 @@ function HTTPLoader(cfg) {
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
         if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
             const cmcdVersion = settings.get().streaming.cmcd.version;
-            const cmcdRequestMode = settings.get().streaming.cmcd.reporting.requestMode;
-            const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-            const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
-            var cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            
-            // Always get both queries and headers for now
-            const additionalQueryParameter = _getAdditionalQueryParameter(request);
-            const cmcdHeaders = cmcdModel.getHeaderParameters(request);
-
-            if (cmcdVersion === 1 || (cmcdVersion === 2 && cmcdRequestMode.enabled)){
-                cmcdMode = cmcdRequestMode.mode ? cmcdRequestMode.mode : cmcdMode;
+            request.cmcdVersion = cmcdVersion;
+            if (cmcdVersion === 1){
+                const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
+                const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
                 if (cmcdMode === Constants.CMCD_MODE_QUERY) {
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request);
                     request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
                 } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                    request.headers = Object.assign(request.headers, cmcdHeaders);
+                    request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
                 }
-            }
-            
-            if (cmcdVersion === 2) {
+            } else if (cmcdVersion === 2){
+                const cmcdRequestMode = settings.get().streaming.cmcd.reporting.requestMode;
+                const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+
+                // Currently, both headers and queries are always generated
+                // to easily handle the CMCD_DATA_GENERATED event trigger.
+                // TODO: They should only be generated if the corresponding mode is activated.
+                const cmcdHeaders = cmcdModel.getHeaderParameters(request);
+                const additionalQueryParameter = _getAdditionalQueryParameter(request, false);
+
+                if (cmcdRequestMode.enabled){
+                    const cmcdMode = cmcdRequestMode.mode ? cmcdRequestMode.mode : settings.get().streaming.cmcd.mode;
+                    if (cmcdMode === Constants.CMCD_MODE_QUERY) {
+                        request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
+                    } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
+                        request.headers = Object.assign(request.headers, cmcdHeaders);
+                    }
+                }
+
                 if (cmcdResponseMode.enabled){
                     request.cmcdResponseMode = cmcdResponseMode;
-                    cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : cmcdMode;
+                    const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
                     if (cmcdMode === Constants.CMCD_MODE_QUERY){
                         request.cmcdResponseMode.requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
                     } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
                         request.cmcdResponseMode.requestHeaders = { ...cmcdResponseMode.requestHeaders, ...cmcdHeaders};
                     }
                 }
-                // TODO: Add State-Interval Mode
             }
+            // TODO: Add State-Interval Mode   
         }
     }
 
@@ -656,10 +668,10 @@ function HTTPLoader(cfg) {
      * @return {array}
      * @private
      */
-    function _getAdditionalQueryParameter(request) {
+    function _getAdditionalQueryParameter(request, eventTrigger = true) {
         try {
             const additionalQueryParameter = [];
-            const cmcdQueryParameter = cmcdModel.getQueryParameter(request, false);
+            const cmcdQueryParameter = cmcdModel.getQueryParameter(request, eventTrigger);
 
             if (cmcdQueryParameter) {
                 additionalQueryParameter.push(cmcdQueryParameter);
