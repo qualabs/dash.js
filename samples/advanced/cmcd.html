@@ -46,25 +46,25 @@
             player.updateSettings({
                 streaming: {
                     cmcd: {
-                        enabled: true, /* enable reporting of cmcd parameters */
-                        version: 1,
+                        enabled: true, /* global enable reporting of cmcd parameters */
+                        version: 2, /* 1 is the default version */
                         reporting: {
                             requestMode: {
-                                enabled: true,
-                                mode: CMCD_MODE_HEADER,
+                                enabled: true, /* enable cmcdv2 request mode */
+                                mode: CMCD_MODE_HEADER, /*overrides global mode */
                             },
                             responseMode: {
-                                enabled: true,
-                                mode: CMCD_MODE_QUERY,
-                                enabledKeys: ['br', 'd', 'ot', 'tb'],
-                                requestUrl: 'http://localhost:3000/cmcd_server',
-                                requestMethod: 'GET',
-                                requestHeaders: {}
+                                enabled: true, /* enable cmcdv2 response mode */
+                                mode: CMCD_MODE_QUERY, /*overrides global mode */
+                                enabledKeys: ['br', 'd', 'ot', 'tb'], /*optional, overrides global keys */
+                                requestUrl: 'http://localhost:3000/cmcd_server', /*mandatory, URL to send report */
+                                requestMethod: 'POST', /*optional, get by default */
+                                requestHeaders: {} /*optional, additional headers for report request */
                             }
                         },
                         sid: 'b248658d-1d1a-4039-91d0-8c08ba597da5', /* session id send with each request */
                         cid: '21cf726cfe3d937b5f974f72bb5bd06a', /* content id send with each request */
-                        mode: CMCD_MODE_QUERY,
+                        mode: CMCD_MODE_QUERY, /* global mode if not specified in each mode */
                         enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v']
                     }
                 }
