@@ -149,11 +149,11 @@ function CmcdModel() {
         streamProcessors = activeStream.getStreamProcessors();
     }
 
-    function getQueryParameter(request, triggerEvent = true) {
+    function getQueryParameter(request, triggerEvent = true, cmcdReportingMode = null) {
         try {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
-                const filteredCmcdData = _applyWhitelist(cmcdData);
+                const filteredCmcdData = _applyWhitelist(cmcdData, cmcdReportingMode);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
 
                 if (triggerEvent){
@@ -176,11 +176,24 @@ function CmcdModel() {
         }
     }
 
-    function _applyWhitelist(cmcdData) {
+    function _applyWhitelist(cmcdData, cmcdReportingMode) {
         try {
             const cmcdParametersFromManifest = getCmcdParametersFromManifest();
-            const enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
+            var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
+            // For CMCD v2 use the reporting mode keys or global ones as default
+            if (cmcdReportingMode === 1){
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.requestMode.enabledKeys ? settings.get().streaming.cmcd.reporting.requestMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+            } else if (cmcdReportingMode === 2) {
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.responseMode.enabledKeys ? settings.get().streaming.cmcd.reporting.responseMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Add CMCD v2 response mode mandatory keys
+                const requiredKeys = ['ts', 'url'];
+                requiredKeys.forEach(key => {
+                    if (!enabledCMCDKeys.includes(key)) {
+                        enabledCMCDKeys.push(key);
+                    }
+                });
+            }
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
                 .reduce((obj, key) => {
@@ -192,19 +205,21 @@ function CmcdModel() {
         }
     }
 
-    function getHeaderParameters(request) {
+    function getHeaderParameters(request, triggerEvent = true, cmcdReportingMode = null) {
         try {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
-                const filteredCmcdData = _applyWhitelist(cmcdData);
+                const filteredCmcdData = _applyWhitelist(cmcdData, cmcdReportingMode);
                 const headers = toCmcdHeaders(filteredCmcdData)
 
-                eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
-                    url: request.url,
-                    mediaType: request.mediaType,
-                    cmcdData,
-                    headers
-                });
+                if (triggerEvent) {
+                    eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
+                        url: request.url,
+                        mediaType: request.mediaType,
+                        cmcdData,
+                        headers
+                    });
+                }
                 return headers;
             }
 
@@ -361,8 +376,8 @@ function CmcdModel() {
         return data;
     }
 
-    function _getCmcdDataForMpd() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForMpd(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.MANIFEST;
 
@@ -371,7 +386,7 @@ function CmcdModel() {
 
     function _getCmcdDataForMediaSegment(request, mediaType) {
         _initForMediaType(mediaType);
-        const data = _getGenericCmcdData();
+        const data = _getGenericCmcdData(request);
         const encodedBitrate = _getBitrateByRequest(request);
         const d = _getObjectDurationByRequest(request);
         const mtp = _getMeasuredThroughputByType(mediaType);
@@ -474,8 +489,8 @@ function CmcdModel() {
         }
     }
 
-    function _getCmcdDataForInitSegment() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForInitSegment(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.INIT;
         data.su = true;
@@ -483,8 +498,8 @@ function CmcdModel() {
         return data;
     }
 
-    function _getCmcdDataForOther() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForOther(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.OTHER;
 
@@ -492,7 +507,7 @@ function CmcdModel() {
     }
 
 
-    function _getGenericCmcdData() {
+    function _getGenericCmcdData(request) {
         const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
 
@@ -520,6 +535,14 @@ function CmcdModel() {
 
         if (internalData.sf) {
             data.sf = internalData.sf;
+        }
+
+        // Add v2 mandatory keys
+        const cmcdVersion = settings.get().streaming.cmcd.version;
+        const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+        if (cmcdVersion === 2 && cmcdResponseMode.enabled) {
+            data.url = request.url;
+            data.ts = Date.now();
         }
 
         return data;

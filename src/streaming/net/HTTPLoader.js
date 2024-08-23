@@ -632,18 +632,16 @@ function HTTPLoader(cfg) {
             } else if (cmcdVersion === 2){
                 const cmcdRequestMode = settings.get().streaming.cmcd.reporting.requestMode;
                 const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-
-                // Currently, both headers and queries are always generated
-                // to easily handle the CMCD_DATA_GENERATED event trigger.
-                // TODO: They should only be generated if the corresponding mode is activated.
-                const cmcdHeaders = cmcdModel.getHeaderParameters(request);
-                const additionalQueryParameter = _getAdditionalQueryParameter(request, false);
+                // Needs to be called to trigger the CMCD_DATA_GENERATED event only once
+                cmcdModel.getHeaderParameters(request);
 
                 if (cmcdRequestMode.enabled){
                     const cmcdMode = cmcdRequestMode.mode ? cmcdRequestMode.mode : settings.get().streaming.cmcd.mode;
                     if (cmcdMode === Constants.CMCD_MODE_QUERY) {
+                        const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 1);
                         request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
                     } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
+                        const cmcdHeaders = cmcdModel.getHeaderParameters(request, false, 1);
                         request.headers = Object.assign(request.headers, cmcdHeaders);
                     }
                 }
@@ -652,8 +650,10 @@ function HTTPLoader(cfg) {
                     request.cmcdResponseMode = cmcdResponseMode;
                     const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
                     if (cmcdMode === Constants.CMCD_MODE_QUERY){
+                        const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 2);
                         request.cmcdResponseMode.requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
                     } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
+                        const cmcdHeaders = cmcdModel.getHeaderParameters(request, false, 2);
                         request.cmcdResponseMode.requestHeaders = { ...cmcdResponseMode.requestHeaders, ...cmcdHeaders};
                     }
                 }
@@ -668,10 +668,10 @@ function HTTPLoader(cfg) {
      * @return {array}
      * @private
      */
-    function _getAdditionalQueryParameter(request, eventTrigger = true) {
+    function _getAdditionalQueryParameter(request, triggerEvent = true, reportingMode = null) {
         try {
             const additionalQueryParameter = [];
-            const cmcdQueryParameter = cmcdModel.getQueryParameter(request, eventTrigger);
+            const cmcdQueryParameter = cmcdModel.getQueryParameter(request, triggerEvent, reportingMode);
 
             if (cmcdQueryParameter) {
                 additionalQueryParameter.push(cmcdQueryParameter);

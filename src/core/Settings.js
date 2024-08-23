@@ -1305,10 +1305,12 @@ function Settings() {
                     requestMode: {
                         enabled: true,
                         mode: null,
+                        enabledKeys: null,
                     },
                     responseMode: {
                         enabled: false,
                         mode: null,
+                        enabledKeys: null,
                         requestUrl: 'http://localhost:3000/cmcd_server',
                         requestMethod: 'POST',
                         requestHeaders: {}

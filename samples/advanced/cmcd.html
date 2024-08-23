@@ -47,7 +47,7 @@
                 streaming: {
                     cmcd: {
                         enabled: true, /* enable reporting of cmcd parameters */
-                        version: 2,
+                        version: 1,
                         reporting: {
                             requestMode: {
                                 enabled: true,
@@ -56,6 +56,7 @@
                             responseMode: {
                                 enabled: true,
                                 mode: CMCD_MODE_QUERY,
+                                enabledKeys: ['br', 'd', 'ot', 'tb'],
                                 requestUrl: 'http://localhost:3000/cmcd_server',
                                 requestMethod: 'GET',
                                 requestHeaders: {}
