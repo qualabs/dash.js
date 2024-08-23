@@ -184,6 +184,8 @@ function CmcdModel() {
             // For CMCD v2 use the reporting mode keys or global ones as default
             if (cmcdReportingMode === 1){
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.requestMode.enabledKeys ? settings.get().streaming.cmcd.reporting.requestMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(item => item !== 'url');
             } else if (cmcdReportingMode === 2) {
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.responseMode.enabledKeys ? settings.get().streaming.cmcd.reporting.responseMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
                 // Add CMCD v2 response mode mandatory keys
@@ -541,7 +543,7 @@ function CmcdModel() {
         const cmcdVersion = settings.get().streaming.cmcd.version;
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
         if (cmcdVersion === 2 && cmcdResponseMode.enabled) {
-            data.url = request.url;
+            data.url = request.url.split('?')[0]; // remove potential cmcd query params 
             // TODO: This key needs to be generated when loading the media request in _loadRequest
             data.ts = Date.now();
         }
