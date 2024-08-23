@@ -542,6 +542,7 @@ function CmcdModel() {
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
         if (cmcdVersion === 2 && cmcdResponseMode.enabled) {
             data.url = request.url;
+            // TODO: This key needs to be generated when loading the media request in _loadRequest
             data.ts = Date.now();
         }
 

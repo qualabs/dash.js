@@ -8,3 +8,5 @@ Here are notes about the challenge of implementing the new reporting modes of CM
 
 - Observations:
     - The mode that already exists in the configuration for the "transmition mode" might be confusing with the new mode for the "reporting mode".
+
+    - The ‘ts’ key is not entirely accurate since the CMCD parameters are generated before the request starts.
