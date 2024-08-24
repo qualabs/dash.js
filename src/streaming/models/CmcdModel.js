@@ -65,6 +65,9 @@ function CmcdModel() {
         _isStartup,
         _bufferLevelStarved,
         _initialMediaRequestsDone;
+    
+    let stateIntervalData = [];
+    let stateIntervalTimer = null;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -83,6 +86,9 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        // TODO: Add more player states
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('playing'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('paused'), instance);
     }
 
     function setConfig(config) {
@@ -195,6 +201,9 @@ function CmcdModel() {
                         enabledCMCDKeys.push(key);
                     }
                 });
+            } else if (cmcdReportingMode === 3) {
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys ? settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // TODO: Add required keys
             }
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
@@ -206,6 +215,74 @@ function CmcdModel() {
             return cmcdData;
         }
     }
+
+    function handleStateIntervalData(request) {
+        try {
+            if (isCmcdEnabled()) {
+                const cmcdData = getCmcdData(request);
+                const filteredCmcdData = _applyWhitelist(cmcdData, 3);
+                if (filteredCmcdData) {
+                    stateIntervalData.push(filteredCmcdData);
+                }
+                if (!stateIntervalTimer) {
+                    stateIntervalTimer = setTimeout(_sendStateIntervalData, settings.get().streaming.cmcd.reporting.stateIntervalMode.interval);
+                }
+            }
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _sendStateIntervalData() {
+        const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
+        if (cmcdStateIntervalMode.enabled && stateIntervalData.length > 0) {
+            const aggregatedData = _mergeCmcdData(stateIntervalData);
+
+            // TODO: Check mandatory keys
+            const payload = {
+                ts: Date.now(),
+                cmcdData: aggregatedData // Array of CMCD data objects
+            };
+    
+            fetch(cmcdStateIntervalMode.requestUrl, {
+                method: cmcdStateIntervalMode.requestMethod,
+                headers: {
+                    ...cmcdStateIntervalMode.requestHeaders,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                console.log('State-interval CMCD data sent successfully:', response);
+            }).catch(error => {
+                console.error('Error sending state-interval CMCD data:', error);
+            }).finally(() => {
+                stateIntervalData = []; // Reset the data array
+                stateIntervalTimer = null; // Clear the timer
+            });
+        }
+    }
+
+    function _mergeCmcdData(dataArray) {
+        // TODO: Map configured keys
+        return dataArray.
+            filter(data => Object.keys(data).length > 0).
+            map(data => {
+                return {
+                    br: data.br,
+                    d: data.d,
+                    ot: data.ot,
+                    tb: data.tb,
+                };
+            });
+    }
+
+    function _onStateChange(state) {
+        console.log(`Player state changed to: ${state}`)
+        const stateData = { sta: state, ts: Date.now() };
+        stateIntervalData.push(stateData);
+        _sendStateIntervalData();
+    }
+    
 
     function getHeaderParameters(request, triggerEvent = true, cmcdReportingMode = null) {
         try {
@@ -716,7 +793,8 @@ function CmcdModel() {
         eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
-
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('playing'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('paused'), instance);
         _resetInitialSettings();
     }
 
@@ -729,6 +807,7 @@ function CmcdModel() {
         reset,
         initialize,
         isCmcdEnabled,
+        handleStateIntervalData
     };
 
     setup();

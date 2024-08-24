@@ -230,7 +230,7 @@ function HTTPLoader(cfg) {
         const _onRequestEnd = function (aborted = false) {
             if (httpRequest.customData.request.cmcdVersion === 2) {
                 const cmcdResponseMode = httpRequest.customData.request.cmcdResponseMode;
-                if (cmcdResponseMode.enabled){
+                if (cmcdResponseMode && cmcdResponseMode.enabled){
                     fetch(cmcdResponseMode.requestUrl, {
                         method: cmcdResponseMode.requestMethod,
                         headers: cmcdResponseMode.requestHeaders,
@@ -632,6 +632,7 @@ function HTTPLoader(cfg) {
             } else if (cmcdVersion === 2){
                 const cmcdRequestMode = settings.get().streaming.cmcd.reporting.requestMode;
                 const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+                const stateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
                 // Needs to be called to trigger the CMCD_DATA_GENERATED event only once
                 cmcdModel.getHeaderParameters(request);
 
@@ -657,8 +658,13 @@ function HTTPLoader(cfg) {
                         request.cmcdResponseMode.requestHeaders = { ...cmcdResponseMode.requestHeaders, ...cmcdHeaders};
                     }
                 }
+
+                if (stateIntervalMode.enabled){
+                    // const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
+                    // Only JSON mode for now
+                    cmcdModel.handleStateIntervalData(request)
+                }
             }
-            // TODO: Add State-Interval Mode   
         }
     }
 

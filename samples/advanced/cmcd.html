@@ -54,12 +54,19 @@
                                 mode: CMCD_MODE_HEADER, /*overrides global mode */
                             },
                             responseMode: {
-                                enabled: true, /* enable cmcdv2 response mode */
+                                enabled: false, /* enable cmcdv2 response mode */
                                 mode: CMCD_MODE_QUERY, /*overrides global mode */
                                 enabledKeys: ['br', 'd', 'ot', 'tb'], /*optional, overrides global keys */
                                 requestUrl: 'http://localhost:3000/cmcd_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST', /*optional, get by default */
                                 requestHeaders: {} /*optional, additional headers for report request */
+                            },
+                            stateIntervalMode: {
+                                enabled: true,
+                                interval: 10000, // 10 seconds
+                                requestUrl: 'http://localhost:3000/cmcd_state',
+                                requestMethod: 'POST',
+                                enabledKeys: ['br', 'd', 'ot', 'tb']
                             }
                         },
                         sid: 'b248658d-1d1a-4039-91d0-8c08ba597da5', /* session id send with each request */
