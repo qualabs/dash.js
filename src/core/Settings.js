@@ -1314,6 +1314,14 @@ function Settings() {
                         requestUrl: 'http://localhost:3000/cmcd_server',
                         requestMethod: 'POST',
                         requestHeaders: {}
+                    },
+                    stateIntervalMode: {
+                        enabled: false,
+                        mode: null,
+                        interval: 30000,
+                        requestUrl: 'http://localhost:3000/cmcd_server',
+                        requestMethod: 'POST',
+                        enabledKeys: null
                     }
                 }
             },

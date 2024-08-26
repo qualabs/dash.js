@@ -230,7 +230,7 @@ function HTTPLoader(cfg) {
         const _onRequestEnd = function (aborted = false) {
             if (httpRequest.customData.request.cmcdVersion === 2) {
                 const cmcdResponseMode = httpRequest.customData.request.cmcdResponseMode;
-                if (cmcdResponseMode.enabled){
+                if (cmcdResponseMode && cmcdResponseMode.enabled){
                     fetch(cmcdResponseMode.requestUrl, {
                         method: cmcdResponseMode.requestMethod,
                         headers: cmcdResponseMode.requestHeaders,
@@ -658,7 +658,6 @@ function HTTPLoader(cfg) {
                     }
                 }
             }
-            // TODO: Add State-Interval Mode   
         }
     }
 
