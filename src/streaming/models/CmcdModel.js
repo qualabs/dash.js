@@ -71,6 +71,9 @@ function CmcdModel() {
     let settings = Settings(context).getInstance();
     let debug = Debug(context).getInstance();
 
+    // eslint-disable-next-line
+    let intervalTimer;
+
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         logger = debug.getLogger(instance);
@@ -85,6 +88,14 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('playing'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('paused'), instance);
+        
+        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+        if (cmcdStateIntervalMode){
+            const interval = settings.get().streaming.cmcd.reporting.stateIntervalMode.interval;
+            if (interval !== 0) {
+                _startCmcdStateIntervalTimer(interval, cmcdStateIntervalMode);
+            }
+        }
     }
 
     function setConfig(config) {
@@ -134,37 +145,57 @@ function CmcdModel() {
     }
 
     function _onStateChange(state) {
+        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+        if (cmcdStateIntervalMode){
+            _sendCmcdStateIntervalData(state, cmcdStateIntervalMode);
+        }
+    }
+
+    function _sendCmcdStateIntervalData(state, cmcdStateIntervalMode) {
+        const cmcdData = _getStateIntervalCmcdData(state);
+        const filteredCmcdData = _applyWhitelist(cmcdData, 3);
+
+        var requestUrl = cmcdStateIntervalMode.requestUrl;
+        var headers = {}
+
+        if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_QUERY) {
+            const additionalQueryParameter = [];
+            const cmcdQueryParams = encodeCmcd(filteredCmcdData);
+            if (cmcdQueryParams) {
+                additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
+            }
+            requestUrl = Utils.addAditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
+        } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
+            headers = toCmcdHeaders(filteredCmcdData)
+        }
+        
+        fetch(requestUrl, {
+            method: cmcdStateIntervalMode.requestMethod,
+            headers: headers
+        }).then(response => {
+            console.log('State-interval CMCD data sent successfully:', response);
+        }).catch(error => {
+            console.error('Error sending state-interval CMCD data:', error);
+        });
+    }
+
+    function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
+        intervalTimer = setTimeout(() => {
+            _sendCmcdStateIntervalData(interval, stateIntervalMode)
+            // Restart the timer
+            _startCmcdStateIntervalTimer(interval, stateIntervalMode);
+        }, interval); 
+    }
+
+    function _getCmcdStateIntervalData() {
         const cmcdVersion = settings.get().streaming.cmcd.version;
         if (isCmcdEnabled() && cmcdVersion === 2) {
             const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
             if (cmcdStateIntervalMode && cmcdStateIntervalMode.enabled) {
-                const cmcdData = _getStateIntervalCmcdData(state);
-                const filteredCmcdData = _applyWhitelist(cmcdData, 3);
-
-                var requestUrl = cmcdStateIntervalMode.requestUrl;
-                var headers = {}
-
-                if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_QUERY) {
-                    const additionalQueryParameter = [];
-                    const cmcdQueryParams = encodeCmcd(filteredCmcdData);
-                    if (cmcdQueryParams) {
-                        additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
-                    }
-                    requestUrl = Utils.addAditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
-                } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
-                    headers = toCmcdHeaders(filteredCmcdData)
-                }
-                
-                fetch(requestUrl, {
-                    method: cmcdStateIntervalMode.requestMethod,
-                    headers: headers
-                }).then(response => {
-                    console.log('State-interval CMCD data sent successfully:', response);
-                }).catch(error => {
-                    console.error('Error sending state-interval CMCD data:', error);
-                });
+                return cmcdStateIntervalMode
             }
         }
+        return null
     }
 
     function _updateStreamProcessors() {
