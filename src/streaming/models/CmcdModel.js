@@ -181,7 +181,7 @@ function CmcdModel() {
 
     function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
         intervalTimer = setTimeout(() => {
-            _sendCmcdStateIntervalData(interval, stateIntervalMode)
+            _sendCmcdStateIntervalData(null, stateIntervalMode)
             // Restart the timer
             _startCmcdStateIntervalTimer(interval, stateIntervalMode);
         }, interval); 
@@ -631,7 +631,9 @@ function CmcdModel() {
         const data = {};
 
         // Adds mandatory state key
-        data.sta = state;
+        if (state) {
+            data.sta = state;
+        }
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
 
