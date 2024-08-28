@@ -86,8 +86,12 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('starting'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('playing'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('paused'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('seeking'), instance);
+        eventBus.on(MediaPlayerEvents.BUFFER_EMPTY, () => _onStateChange('rebuffering'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('error'), instance);
         
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
