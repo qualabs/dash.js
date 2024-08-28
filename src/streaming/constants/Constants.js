@@ -228,7 +228,7 @@ export default {
      *  @static
      *  TODO: Confirm keys and create CMCD AVAILABLE KEYS arrays for CMCD v2 and Response Mode
      */
-    CMCD_AVAILABLE_KEYS_STATE_INTERVAL: ['sta', 'sid', 'sf', 'st', 'v', 'ts', 'mtp', 'msd', 'lb', 'tb', 'tab', 'lab'],
+    CMCD_AVAILABLE_KEYS_STATE_INTERVAL: ['sta', 'sid', 'cid', 'sf', 'st', 'v', 'ts', 'mtp', 'msd', 'lb', 'tb', 'tab', 'lab'],
 
     /**
      *  @constant {string} CMCD_AVAILABLE_REQUESTS specifies all the availables requests type for CMCD metrics.
