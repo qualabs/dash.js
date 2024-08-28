@@ -264,6 +264,8 @@ function CmcdModel() {
                 });
             } else if (cmcdReportingMode === 3) {
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys ? settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported State-Interval mode keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_STATE_INTERVAL.includes(key));
                 // Add CMCD v2 State-interval mode mandatory keys
                 const requiredKeys = ['sta'];
                 requiredKeys.forEach(key => {
