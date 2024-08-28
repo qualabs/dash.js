@@ -56,7 +56,7 @@
                             responseMode: {
                                 enabled: true, /* enable cmcdv2 response mode. FALSE by default */
                                 mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
-                                enabledKeys: ['sid', 'cid', 'br', 'd', 'ot', 'tb'], /*optional, overrides global keys */
+                                enabledKeys: ['sid', 'cid', 'br', 'd', 'ot', 'tb', 'v'], /*optional, overrides global keys */
                                 requestUrl: 'http://localhost:3000/cmcd_response_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST', /*optional, get by default */
                             },
@@ -64,7 +64,7 @@
                                 enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
                                 mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
                                 interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
-                                enabledKeys: ['sid', 'cid', 'v', 'sf'], /* optional, overrides global keys */
+                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v'], /* Currently only supports: 'sta', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
                                 requestUrl: 'http://localhost:3000/cmcd_state_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST',  /* optional, get by default */
                             }
