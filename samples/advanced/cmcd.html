@@ -51,23 +51,23 @@
                         reporting: {
                             requestMode: {
                                 enabled: true, /* enable cmcdv2 request mode */
-                                mode: CMCD_MODE_HEADER, /*overrides global mode */
+                                mode: CMCD_MODE_HEADER, /* overrides global mode */
                             },
                             responseMode: {
-                                enabled: false, /* enable cmcdv2 response mode */
-                                mode: CMCD_MODE_QUERY, /*overrides global mode */
+                                enabled: true, /* enable cmcdv2 response mode. FALSE by default */
+                                mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
                                 enabledKeys: ['br', 'd', 'ot', 'tb'], /*optional, overrides global keys */
                                 requestUrl: 'http://localhost:3000/cmcd_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST', /*optional, get by default */
-                                requestHeaders: {} /*optional, additional headers for report request */
+                                requestHeaders: {} /* optional, additional headers for report request */
                             },
                             stateIntervalMode: {
-                                enabled: true,
-                                mode: CMCD_MODE_QUERY,
-                                interval: 10000,
-                                requestUrl: 'http://localhost:3000/cmcd_server',
-                                requestMethod: 'POST',
-                                enabledKeys: ['v']
+                                enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
+                                mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
+                                interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
+                                enabledKeys: ['v', 'url'], /* optional, overrides global keys */
+                                requestUrl: 'http://localhost:3000/cmcd_server', /*mandatory, URL to send report */
+                                requestMethod: 'POST',  /* optional, get by default */
                             }
                         },
                         sid: 'b248658d-1d1a-4039-91d0-8c08ba597da5', /* session id send with each request */
