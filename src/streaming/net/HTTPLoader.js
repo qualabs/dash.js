@@ -654,7 +654,7 @@ function HTTPLoader(cfg) {
                         request.cmcdResponseMode.requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
                     } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
                         const cmcdHeaders = cmcdModel.getHeaderParameters(request, false, 2);
-                        request.cmcdResponseMode.requestHeaders = { ...cmcdResponseMode.requestHeaders, ...cmcdHeaders};
+                        request.cmcdResponseMode.requestHeaders = cmcdHeaders;
                     }
                 }
             }
