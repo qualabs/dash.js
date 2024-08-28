@@ -71,9 +71,6 @@ function CmcdModel() {
     let settings = Settings(context).getInstance();
     let debug = Debug(context).getInstance();
 
-    // eslint-disable-next-line
-    let intervalTimer;
-
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         logger = debug.getLogger(instance);
@@ -142,6 +139,7 @@ function CmcdModel() {
         _initialMediaRequestsDone = {};
         _lastMediaTypeRequest = undefined;
         _updateStreamProcessors();
+        _setCmcdVersion();
     }
 
     function _onPeriodSwitchComplete() {
@@ -184,7 +182,7 @@ function CmcdModel() {
     }
 
     function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
-        intervalTimer = setTimeout(() => {
+        setTimeout(() => {
             _sendCmcdStateIntervalData(null, stateIntervalMode)
             // Restart the timer
             _startCmcdStateIntervalTimer(interval, stateIntervalMode);
@@ -192,8 +190,7 @@ function CmcdModel() {
     }
 
     function _getCmcdStateIntervalData() {
-        const cmcdVersion = settings.get().streaming.cmcd.version;
-        if (isCmcdEnabled() && cmcdVersion === 2) {
+        if (isCmcdEnabled() && internalData.v === 2) {
             const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
             if (cmcdStateIntervalMode && cmcdStateIntervalMode.enabled) {
                 return cmcdStateIntervalMode
@@ -370,6 +367,11 @@ function CmcdModel() {
         });
 
         return true;
+    }
+
+    function _setCmcdVersion() {
+        const cmcdVersion = settings.get().streaming.cmcd?.version
+        internalData.v = cmcdVersion ? cmcdVersion : CMCD_VERSION;
     }
 
     function getCmcdParametersFromManifest() {
@@ -598,8 +600,7 @@ function CmcdModel() {
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
         cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
 
-        const cmcdVersion = settings.get().streaming.cmcd.version;
-        data.v = cmcdVersion === 2 ? 2 : CMCD_VERSION;
+        data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
@@ -624,7 +625,7 @@ function CmcdModel() {
 
         // Add v2 mandatory keys
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-        if (cmcdVersion === 2 && cmcdResponseMode.enabled) {
+        if (internalData.v === 2 && cmcdResponseMode.enabled) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
             // TODO: This key needs to be generated when loading the media request in _loadRequest
             data.ts = Date.now();
@@ -643,8 +644,7 @@ function CmcdModel() {
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
 
-        const cmcdVersion = settings.get().streaming.cmcd.version;
-        data.v = cmcdVersion === 2 ? 2 : CMCD_VERSION;
+        data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
 
