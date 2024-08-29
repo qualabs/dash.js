@@ -154,7 +154,7 @@ function CmcdModel() {
     }
 
     function _sendCmcdStateIntervalData(state, cmcdStateIntervalMode) {
-        const cmcdData = _getStateIntervalCmcdData(state);
+        const cmcdData = _getGenericCmcdData(null, state);
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
 
         var requestUrl = cmcdStateIntervalMode.requestUrl;
@@ -593,9 +593,13 @@ function CmcdModel() {
     }
 
 
-    function _getGenericCmcdData(request) {
+    function _getGenericCmcdData(request, playerState = null) {
         const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
+
+        if (playerState) {
+            data.sta = playerState;
+        }
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
         cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
@@ -625,45 +629,10 @@ function CmcdModel() {
 
         // Add v2 mandatory keys
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-        if (internalData.v === 2 && cmcdResponseMode.enabled) {
+        if (request && internalData.v === 2 && cmcdResponseMode.enabled) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
             // TODO: This key needs to be generated when loading the media request in _loadRequest
             data.ts = Date.now();
-        }
-
-        return data;
-    }
-
-    function _getStateIntervalCmcdData(state) {
-        const data = {};
-
-        // Adds mandatory state key
-        if (state) {
-            data.sta = state;
-        }
-
-        let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
-
-        data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
-
-        data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
-
-        data.sid = `${data.sid}`;
-
-        if (cid) {
-            data.cid = `${cid}`;
-        }
-
-        if (!isNaN(internalData.pr) && internalData.pr !== 1 && internalData.pr !== null) {
-            data.pr = internalData.pr;
-        }
-
-        if (internalData.st) {
-            data.st = internalData.st;
-        }
-
-        if (internalData.sf) {
-            data.sf = internalData.sf;
         }
 
         return data;
