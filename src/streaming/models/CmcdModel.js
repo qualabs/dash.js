@@ -64,7 +64,8 @@ function CmcdModel() {
         _lastMediaTypeRequest,
         _isStartup,
         _bufferLevelStarved,
-        _initialMediaRequestsDone;
+        _initialMediaRequestsDone,
+        _playbackStartedTime;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -147,6 +148,17 @@ function CmcdModel() {
     }
 
     function _onStateChange(state) {
+        if (state === 'starting') {
+            if (!_playbackStartedTime) {
+                _playbackStartedTime = Date.now()
+            }
+        }
+        if (state === 'playing') {
+            if (!_playbackStartedTime || internalData.msd) {
+                return
+            }
+            internalData.msd = Date.now() - _playbackStartedTime
+        }
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
             _sendCmcdStateIntervalData(state, cmcdStateIntervalMode);
@@ -250,6 +262,7 @@ function CmcdModel() {
             var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
             // For CMCD v2 use the reporting mode keys or global ones as default
+            // TODO: Try to improve this block by using _checkAvailableKeys(cmcdParametersFromManifest)
             if (cmcdReportingMode === 1){
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.requestMode.enabledKeys ? settings.get().streaming.cmcd.reporting.requestMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
                 // Remove unsupported keys
@@ -268,7 +281,7 @@ function CmcdModel() {
                 // Remove unsupported State-Interval mode keys
                 enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_STATE_INTERVAL.includes(key));
                 // Add CMCD v2 State-interval mode mandatory keys
-                const requiredKeys = ['sta'];
+                const requiredKeys = ['ts', 'sta'];
                 requiredKeys.forEach(key => {
                     if (!enabledCMCDKeys.includes(key)) {
                         enabledCMCDKeys.push(key);
@@ -615,6 +628,16 @@ function CmcdModel() {
             data.cid = `${cid}`;
         }
 
+        // Add new ltc and msd cmcd v2 keys
+        let ltc = playbackController.getCurrentLiveLatency() * 1000;
+        if (!isNaN(ltc)) {
+            data.ltc = ltc;
+        }
+        // TODO: Send this key only once for each reporting mode
+        if (!isNaN(internalData.msd)) {
+            data.msd = internalData.msd;
+        }
+
         if (!isNaN(internalData.pr) && internalData.pr !== 1 && internalData.pr !== null) {
             data.pr = internalData.pr;
         }
@@ -629,9 +652,13 @@ function CmcdModel() {
 
         // Add v2 mandatory keys
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+        const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
         if (request && internalData.v === 2 && cmcdResponseMode.enabled) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
-            // TODO: This key needs to be generated when loading the media request in _loadRequest
+        }
+        if (internalData.v === 2 && (cmcdResponseMode.enabled || cmcdStateIntervalMode.enabled)) {
+            // TODO: This key needs to be generated when loading the media request in _loadRequest for response Mode
+            // or in the onStateChange() for the state-interval mode
             data.ts = Date.now();
         }
 

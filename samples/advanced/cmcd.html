@@ -64,7 +64,7 @@
                                 enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
                                 mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
                                 interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
-                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v'], /* Currently only supports: 'sta', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
+                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v', 'ltc', 'msd'], /* Currently only supports: 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
                                 requestUrl: 'http://localhost:3000/cmcd_state_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST',  /* optional, get by default */
                             }
