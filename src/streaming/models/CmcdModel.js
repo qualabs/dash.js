@@ -84,12 +84,12 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('starting'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('playing'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('paused'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('seeking'), instance);
-        eventBus.on(MediaPlayerEvents.BUFFER_EMPTY, () => _onStateChange('rebuffering'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('error'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('p'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
+        eventBus.on(MediaPlayerEvents.BUFFER_EMPTY, () => _onStateChange('r'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('e'), instance);
         
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
@@ -148,12 +148,12 @@ function CmcdModel() {
     }
 
     function _onStateChange(state) {
-        if (state === 'starting') {
+        if (state === 's') {
             if (!_playbackStartedTime) {
                 _playbackStartedTime = Date.now()
             }
         }
-        if (state === 'playing') {
+        if (state === 'p') {
             if (!_playbackStartedTime || internalData.msd) {
                 return
             }
