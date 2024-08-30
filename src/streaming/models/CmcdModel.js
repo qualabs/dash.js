@@ -87,6 +87,7 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
@@ -150,16 +151,17 @@ function CmcdModel() {
     }
 
     function _onStateChange(state) {
-        if (state === 's') {
-            if (!_playbackStartedTime) {
+        if (!internalData.msd){
+            // Calculate msd key
+            if (!_playbackStartedTime && state === 'p'){
                 _playbackStartedTime = Date.now();
             }
-        }
-        if (state === 'p') {
-            if (_playbackStartedTime && !internalData.msd) {
-                internalData.msd = Date.now() - _playbackStartedTime;
+            if (_playbackStartedTime && state === 'pl'){
+                internalData.msd = Date.now() - _playbackStartedTime
+                return
             }
         }
+        
         if (internalData.state !== state) {
             const cmcdStateIntervalMode = _getCmcdStateIntervalData();
             internalData.sta = state;
@@ -830,10 +832,19 @@ function CmcdModel() {
     }
 
     function reset() {
-        eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, this);
-        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
+        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, instance);
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
+        eventBus.off(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
+        eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
 
         _resetInitialSettings();
     }

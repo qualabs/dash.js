@@ -55,24 +55,24 @@
                             },
                             responseMode: {
                                 enabled: true, /* enable cmcdv2 response mode. FALSE by default */
-                                mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
-                                //enabledKeys: ['sid', 'cid', 'br', 'd', 'ot', 'tb', 'v', 'sta'], /*optional, overrides global keys */
-                                requestUrl: 'http://localhost:3000/cmcd_response_server', /*mandatory, URL to send report */
+                                mode: CMCD_MODE_HEADER, /* overrides global mode. JSON not supported */
+                                enabledKeys: ['sid', 'cid', 'ts', 'url', 'br', 'd', 'ot', 'tb', 'v', 'sta'], /* optional, overrides global keys */
+                                requestUrl: 'http://localhost:3100/cmcd_response_server', /*mandatory, URL to send report */
                                 requestMethod: 'POST', /*optional, get by default */
                             },
                             stateIntervalMode: {
                                 enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
                                 mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
                                 interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
-                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v', 'ltc', 'msd'], /* Currently only supports: 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
-                                requestUrl: 'http://localhost:3000/cmcd_state_server', /*mandatory, URL to send report */
+                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v', 'ltc', 'msd', 'sta'], /* Currently only supports: 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
+                                requestUrl: 'http://localhost:3100/cmcd_state_server', /* mandatory, URL to send report */
                                 requestMethod: 'POST',  /* optional, get by default */
                             }
                         },
                         sid: 'b248658d-1d1a-4039-91d0-8c08ba597da5', /* session id send with each request */
                         cid: '21cf726cfe3d937b5f974f72bb5bd06a', /* content id send with each request */
                         mode: CMCD_MODE_QUERY, /* global mode if not specified in each mode */
-                        enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v', 'sta', 'ltc', 'msd']
+                        enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v', 'sta', 'ltc', 'msd', 'sta']
                     }
                 }
             });
@@ -90,7 +90,7 @@
             if (cmcdVersion === 1) {
                 data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
             } else if (cmcdVersion === 2){
-                // Currently, headers are always generated in cmcd version 2
+                /* Currently, headers are always generated in cmcd version 2 */
                 data = getKeysForHeaderMode(event);
             }
             var keys = Object.keys(data);
