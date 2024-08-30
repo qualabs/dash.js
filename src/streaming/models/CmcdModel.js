@@ -64,7 +64,8 @@ function CmcdModel() {
         _lastMediaTypeRequest,
         _isStartup,
         _bufferLevelStarved,
-        _initialMediaRequestsDone;
+        _initialMediaRequestsDone,
+        _playbackStartedTime;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -83,6 +84,21 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        
+        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+        if (cmcdStateIntervalMode){
+            const interval = settings.get().streaming.cmcd.reporting.stateIntervalMode.interval;
+            if (interval !== 0) {
+                _startCmcdStateIntervalTimer(interval, cmcdStateIntervalMode);
+            }
+        }
     }
 
     function setConfig(config) {
@@ -118,17 +134,85 @@ function CmcdModel() {
             st: null,
             sf: null,
             sid: `${Utils.generateUuid()}`,
-            cid: null
+            cid: null,
+            sta: null
         };
         _bufferLevelStarved = {};
         _isStartup = {};
         _initialMediaRequestsDone = {};
         _lastMediaTypeRequest = undefined;
         _updateStreamProcessors();
+        _setCmcdVersion();
     }
 
     function _onPeriodSwitchComplete() {
         _updateStreamProcessors();
+    }
+
+    function _onStateChange(state) {
+        if (state === 's') {
+            if (!_playbackStartedTime) {
+                _playbackStartedTime = Date.now();
+            }
+        }
+        if (state === 'p') {
+            if (_playbackStartedTime && !internalData.msd) {
+                internalData.msd = Date.now() - _playbackStartedTime;
+            }
+        }
+        if (internalData.state !== state) {
+            const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+            internalData.sta = state;
+            if (cmcdStateIntervalMode){
+                _sendCmcdStateIntervalData(cmcdStateIntervalMode);
+            }
+        }
+    }
+
+    function _sendCmcdStateIntervalData(cmcdStateIntervalMode) {
+        const cmcdData = _getGenericCmcdData(null);
+        const filteredCmcdData = _applyWhitelist(cmcdData, 3);
+
+        var requestUrl = cmcdStateIntervalMode.requestUrl;
+        var headers = {}
+
+        if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_QUERY) {
+            const additionalQueryParameter = [];
+            const cmcdQueryParams = encodeCmcd(filteredCmcdData);
+            if (cmcdQueryParams) {
+                additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
+            }
+            requestUrl = Utils.addAditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
+        } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
+            headers = toCmcdHeaders(filteredCmcdData)
+        }
+        
+        fetch(requestUrl, {
+            method: cmcdStateIntervalMode.requestMethod,
+            headers: headers
+        }).then(response => {
+            console.log('State-interval CMCD data sent successfully:', response);
+        }).catch(error => {
+            console.error('Error sending state-interval CMCD data:', error);
+        });
+    }
+
+    function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
+        setTimeout(() => {
+            _sendCmcdStateIntervalData(stateIntervalMode)
+            // Restart the timer
+            _startCmcdStateIntervalTimer(interval, stateIntervalMode);
+        }, interval); 
+    }
+
+    function _getCmcdStateIntervalData() {
+        if (isCmcdEnabled() && internalData.v === 2) {
+            const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
+            if (cmcdStateIntervalMode && cmcdStateIntervalMode.enabled) {
+                return cmcdStateIntervalMode
+            }
+        }
+        return null
     }
 
     function _updateStreamProcessors() {
@@ -182,6 +266,7 @@ function CmcdModel() {
             var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
             // For CMCD v2 use the reporting mode keys or global ones as default
+            // TODO: Try to improve this block by using _checkAvailableKeys(cmcdParametersFromManifest)
             if (cmcdReportingMode === 1){
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.requestMode.enabledKeys ? settings.get().streaming.cmcd.reporting.requestMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
                 // Remove unsupported keys
@@ -190,6 +275,17 @@ function CmcdModel() {
                 enabledCMCDKeys = settings.get().streaming.cmcd.reporting.responseMode.enabledKeys ? settings.get().streaming.cmcd.reporting.responseMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
                 // Add CMCD v2 response mode mandatory keys
                 const requiredKeys = ['ts', 'url'];
+                requiredKeys.forEach(key => {
+                    if (!enabledCMCDKeys.includes(key)) {
+                        enabledCMCDKeys.push(key);
+                    }
+                });
+            } else if (cmcdReportingMode === 3) {
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys ? settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported State-Interval mode keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_STATE_INTERVAL.includes(key));
+                // Add CMCD v2 State-interval mode mandatory keys
+                const requiredKeys = ['ts', 'sta'];
                 requiredKeys.forEach(key => {
                     if (!enabledCMCDKeys.includes(key)) {
                         enabledCMCDKeys.push(key);
@@ -288,6 +384,11 @@ function CmcdModel() {
         });
 
         return true;
+    }
+
+    function _setCmcdVersion() {
+        const cmcdVersion = settings.get().streaming.cmcd?.version
+        internalData.v = cmcdVersion ? cmcdVersion : CMCD_VERSION;
     }
 
     function getCmcdParametersFromManifest() {
@@ -513,10 +614,14 @@ function CmcdModel() {
         const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
 
+        if (internalData.sta) {
+            data.sta = internalData.sta;
+        }
+
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
         cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
 
-        data.v = CMCD_VERSION;
+        data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
@@ -525,6 +630,16 @@ function CmcdModel() {
 
         if (cid) {
             data.cid = `${cid}`;
+        }
+
+        // Add new ltc and msd cmcd v2 keys
+        let ltc = playbackController.getCurrentLiveLatency() * 1000;
+        if (!isNaN(ltc)) {
+            data.ltc = ltc;
+        }
+        // TODO: Send this key only once for each reporting mode
+        if (!isNaN(internalData.msd)) {
+            data.msd = internalData.msd;
         }
 
         if (!isNaN(internalData.pr) && internalData.pr !== 1 && internalData.pr !== null) {
@@ -540,11 +655,14 @@ function CmcdModel() {
         }
 
         // Add v2 mandatory keys
-        const cmcdVersion = settings.get().streaming.cmcd.version;
         const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-        if (cmcdVersion === 2 && cmcdResponseMode.enabled) {
+        const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
+        if (request && internalData.v === 2 && cmcdResponseMode.enabled) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
-            // TODO: This key needs to be generated when loading the media request in _loadRequest
+        }
+        if (internalData.v === 2 && (cmcdResponseMode.enabled || cmcdStateIntervalMode.enabled)) {
+            // TODO: This key needs to be generated when loading the media request in _loadRequest for response Mode
+            // or in the onStateChange() for the state-interval mode
             data.ts = Date.now();
         }
 
