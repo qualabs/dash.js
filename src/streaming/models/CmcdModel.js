@@ -85,11 +85,12 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, () => _onStateChange('p'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
-        eventBus.on(MediaPlayerEvents.BUFFER_EMPTY, () => _onStateChange('r'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('e'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
         
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
@@ -133,7 +134,8 @@ function CmcdModel() {
             st: null,
             sf: null,
             sid: `${Utils.generateUuid()}`,
-            cid: null
+            cid: null,
+            sta: null
         };
         _bufferLevelStarved = {};
         _isStartup = {};
@@ -150,23 +152,25 @@ function CmcdModel() {
     function _onStateChange(state) {
         if (state === 's') {
             if (!_playbackStartedTime) {
-                _playbackStartedTime = Date.now()
+                _playbackStartedTime = Date.now();
             }
         }
         if (state === 'p') {
-            if (!_playbackStartedTime || internalData.msd) {
-                return
+            if (_playbackStartedTime && !internalData.msd) {
+                internalData.msd = Date.now() - _playbackStartedTime;
             }
-            internalData.msd = Date.now() - _playbackStartedTime
         }
-        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
-        if (cmcdStateIntervalMode){
-            _sendCmcdStateIntervalData(state, cmcdStateIntervalMode);
+        if (internalData.state !== state) {
+            const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+            internalData.sta = state;
+            if (cmcdStateIntervalMode){
+                _sendCmcdStateIntervalData(cmcdStateIntervalMode);
+            }
         }
     }
 
-    function _sendCmcdStateIntervalData(state, cmcdStateIntervalMode) {
-        const cmcdData = _getGenericCmcdData(null, state);
+    function _sendCmcdStateIntervalData(cmcdStateIntervalMode) {
+        const cmcdData = _getGenericCmcdData(null);
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
 
         var requestUrl = cmcdStateIntervalMode.requestUrl;
@@ -195,7 +199,7 @@ function CmcdModel() {
 
     function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
         setTimeout(() => {
-            _sendCmcdStateIntervalData(null, stateIntervalMode)
+            _sendCmcdStateIntervalData(stateIntervalMode)
             // Restart the timer
             _startCmcdStateIntervalTimer(interval, stateIntervalMode);
         }, interval); 
@@ -606,12 +610,12 @@ function CmcdModel() {
     }
 
 
-    function _getGenericCmcdData(request, playerState = null) {
+    function _getGenericCmcdData(request) {
         const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
 
-        if (playerState) {
-            data.sta = playerState;
+        if (internalData.sta) {
+            data.sta = internalData.sta;
         }
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
