@@ -576,6 +576,17 @@ function CmcdModel() {
             _initialMediaRequestsDone[mediaType] = true;
         }
 
+        // Response timing and status code
+        if (request.startDate && request.firstByteDate){
+            data.ttfb = request.firstByteDate - request.startDate
+        }
+        if (request.endDate && request.startDate){
+            data.ttlb = request.endDate - request.startDate
+        }
+        if (request.status){
+            data.rc = request.status
+        }
+
         return data;
     }
 

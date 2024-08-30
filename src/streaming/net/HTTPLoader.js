@@ -228,18 +228,6 @@ function HTTPLoader(cfg) {
         };
 
         const _onRequestEnd = function (aborted = false) {
-            const cmcdResponseMode = httpRequest.customData.request.cmcdResponseMode;
-            if (cmcdResponseMode && cmcdResponseMode.enabled){
-                fetch(cmcdResponseMode.requestUrl, {
-                    method: cmcdResponseMode.requestMethod,
-                    headers: cmcdResponseMode.requestHeaders,
-                }).then(response => {
-                    console.log('CMCD data sent successfully:', response);
-                }).catch(error => {
-                    console.error('Error sending CMCD data:', error);
-                });
-            }
-
             // Remove the request from our list of requests
             if (httpRequests.indexOf(httpRequest) !== -1) {
                 httpRequests.splice(httpRequests.indexOf(httpRequest), 1);
@@ -297,6 +285,33 @@ function HTTPLoader(cfg) {
                     _retriggerRequest();
                 }
             });
+
+            /* CMCD V2 ResponseMode */
+            const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+            if (cmcdModel.isCmcdEnabled() && cmcdResponseMode.enabled) {
+
+                const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
+                let requestUrl = cmcdResponseMode.requestUrl;
+                let requestHeaderes = null;
+                const request = httpRequest.customData.request;
+                request.status = httpResponse.status
+
+                if (cmcdMode === Constants.CMCD_MODE_QUERY){
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 2);
+                    requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
+                } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
+                    requestHeaderes = cmcdModel.getHeaderParameters(request, false, 2);
+                }
+               
+                fetch(requestUrl, {
+                    method: cmcdResponseMode.requestMethod,
+                    headers: requestHeaderes,
+                }).then(response => {
+                    console.log('CMCD data sent successfully:', response);
+                }).catch(error => {
+                    console.error('Error sending CMCD data:', error);
+                });    
+            }
 
         };
 
@@ -616,6 +631,7 @@ function HTTPLoader(cfg) {
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
         const cmcdRequestModeEnabled = settings.get().streaming.cmcd.reporting.requestMode.enabled;
+        
         if (isIncludedFilters && cmcdModel.isCmcdEnabled() && cmcdRequestModeEnabled) {
             // Needs to be called to trigger the CMCD_DATA_GENERATED event only once
             // TODO: Check how to generate the event only once
@@ -628,23 +644,6 @@ function HTTPLoader(cfg) {
                 request.url = Utils.addAditionalQueryParameterToUrl(request.url, additionalQueryParameter);
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
                 request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request, false, 1));
-            }
-        }
-
-        const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-        if (isIncludedFilters && cmcdModel.isCmcdEnabled() && cmcdResponseMode.enabled) {
-            // Needs to be called to trigger the CMCD_DATA_GENERATED event only once
-            // TODO: Check how to generate the event only once
-            cmcdModel.getHeaderParameters(request);
-
-            request.cmcdResponseMode = cmcdResponseMode;
-            const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
-            if (cmcdMode === Constants.CMCD_MODE_QUERY){
-                const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 2);
-                request.cmcdResponseMode.requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
-            } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
-                const cmcdHeaders = cmcdModel.getHeaderParameters(request, false, 2);
-                request.cmcdResponseMode.requestHeaders = cmcdHeaders;
             }
         }
     }
