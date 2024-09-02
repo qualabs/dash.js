@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oerlay Example</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: transparent;
+        }
+        #logo {
+            position: absolute;
+            width: 150px;
+            height: 50px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+    <div id="logo">Overlay example</div>
+    <script>
+        const logo = document.getElementById('logo');
+        let posX = Math.random() * (window.innerWidth - logo.clientWidth);
+        let posY = Math.random() * (window.innerHeight - logo.clientHeight);
+        let velX = 2;
+        let velY = 2;
+
+        function animate() {
+            posX += velX;
+            posY += velY;
+
+            if (posX <= 0 || posX >= window.innerWidth - logo.clientWidth) {
+                velX *= -1;
+            }
+            if (posY <= 0 || posY >= window.innerHeight - logo.clientHeight) {
+                velY *= -1;
+            }
+
+            logo.style.left = posX + 'px';
+            logo.style.top = posY + 'px';
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

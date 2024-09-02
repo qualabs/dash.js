@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CEA 608/708 Embedded Captions Sample</title>
+    <script src="../../dist/dash.all.debug.js"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="../lib/main.css" rel="stylesheet">
+
+    <style>
+        video {
+            width: 100%;
+        }
+
+        #overlay{
+            position:absolute;
+            height: 100%;
+            top: 0;
+            bottom:0;
+            left:0;
+            right:0;
+        }
+        
+        #overlay div{
+            height: 100%;
+            width: 100%;
+        }        
+
+        .dash-video-player {
+            position: relative; /* This position relative is needed to position the menus */
+            margin: 0 auto;
+            line-height: 1.0;
+        }
+    </style>
+
+    <script class="code">
+        var CAPTION_URL = "https://livesim2.dashif.org/vod/testpic_2s/cea608.mpd",
+            video,
+            player,
+            previousContent = '';
+
+        function init() {
+            var url = CAPTION_URL,
+                TTMLRenderingDiv;
+
+            video = document.querySelector('#main-video');
+            TTMLRenderingDiv = document.querySelector("#ttml-rendering-div");
+
+            player = dashjs.MediaPlayer().create();
+            player.initialize(video, url, true);
+            player.attachTTMLRenderingDiv(TTMLRenderingDiv);
+
+            fetchContent();
+            setInterval(fetchContent, 5000);
+        }
+
+        async function fetchContent() {
+            try {
+                const response = await fetch('./samples/a-overlay-content.html');
+                const newContent = await response.text();
+
+                if (newContent !== previousContent) {
+                    console.log("Fetch content: new content")
+                    previousContent = newContent;
+                    document.getElementById('overlay').innerHTML = `<div>${newContent}</div>`;
+                } else {
+                    console.log("Fetch content: same content, no update")
+                }
+            } catch (error) {
+                console.error('Error fetching content:', error);
+            }
+        }
+    </script>
+</head>
+<body>
+
+<main>
+    <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom">
+            <img class=""
+                 src="../lib/img/dashjs-logo.png"
+                 width="200">
+        </header>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="h-100 p-5 bg-light border rounded-3">
+                    <h3>CEA 608/708 Embedded Captions Sample</h3>
+                    <p>This example shows how content with embedded CEA 608/708 captions can be played back by the dash.js player.</p>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="dash-video-player code">
+                    <div class="videoContainer" id="videoContainer">
+                        <div id="overlay">
+                            <div id="html-overlay"></div>
+                        </div>
+                        <video id="main-video" preload="auto" controls ></video>
+                        <div id="ttml-rendering-div"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div id="code-output"></div>
+            </div>
+        </div>
+        <footer class="pt-3 mt-4 text-muted border-top">
+            &copy; DASH-IF
+        </footer>
+    </div>
+</main>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        init();
+    });
+</script>
+<script src="../highlighter.js"></script>
+</body>
+</html>
