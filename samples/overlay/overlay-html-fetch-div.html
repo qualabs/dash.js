@@ -47,16 +47,23 @@
 
             video = document.querySelector('#main-video');
             TTMLRenderingDiv = document.querySelector("#ttml-rendering-div");
+            OverlayRenderingDiv = document.querySelector('#overlay');
 
             player = dashjs.MediaPlayer().create();
             player.initialize(video, url, true);
             player.attachTTMLRenderingDiv(TTMLRenderingDiv);
-
-            fetchContent();
-            setInterval(fetchContent, 5000);
+            attachDivOverlayRenderingDiv(OverlayRenderingDiv)
         }
 
-        async function fetchContent() {
+        function attachDivOverlayRenderingDiv(overlayElement){
+            var overlayDiv = document.createElement('div');
+            overlayDiv.id = 'div-overlay';
+            div = overlayElement.appendChild(overlayDiv);
+            fetchContent(div);
+            setInterval(()=>fetchContent(div), 5000);
+        }
+
+        async function fetchContent(div) {
             try {
                 const response = await fetch('./samples/a-overlay-content.html');
                 const newContent = await response.text();
@@ -64,7 +71,7 @@
                 if (newContent !== previousContent) {
                     console.log("Fetch content: new content")
                     previousContent = newContent;
-                    document.getElementById('overlay').innerHTML = `<div>${newContent}</div>`;
+                    div.innerHTML = newContent;
                 } else {
                     console.log("Fetch content: same content, no update")
                 }
@@ -93,10 +100,8 @@
             <div class="col-md-8">
                 <div class="dash-video-player code">
                     <div class="videoContainer" id="videoContainer">
-                        <div id="overlay">
-                            <div id="html-overlay"></div>
-                        </div>
                         <video id="main-video" preload="auto" controls ></video>
+                        <div id="overlay"></div>
                         <div id="ttml-rendering-div"></div>
                     </div>
                 </div>
