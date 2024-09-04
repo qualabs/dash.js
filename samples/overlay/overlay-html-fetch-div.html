@@ -16,6 +16,7 @@
 
         #overlay{
             position:absolute;
+            pointer-events: none;
             height: 100%;
             top: 0;
             bottom:0;
@@ -23,7 +24,7 @@
             right:0;
         }
         
-        #overlay div{
+        #overlay video, #overlay iframe{
             height: 100%;
             width: 100%;
         }        
@@ -52,10 +53,10 @@
             player = dashjs.MediaPlayer().create();
             player.initialize(video, url, true);
             player.attachTTMLRenderingDiv(TTMLRenderingDiv);
-            attachDivOverlayRenderingDiv(OverlayRenderingDiv)
+            attachOverlayRenderingDiv(OverlayRenderingDiv)
         }
 
-        function attachDivOverlayRenderingDiv(overlayElement){
+        function attachOverlayRenderingDiv(overlayElement){
             var overlayDiv = document.createElement('div');
             overlayDiv.id = 'div-overlay';
             div = overlayElement.appendChild(overlayDiv);
