@@ -87,7 +87,7 @@
 
         async function fetchContent(iframe) {
             try {
-                const response = await fetch('./samples/a-overlay-content.html');
+                const response = await fetch('./samples/a-overlay-content-sync.html');
                 const newContent = await response.text();
 
                 if (newContent !== previousContent) {

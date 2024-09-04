@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oerlay Example</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: transparent;
+        }
+        #logo {
+            position: absolute;
+            width: 150px;
+            height: 50px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+    <div id="logo">
+        <p>Overlay</p> 
+        <p id="time">0</p>
+    </div>
+
+    <script>
+        const logo = document.getElementById('logo');
+        let posX = 0;
+        let posY = 0;
+        let status = 'paused';
+        let currentTime = 0
+
+        window.addEventListener('message', function(event) {
+            var data = event.data;
+            var statusDiv = document.getElementById('status');
+            var timeDiv = document.getElementById('time');
+
+            switch (data.event) {
+                case 'playing':
+                    status = data.event
+                    break;
+                case 'paused':
+                    status = data.event                  
+                    break;
+                case 'timeupdate':
+                    mode = 'timeupdate'
+                    currentTime = data.currentTime;
+                    timeDiv.innerHTML = data.currentTime;
+                    break;
+            }
+        });
+
+        function animate() {
+            posX = currentTime*100 % (window.innerWidth - logo.clientWidth);
+            posY = currentTime*100 % (window.innerHeight - logo.clientHeight);
+
+            logo.style.transform = `translate(${posX}px, ${posY}px)`;
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
