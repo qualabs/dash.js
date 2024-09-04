@@ -37,7 +37,7 @@
     </style>
 
     <script class="code">
-        var CAPTION_URL = "https://livesim2.dashif.org/vod/testpic_2s/cea608.mpd",
+        var CAPTION_URL = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd",
             video,
             player,
             previousContent = '';
@@ -60,10 +60,30 @@
             var overlayIframe = document.createElement('iframe');
             overlayIframe.id = 'iframe-overlay';
             overlayIframe.frameBorder = 0;
-            iframe = overlayElement.appendChild(overlayIframe);
-            fetchContent(iframe);
-            setInterval(()=>fetchContent(iframe), 5000);
+            overlayElement.appendChild(overlayIframe);
+            fetchContent(overlayIframe);
+            setInterval(()=>fetchContent(overlayIframe), 5000);
+
+            player.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, function(e) {
+                sendMessageToIframe(overlayIframe, { event: 'timeupdate', currentTime: e.time });
+            });
+
+            player.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, function() {
+                sendMessageToIframe(overlayIframe, { event: 'playing' });
+            });
+
+            player.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
+                sendMessageToIframe(overlayIframe, { event: 'paused' });
+            });
         }
+
+        function sendMessageToIframe(iframe, message) {
+            console.log(message)
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage(message, '*');
+            }
+        }
+
 
         async function fetchContent(iframe) {
             try {

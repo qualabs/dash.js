@@ -24,31 +24,68 @@
     </style>
 </head>
 <body>
-    <div id="logo">Overlay example</div>
+    <div id="logo">
+        <p>Overlay</p> 
+        <p id="time"></p>
+    </div>
+
     <script>
         const logo = document.getElementById('logo');
         let posX = Math.random() * (window.innerWidth - logo.clientWidth);
         let posY = Math.random() * (window.innerHeight - logo.clientHeight);
         let velX = 2;
         let velY = 2;
+        let status = 'playing';
+        let mode = 'auto';
+        let currentTime = null
+        let lastTime = null
+
+        window.addEventListener('message', function(event) {
+            var data = event.data;
+            var statusDiv = document.getElementById('status');
+            var timeDiv = document.getElementById('time');
+
+            switch (data.event) {
+                case 'playing':
+                    status=data.event
+                    velX = 2;
+                    velY = 2;
+                    break;
+                case 'paused':
+                    status = data.event
+                    velX = 0;
+                    velY = 0;                    
+                    break;
+                case 'timeupdate':
+                    mode = 'timeupdate'
+                    lastTime = currentTime;
+                    currentTime = data.currentTime;
+                    timeDiv.innerHTML = data.currentTime;
+                    break;
+            }
+        });
+        let dirX=1;
+        let dirY=1;
 
         function animate() {
-            posX += velX;
-            posY += velY;
-
-            if (posX <= 0 || posX >= window.innerWidth - logo.clientWidth) {
-                velX *= -1;
+            if (mode == 'auto'){
+                posX += velX;
+                posY += velY;
+                if (posX <= 0 || posX >= window.innerWidth - logo.clientWidth) {
+                    velX *= -1;
+                }
+                if (posY <= 0 || posY >= window.innerHeight - logo.clientHeight) {
+                    velY *= -1;
+                }
+                logo.style.transition = null;
+            } else {
+                posX = currentTime*100 % (window.innerWidth - logo.clientWidth);
+                posY = currentTime*100 % (window.innerHeight - logo.clientHeight);
             }
-            if (posY <= 0 || posY >= window.innerHeight - logo.clientHeight) {
-                velY *= -1;
-            }
 
-            logo.style.left = posX + 'px';
-            logo.style.top = posY + 'px';
-
+            logo.style.transform = `translate(${posX}px, ${posY}px)`;
             requestAnimationFrame(animate);
         }
-
         animate();
     </script>
 </body>
