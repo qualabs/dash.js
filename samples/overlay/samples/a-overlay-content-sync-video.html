@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CEA 608/708 Embedded Captions Sample</title>
+    <script src="../../../dist/dash.all.debug.js"></script>
+
+    <style>
+        video {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 30%;
+        }
+        </style>
+</head>
+<body>
+    <video id="video" poster="http://mediapm.edgesuite.net/will/dash/temp/poster.png" >
+        <source src="https://dash.akamaized.net/digitalprimates/fraunhofer/480p_video/heaac_2_0_with_video/Sintel/sintel_480p_heaac2_0.mpd" type="application/dash+xml">
+    </video>
+
+    <script>
+
+    window.addEventListener('message', function(event) {
+        var video = document.getElementById('video');
+        var data = event.data;
+
+        switch (data.event) {
+            case 'playing':
+                video.play()
+                break;
+            case 'paused':
+                video.pause()                  
+                break;
+        }
+        
+    });
+    </script>
+</body>
+</html>

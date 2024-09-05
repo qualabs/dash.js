@@ -63,18 +63,6 @@
             overlayElement.appendChild(overlayIframe);
             fetchContent(overlayIframe);
             setInterval(()=>fetchContent(overlayIframe), 5000);
-
-            player.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, function(e) {
-                sendMessageToIframe(overlayIframe, { event: 'timeupdate', currentTime: e.time });
-            });
-
-            player.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, function() {
-                sendMessageToIframe(overlayIframe, { event: 'playing' });
-            });
-
-            player.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
-                sendMessageToIframe(overlayIframe, { event: 'paused' });
-            });
         }
 
         function sendMessageToIframe(iframe, message) {
@@ -87,7 +75,7 @@
 
         async function fetchContent(iframe) {
             try {
-                const response = await fetch('./samples/a-overlay-content-sync.html');
+                const response = await fetch('./samples/a-overlay-content.html');
                 const newContent = await response.text();
 
                 if (newContent !== previousContent) {
@@ -118,8 +106,8 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="h-100 p-5 bg-light border rounded-3">
-                    <h3>CEA 608/708 Embedded Captions Sample</h3>
-                    <p>This example shows how content with embedded CEA 608/708 captions can be played back by the dash.js player.</p>
+                    <h3>Overlay Example</h3>
+                    <p></p>
                 </div>
             </div>
             <div class="col-md-8">

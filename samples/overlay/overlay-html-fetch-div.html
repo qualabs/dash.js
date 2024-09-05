@@ -61,7 +61,7 @@
             overlayDiv.id = 'div-overlay';
             div = overlayElement.appendChild(overlayDiv);
             fetchContent(div);
-            setInterval(()=>fetchContent(div), 5000);
+            setInterval(()=>fetchContent(div), 1000);
         }
 
         async function fetchContent(div) {
@@ -94,8 +94,8 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="h-100 p-5 bg-light border rounded-3">
-                    <h3>CEA 608/708 Embedded Captions Sample</h3>
-                    <p>This example shows how content with embedded CEA 608/708 captions can be played back by the dash.js player.</p>
+                    <h3>Overlay Example</h3>
+                    <p></p>
                 </div>
             </div>
             <div class="col-md-8">

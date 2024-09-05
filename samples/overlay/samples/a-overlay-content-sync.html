@@ -12,7 +12,7 @@
         }
         #logo {
             position: absolute;
-            width: 150px;
+            width: 280px;
             height: 50px;
             color: white;
             font-size: 20px;
@@ -21,12 +21,17 @@
             justify-content: center;
             background-color: red;
         }
+
+        #logo img {
+            height:90%;
+        }
     </style>
 </head>
 <body>
     <div id="logo">
-        <p>Overlay</p> 
-        <p id="time">0</p>
+        <img src="./NBC-Logo.png"></img>
+        <p>Time:</p> 
+        <p id="time">00:00:00.000</p>
     </div>
 
     <script>
@@ -51,7 +56,7 @@
                 case 'timeupdate':
                     mode = 'timeupdate'
                     currentTime = data.currentTime;
-                    timeDiv.innerHTML = data.currentTime;
+                    timeDiv.innerHTML = convertSecondsToTimeFormat(data.currentTime);
                     break;
             }
         });
@@ -63,7 +68,22 @@
             logo.style.transform = `translate(${posX}px, ${posY}px)`;
             requestAnimationFrame(animate);
         }
+
         animate();
+
+        function convertSecondsToTimeFormat(seconds) {
+            // Calculate hours, minutes, and remaining seconds
+            let hours = Math.floor(seconds / 3600);
+            let minutes = Math.floor((seconds % 3600) / 60);
+            let remainingSeconds = seconds % 60;
+
+            // Add a leading zero if the number is less than 10
+            hours = hours < 10 ? '0' + hours : hours;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            remainingSeconds = remainingSeconds < 10 ? '0' + remainingSeconds.toFixed(3) : remainingSeconds.toFixed(3);
+
+            return `${hours}:${minutes}:${remainingSeconds}`;
+        }
     </script>
 </body>
 </html>
