@@ -292,7 +292,7 @@ function HTTPLoader(cfg) {
 
                 const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
                 let requestUrl = cmcdResponseMode.requestUrl;
-                let requestHeaderes = null;
+                let requestHeaderes = {};
                 const request = httpRequest.customData.request;
                 request.status = httpResponse.status
 
