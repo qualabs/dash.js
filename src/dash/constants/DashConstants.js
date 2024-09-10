@@ -39,6 +39,7 @@ export default {
     ADAPTATION_SETS: 'adaptationSets',
     ADAPTATION_SET_SWITCHING_SCHEME_ID_URI: 'urn:mpeg:dash:adaptation-set-switching:2016',
     ADD: 'add',
+    ALTERNATIVE_MPD: 'AlternativeMPD',
     ASSET_IDENTIFIER: 'AssetIdentifier',
     AUDIO_CHANNEL_CONFIGURATION: 'AudioChannelConfiguration',
     AUDIO_SAMPLING_RATE: 'audioSamplingRate',

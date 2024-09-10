@@ -479,6 +479,7 @@ function EventController() {
             }
 
             if (!event.triggeredStartEvent) {
+                // Add Alternative MPD trigger logic
                 if (event.eventStream.schemeIdUri === MPD_RELOAD_SCHEME && event.eventStream.value == MPD_RELOAD_VALUE) {
                     //If both are set to zero, it indicates the media is over at this point. Don't reload the manifest.
                     if (event.duration !== 0 || event.presentationTimeDelta !== 0) {
