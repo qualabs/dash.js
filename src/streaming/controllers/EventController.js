@@ -34,6 +34,7 @@ import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
 import XHRLoader from '../net/XHRLoader.js';
+import Constants from '../constants/Constants.js';
 
 function EventController() {
 
@@ -479,7 +480,6 @@ function EventController() {
             }
 
             if (!event.triggeredStartEvent) {
-                // Add Alternative MPD trigger logic
                 if (event.eventStream.schemeIdUri === MPD_RELOAD_SCHEME && event.eventStream.value == MPD_RELOAD_VALUE) {
                     //If both are set to zero, it indicates the media is over at this point. Don't reload the manifest.
                     if (event.duration !== 0 || event.presentationTimeDelta !== 0) {
@@ -489,6 +489,8 @@ function EventController() {
                 } else if (event.eventStream.schemeIdUri === MPD_CALLBACK_SCHEME && event.eventStream.value == MPD_CALLBACK_VALUE) {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
                     _sendCallbackRequest(event.messageData);
+                } else if (event.eventStream.schemeIdUri === Constants.ALTERNATIVE_MPD_SCHEME_ID) {
+                    // Add alternative MPD trigger logic
                 } else {
                     logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
                     eventBus.trigger(event.eventStream.schemeIdUri, { event: event }, { mode });

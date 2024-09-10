@@ -36,7 +36,7 @@ class AlternativeMpd {
     constructor() {
         this.uri = '';
         this.earliestResolutionTimeOffset = NaN;
-        this.mode = NaN;
+        this.mode = '';
         this.disableJumpTimeOffest = NaN;
         this.playTimes = '';
     }
