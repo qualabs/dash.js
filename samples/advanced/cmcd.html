@@ -51,21 +51,21 @@
                         reporting: {
                             requestMode: {
                                 enabled: true, /* enable cmcdv2 request mode */
-                                mode: CMCD_MODE_HEADER, /* overrides global mode */
+                                mode: CMCD_MODE_QUERY, /* overrides global mode */
                             },
                             responseMode: {
                                 enabled: true, /* enable cmcdv2 response mode. FALSE by default */
-                                mode: CMCD_MODE_HEADER, /* overrides global mode. JSON not supported */
+                                mode: CMCD_MODE_QUERY, /* overrides global mode. JSON not supported */
                                 enabledKeys: ['sid', 'cid', 'ts', 'url', 'br', 'd', 'ot', 'tb', 'v', 'sta', 'ttfb', 'ttlb','rc'], /* optional, overrides global keys */
-                                requestUrl: 'http://localhost:3000/cmcd_response_server', /*mandatory, URL to send report */
+                                requestUrl: 'http://localhost:3000/cmcd/response-mode', /*mandatory, URL to send report */
                                 requestMethod: 'POST', /*optional, get by default */
                             },
                             stateIntervalMode: {
                                 enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
-                                mode: CMCD_MODE_HEADER, /*overrides global mode. JSON not supported */
+                                mode: CMCD_MODE_QUERY, /*overrides global mode. JSON not supported */
                                 interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
                                 enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v', 'ltc', 'msd', 'sta'], /* Currently only supports: 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
-                                requestUrl: 'http://localhost:3000/cmcd_state_server', /* mandatory, URL to send report */
+                                requestUrl: 'http://localhost:3000/cmcd/state-interval-mode', /* mandatory, URL to send report */
                                 requestMethod: 'POST',  /* optional, get by default */
                             }
                         },
