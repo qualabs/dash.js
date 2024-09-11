@@ -3,7 +3,7 @@
  * included below. This software may be subject to other third party and contributor
  * rights, including patent rights, and no such rights are granted under this license.
  *
- * Copyright (c) 2013, Dash Industry Forum.
+ * Copyright (c) 2024, Dash Industry Forum.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -28,35 +28,16 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-
-import FactoryMaker from '../../core/FactoryMaker.js';
-import QueryStrings from '../vo/QureryString.js';
-
-function UrlQueryInfo() {
-    let instance,
-        quertStrings
-
-    function createFinalQueryStrings(mediaInfo) {
-        // Create query string map to store the final query for each level
-        quertStrings = new QueryStrings(mediaInfo)
+/**
+ * @class
+ * @ignore
+ */
+class ExtUrlQueryInfo {
+    constructor() {
+        this.includeInRequests = null;
+        this.sameOriginOnly = null;
+        this.queryParams = null;
     }
-
-    function getFinalQueryString(request) {
-        // Add a filter for request type
-        if (request.type) {}
-        // Use the map query strings to get the finalQueryString for that request
-        quertStrings.forEach(queryString => {
-            return queryString
-        });
-        return request
-    }
-
-    instance = {
-        getFinalQueryString,
-        createFinalQueryStrings
-    }
-    return instance;
 }
 
-UrlQueryInfo.__dashjs_factory_name = 'UrlQueryInfo';
-export default FactoryMaker.getSingletonFactory(UrlQueryInfo);
+export default ExtUrlQueryInfo;
