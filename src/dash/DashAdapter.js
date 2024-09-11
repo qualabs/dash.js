@@ -306,6 +306,15 @@ function DashAdapter() {
 
         checkConfig();
 
+        if (newManifest.profiles === DashConstants.LIST_PROFILE_SCHEME) {
+            const linkPeriods = getLinkPeriods(newManifest)
+            console.log('Linked periods', linkPeriods)
+            // while (linkedPeriods.length) {
+            //     mergeManifests(newManifest, linkedPeriods)
+            //     const linkedPeriods = getLinkedPeriods(newManifest)
+            // }
+        }
+
         voPeriods = getRegularPeriods(newManifest);
     }
 
@@ -589,16 +598,28 @@ function DashAdapter() {
     }
 
     /**
-     * Returns all periods of the MPD
+     * Returns all regular periods of the MPD
      * @param {object} externalManifest Omit this value if no external manifest should be used
-     * @returns {Array} periods
+     * @returns {Array} linked periods
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getLinkPeriods(externalManifest) {
+        const mpd = getMpd(externalManifest);
+        return dashManifestModel.getLinkPeriods(mpd);
+    }
+
+    /**
+     * Returns all linked periods of the MPD
+     * @param {object} externalManifest Omit this value if no external manifest should be used
+     * @returns {Array} regular periods
      * @memberOf module:DashAdapter
      * @instance
      */
     function getRegularPeriods(externalManifest) {
         const mpd = getMpd(externalManifest);
         return dashManifestModel.getRegularPeriods(mpd);
-    }
+    } 
 
     /**
      * Returns an MPD object

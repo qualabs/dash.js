@@ -928,6 +928,23 @@ function DashManifestModel() {
         return voPeriods;
     }
 
+    function getLinkPeriods(mpd) {
+        const linkedPeriods = []
+
+        if (!mpd || !mpd.manifest || !mpd.manifest.Period) {
+            return linkedPeriods
+        }
+
+        let currentPeriod = null;
+        for (let i = 0, len = mpd.manifest.Period.length; i < len; i++) {
+            currentPeriod = mpd.manifest.Period[i];
+            if (currentPeriod.hasOwnProperty(DashConstants.MPD_LINK)) {
+                linkedPeriods.push(currentPeriod)
+            }
+        }
+        return linkedPeriods
+    }
+
     function getPeriodId(realPeriod, i) {
         if (!realPeriod) {
             throw new Error('Period cannot be null or undefined');
@@ -1525,6 +1542,7 @@ function DashManifestModel() {
         getRealPeriodForIndex,
         getRealPeriods,
         getRegularPeriods,
+        getLinkPeriods,
         getRepresentationCount,
         getRepresentationFor,
         getRepresentationSortFunction,
