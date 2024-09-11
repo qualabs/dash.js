@@ -78,6 +78,7 @@ function HTTPLoader(cfg) {
         customParametersModel,
         commonAccessTokenController,
         clientDataReportingController,
+        extUrlQueryInfoController,
         logger;
 
     function setup() {
@@ -90,6 +91,7 @@ function HTTPLoader(cfg) {
         cmsdModel = CmsdModel(context).getInstance();
         customParametersModel = CustomParametersModel(context).getInstance();
         commonAccessTokenController = CommonAccessTokenController(context).getInstance();
+        extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
 
         downloadErrorToRequestTypeMap = {
             [HTTPRequest.MPD_TYPE]: errors.DOWNLOAD_ERROR_ID_MANIFEST_CODE,
@@ -576,7 +578,7 @@ function HTTPLoader(cfg) {
     function _updateRequestUrlAndHeaders(request) {
         _updateRequestUrlAndHeadersWithCMCD(request);
         // Add ExtUrlQueryInfo parameters
-        let finalQueryString = ExtUrlQueryInfoController(context).getInstance().getFinalQueryString(request);
+        let finalQueryString = extUrlQueryInfoController.getFinalQueryString(request);
         if (finalQueryString) {
             request.url = Utils.addAditionalQueryParameterToUrl(request.url, finalQueryString);
         }

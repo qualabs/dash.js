@@ -30,7 +30,7 @@
  */
 
 import FactoryMaker from '../../core/FactoryMaker.js';
-//import ExtUrlQueryInfo from '../vo/ExtUrlQueryInfo.js';
+import Constants from '../constants/Constants.js';
 
 function ExtUrlQueryInfoController() {
     let instance,
@@ -38,26 +38,50 @@ function ExtUrlQueryInfoController() {
 
     function createFinalQueryStrings(manifest) {
         mpd = {};
-        mpd.origin = manifest.baseUri;
+        let manifestUrl = new URL(manifest.url);
+        mpd.origin = manifestUrl.origin;
         mpd.period = [];
-        generateInitialQueryString(manifest, '', mpd);
+        mpd.finalQueryString = ''
+        const mpdUrlQuery = manifest.url.split('?')[1];
+
+        let suplementalProperty = manifest.SuplementalProperty?.find((suplementalProperty) => suplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+        generateInitialQueryString(suplementalProperty, '', mpd, mpdUrlQuery);
+        mpd.finalQueryString = generateFinalQueryString(mpd.initialQueryString, suplementalProperty);
+        mpd.sameOriginOnly = suplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+        mpd.includeInRequests = suplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? suplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+        mpd.queryParams = parseQueryParams(mpd?.initialQueryString);
 
         manifest.Period.forEach((period) => {
             let periodObject = {};
             periodObject.adaptation = [];
-
-            generateInitialQueryString(period, mpd.queryString, periodObject);
+            periodObject.finalQueryString = '';
+            suplementalProperty = period.SuplementalProperty?.find((suplementalProperty) => suplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+            generateInitialQueryString(suplementalProperty, mpd.initialQueryString, periodObject, mpdUrlQuery);
+            periodObject.finalQueryString = generateFinalQueryString(periodObject.initialQueryString, suplementalProperty);
+            periodObject.sameOriginOnly = suplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+            periodObject.includeInRequests = suplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? suplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+            periodObject.queryParams = parseQueryParams(periodObject?.initialQueryString);
 
             period.AdaptationSet.forEach((adaptationSet) => {
                 let adaptationObject = {};
                 adaptationObject.representation = [];
-
-                generateInitialQueryString(adaptationSet, periodObject.queryString, adaptationObject);
+                adaptationObject.finalQueryString = '';
+                let essentialProperty = adaptationSet.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+                generateInitialQueryString(essentialProperty, periodObject.initialQueryString, adaptationObject, mpdUrlQuery);
+                adaptationObject.finalQueryString = generateFinalQueryString(adaptationObject.initialQueryString, essentialProperty);
+                adaptationObject.sameOriginOnly = essentialProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+                adaptationObject.includeInRequests = essentialProperty?.ExtUrlQueryInfo?.includeInRequests ? essentialProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+                adaptationObject.queryParams = parseQueryParams(adaptationObject?.initialQueryString);
 
                 adaptationSet.Representation.forEach((representation) => {
                     let representationObject = {};
-
-                    generateInitialQueryString(representation, adaptationObject.queryString, representationObject);
+                    representationObject.finalQueryString = '';
+                    essentialProperty = representation.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+                    generateInitialQueryString(essentialProperty, adaptationObject.initialQueryString, representationObject, mpdUrlQuery);
+                    representationObject.finalQueryString = generateFinalQueryString(representationObject.initialQueryString, essentialProperty);
+                    representationObject.sameOriginOnly = essentialProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+                    representationObject.includeInRequests = essentialProperty?.ExtUrlQueryInfo?.includeInRequests ? essentialProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+                    representationObject.queryParams = parseQueryParams(representationObject?.initialQueryString);
 
                     adaptationObject.representation.push(representationObject);
                 });
@@ -67,34 +91,47 @@ function ExtUrlQueryInfoController() {
         });
     }
 
-    function generateInitialQueryString(src, defaultInitialString, dst) {
-        let essentialProperties = src.EssentialProperty;
-        if (essentialProperties) {
-            essentialProperties.forEach((essentialProperty) => {
-                let queryInfo;
-                if (essentialProperty.ExtUrlQueryInfo) {
-                    queryInfo = essentialProperty.ExtUrlQueryInfo;
+    function parseQueryParams(queryParamString) {
+        let params = [];
+        const pairs = queryParamString.split('&');
+        for (let pair of pairs) {
+            let [key, value] = pair.split('=');
+            let object = {};
+            object.key = decodeURIComponent(key);
+            object.value = decodeURIComponent(value);
+            params.push(object)
+        }
+        return params;
+    }
+
+    function generateInitialQueryString(essentialProperty, defaultInitialString, dst, mpdUrlQuery) {
+        dst.initialQueryString = '';
+        if (essentialProperty) {
+            let queryInfo;
+            if (essentialProperty?.ExtUrlQueryInfo) {
+                queryInfo = essentialProperty.ExtUrlQueryInfo;
+            } else {
+                queryInfo = essentialProperty.UrlQueryInfo;
+            }
+            let initialQueryString = '';
+
+            if (queryInfo && queryInfo.queryString) {
+                if (defaultInitialString && defaultInitialString.length > 0) {
+                    initialQueryString = defaultInitialString + '&' + queryInfo.queryString;
                 } else {
-                    queryInfo = essentialProperty.UrlQueryInfo;
+                    initialQueryString = queryInfo.queryString;
                 }
-                // queryTemplate useURLUrlQuery queryString includeInRequests sameOriginOnly
-                let initialQueryString;
-                if (queryInfo && queryInfo.queryString) {
-                    if (defaultInitialString && defaultInitialString.length > 0) {
-                        initialQueryString = defaultInitialString + '&' + queryInfo.queryString;
-                    } else {
-                        initialQueryString = queryInfo.queryString;
-                    }
-                } else {
-                    initialQueryString = defaultInitialString;
-                }
-                dst.queryString = initialQueryString;
-            });
+            } else {
+                initialQueryString = defaultInitialString;
+            }
+            if (queryInfo?.useMPDUrlQuery === 'true' && mpdUrlQuery) {
+                initialQueryString = initialQueryString ? initialQueryString + '&' + mpdUrlQuery : mpdUrlQuery;
+            }
+            dst.initialQueryString = initialQueryString;
         }
     }
 
-    /*
-    function buildInitialQueryParams(initialQueryString){
+    function buildInitialQueryParams(initialQueryString) {
         let params = {};
         const pairs = initialQueryString.split('&');
         for (let pair of pairs) {
@@ -104,26 +141,36 @@ function ExtUrlQueryInfoController() {
         return params;
     }
 
-    function buildFinalQueryString(initialQueryParams, queryTemplate) {
-        if (queryTemplate === '$querypart$') {
-            return Object.entries(initialQueryParams)
-                .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-                .join('&');
-        } else {
-            return queryTemplate.replace(/(\$\$)|\$query:([^$]+)\$|(\$querypart\$)/g, (match, escape, paramName, querypart) => {
-                if (escape) {
-                    return '$';
-                } else if (paramName) {
-                    return initialQueryParams[paramName] || '';
-                } else if (querypart) {
-                    return Object.entries(initialQueryParams)
-                        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-                        .join('&');
-                }
-            });
+    function generateFinalQueryString(initialQueryString, essentialProperty) {
+        if (essentialProperty) {
+
+            let queryTemplate = '';
+            if (essentialProperty?.ExtUrlQueryInfo) {
+                queryTemplate = essentialProperty?.ExtUrlQueryInfo?.queryTemplate;
+            } else {
+                queryTemplate = essentialProperty?.UrlQueryInfo?.queryTemplate;
+            }
+
+            let initialQueryParams = buildInitialQueryParams(initialQueryString)
+            if (queryTemplate === '$querypart$') {
+                return Object.entries(initialQueryParams)
+                    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                    .join('&');
+            } else {
+                return queryTemplate.replace(/(\$\$)|\$query:([^$]+)\$|(\$querypart\$)/g, (match, escape, paramName, querypart) => {
+                    if (escape) {
+                        return '$';
+                    } else if (paramName) {
+                        return initialQueryParams[paramName] || '';
+                    } else if (querypart) {
+                        return Object.entries(initialQueryParams)
+                            .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                            .join('&');
+                    }
+                });
+            }
         }
     }
-    */
 
     function getFinalQueryString(request) {
         if (request.type == 'MediaSegment' || request.type == 'InitializationSegment') {
@@ -131,15 +178,15 @@ function ExtUrlQueryInfoController() {
                 let representation = request.representation;
                 let adaptation = representation.adaptation;
                 let period = adaptation.period;
-                let finalQueryString = mpd
+                let queryInfo = mpd
                     .period[period.index]
                     .adaptation[adaptation.index]
                     .representation[representation.index]
-                    .queryString;
-                let canSendToOrigin = !finalQueryString.sameOriginOnly || mpd.origin == request.serviceLocation;
-                let inRequest = finalQueryString.includeInRequests.includes('segment');
+                let requestUrl = new URL(request.url)
+                let canSendToOrigin = !queryInfo.sameOriginOnly || mpd.origin == requestUrl.origin;
+                let inRequest = queryInfo.includeInRequests.includes('segment');
                 if (inRequest && canSendToOrigin) {
-                    return finalQueryString.queryParams;
+                    return queryInfo.queryParams;
                 }
             }
         }

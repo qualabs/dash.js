@@ -58,7 +58,7 @@ function StreamController() {
     let instance, logger, capabilities, capabilitiesFilter, manifestUpdater, manifestLoader, manifestModel, adapter,
         dashMetrics, mediaSourceController, timeSyncController, contentSteeringController, baseURLController,
         segmentBaseController, uriFragmentModel, abrController, throughputController, mediaController, eventController,
-        initCache,
+        initCache, extUrlQueryInfoController,
         errHandler, timelineConverter, streams, activeStream, protectionController, textController, protectionData,
         autoPlay, isStreamSwitchingInProgress, hasMediaError, hasInitialisationError, mediaSource, videoModel,
         playbackController, serviceDescriptionController, mediaPlayerModel, customParametersModel, isPaused,
@@ -99,6 +99,7 @@ function StreamController() {
         });
         eventController.start();
 
+        extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
 
         timeSyncController.setConfig({
             dashMetrics, baseURLController, errHandler, settings
@@ -1283,10 +1284,11 @@ function StreamController() {
                         });
                     }
 
+                    extUrlQueryInfoController.createFinalQueryStrings(manifest);
+
                     let allUTCTimingSources = (!adapter.getIsDynamic()) ? manifestUTCTimingSources : manifestUTCTimingSources.concat(customParametersModel.getUTCTimingSources());
                     timeSyncController.attemptSync(allUTCTimingSources, adapter.getIsDynamic());
                 });
-            ExtUrlQueryInfoController(context).getInstance().createFinalQueryStrings(manifest);
         } else {
             hasInitialisationError = true;
             reset();
