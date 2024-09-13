@@ -309,6 +309,8 @@ function DashAdapter() {
         if (newManifest.profiles === DashConstants.LIST_PROFILE_SCHEME) {
             const linkPeriods = getLinkPeriods(newManifest)
             console.log('Linked periods', linkPeriods)
+            // Add logic to merge linked periods and local manifest.
+            // Ex:
             // while (linkedPeriods.length) {
             //     mergeManifests(newManifest, linkedPeriods)
             //     const linkedPeriods = getLinkedPeriods(newManifest)
@@ -619,7 +621,7 @@ function DashAdapter() {
     function getRegularPeriods(externalManifest) {
         const mpd = getMpd(externalManifest);
         return dashManifestModel.getRegularPeriods(mpd);
-    } 
+    }
 
     /**
      * Returns an MPD object
