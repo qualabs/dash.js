@@ -929,20 +929,20 @@ function DashManifestModel() {
     }
 
     function getLinkPeriods(mpd) {
-        const linkedPeriods = []
+        const linkedPeriods = [];
 
         if (!mpd || !mpd.manifest || !mpd.manifest.Period) {
-            return linkedPeriods
+            return linkedPeriods;
         }
 
         let currentPeriod = null;
         for (let i = 0, len = mpd.manifest.Period.length; i < len; i++) {
             currentPeriod = mpd.manifest.Period[i];
             if (currentPeriod.hasOwnProperty(DashConstants.MPD_LINK)) {
-                linkedPeriods.push(currentPeriod)
+                linkedPeriods.push(currentPeriod);
             }
         }
-        return linkedPeriods
+        return linkedPeriods;
     }
 
     function getPeriodId(realPeriod, i) {
@@ -1176,12 +1176,12 @@ function DashManifestModel() {
     }
 
     function getAlternativeMpd(event) {
-        const alternativeMpd = new AlternativeMpd()
-        alternativeMpd.uri = event.uri ?? null
-        alternativeMpd.earliestResolutionTimeOffset = event.earliestResolutionTimeOffset ?? null
-        alternativeMpd.mode = event.mode ?? null
-        alternativeMpd.disableJumpTimeOffest = event.disableJumpTimeOffest ?? null
-        alternativeMpd.playTimes = event.playTimes ?? null
+        const alternativeMpd = new AlternativeMpd();
+        alternativeMpd.uri = event.uri ?? null;
+        alternativeMpd.earliestResolutionTimeOffset = event.earliestResolutionTimeOffset ?? null;
+        alternativeMpd.mode = event.mode ?? null;
+        alternativeMpd.disableJumpTimeOffest = event.disableJumpTimeOffest ?? null;
+        alternativeMpd.playTimes = event.playTimes ?? null;
         return alternativeMpd
     }
 

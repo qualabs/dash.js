@@ -307,8 +307,8 @@ function DashAdapter() {
         checkConfig();
 
         if (newManifest.profiles === DashConstants.LIST_PROFILE_SCHEME) {
-            const linkPeriods = getLinkPeriods(newManifest)
-            console.log('Linked periods', linkPeriods)
+            const linkPeriods = getLinkPeriods(newManifest);
+            console.log('Linked periods', linkPeriods);
             // Add logic to merge linked periods and local manifest.
             // Ex:
             // while (linkedPeriods.length) {
@@ -514,13 +514,13 @@ function DashAdapter() {
             const manifest = voPeriods[0].mpd.manifest;
 
             if (info instanceof StreamInfo) {
-                const period = getPeriodForStreamInfo(info, voPeriods)
+                const period = getPeriodForStreamInfo(info, voPeriods);
                 events = dashManifestModel.getEventsForPeriod(period);
             } else if (info instanceof MediaInfo) {
-                const period = getPeriodForStreamInfo(streamInfo, voPeriods)
+                const period = getPeriodForStreamInfo(streamInfo, voPeriods);
                 events = dashManifestModel.getEventStreamForAdaptationSet(manifest, getAdaptationForMediaInfo(info), period);
             } else if (info instanceof Representation) {
-                const period = getPeriodForStreamInfo(streamInfo, voPeriods)
+                const period = getPeriodForStreamInfo(streamInfo, voPeriods);
                 events = dashManifestModel.getEventStreamForRepresentation(manifest, voRepresentation, period);
             }
         }
@@ -698,8 +698,8 @@ function DashAdapter() {
 
         return patchLocations.filter((patchLocation) => {
             // check if the patch location has expired, if so do not consider it
-            return isNaN(patchLocation.ttl) || (publishTime.getTime() + patchLocation.ttl > new Date().getTime())
-        })
+            return isNaN(patchLocation.ttl) || (publishTime.getTime() + patchLocation.ttl > new Date().getTime());
+        });
     }
 
     /**
