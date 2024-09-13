@@ -34,39 +34,39 @@ import Constants from '../constants/Constants.js';
 
 function ExtUrlQueryInfoController() {
     let instance,
-        mpd
+        mpd;
 
     function createFinalQueryStrings(manifest) {
         mpd = {};
         let manifestUrl = new URL(manifest.url);
         mpd.origin = manifestUrl.origin;
         mpd.period = [];
-        mpd.finalQueryString = ''
+        mpd.finalQueryString = '';
         const mpdUrlQuery = manifest.url.split('?')[1];
 
-        let suplementalProperty = manifest.SuplementalProperty?.find((suplementalProperty) => suplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
-        generateInitialQueryString(suplementalProperty, '', mpd, mpdUrlQuery);
-        mpd.finalQueryString = generateFinalQueryString(mpd.initialQueryString, suplementalProperty);
-        mpd.sameOriginOnly = suplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
-        mpd.includeInRequests = suplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? suplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+        let supplementalProperty = manifest.SupplementalProperty?.find((supplementalProperty) => supplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME);
+        generateInitialQueryString(supplementalProperty, '', mpd, mpdUrlQuery);
+        mpd.finalQueryString = generateFinalQueryString(mpd.initialQueryString, supplementalProperty);
+        mpd.sameOriginOnly = supplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+        mpd.includeInRequests = supplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? supplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
         mpd.queryParams = parseQueryParams(mpd?.initialQueryString);
 
         manifest.Period.forEach((period) => {
             let periodObject = {};
             periodObject.adaptation = [];
             periodObject.finalQueryString = '';
-            suplementalProperty = period.SuplementalProperty?.find((suplementalProperty) => suplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
-            generateInitialQueryString(suplementalProperty, mpd.initialQueryString, periodObject, mpdUrlQuery);
-            periodObject.finalQueryString = generateFinalQueryString(periodObject.initialQueryString, suplementalProperty);
-            periodObject.sameOriginOnly = suplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
-            periodObject.includeInRequests = suplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? suplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
+            supplementalProperty = period.SupplementalProperty?.find((supplementalProperty) => supplementalProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME);
+            generateInitialQueryString(supplementalProperty, mpd.initialQueryString, periodObject, mpdUrlQuery);
+            periodObject.finalQueryString = generateFinalQueryString(periodObject.initialQueryString, supplementalProperty);
+            periodObject.sameOriginOnly = supplementalProperty?.ExtUrlQueryInfo?.sameOriginOnly;
+            periodObject.includeInRequests = supplementalProperty?.ExtUrlQueryInfo?.includeInRequests ? supplementalProperty?.ExtUrlQueryInfo?.includeInRequests?.split(' ') : ['segment'];
             periodObject.queryParams = parseQueryParams(periodObject?.initialQueryString);
 
             period.AdaptationSet.forEach((adaptationSet) => {
                 let adaptationObject = {};
                 adaptationObject.representation = [];
                 adaptationObject.finalQueryString = '';
-                let essentialProperty = adaptationSet.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+                let essentialProperty = adaptationSet.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME);
                 generateInitialQueryString(essentialProperty, periodObject.initialQueryString, adaptationObject, mpdUrlQuery);
                 adaptationObject.finalQueryString = generateFinalQueryString(adaptationObject.initialQueryString, essentialProperty);
                 adaptationObject.sameOriginOnly = essentialProperty?.ExtUrlQueryInfo?.sameOriginOnly;
@@ -76,7 +76,7 @@ function ExtUrlQueryInfoController() {
                 adaptationSet.Representation.forEach((representation) => {
                     let representationObject = {};
                     representationObject.finalQueryString = '';
-                    essentialProperty = representation.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME)
+                    essentialProperty = representation.EssentialProperty?.find((essentialProperty) => essentialProperty.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME);
                     generateInitialQueryString(essentialProperty, adaptationObject.initialQueryString, representationObject, mpdUrlQuery);
                     representationObject.finalQueryString = generateFinalQueryString(representationObject.initialQueryString, essentialProperty);
                     representationObject.sameOriginOnly = essentialProperty?.ExtUrlQueryInfo?.sameOriginOnly;
@@ -93,42 +93,44 @@ function ExtUrlQueryInfoController() {
 
     function parseQueryParams(queryParamString) {
         let params = [];
-        const pairs = queryParamString.split('&');
-        for (let pair of pairs) {
-            let [key, value] = pair.split('=');
-            let object = {};
-            object.key = decodeURIComponent(key);
-            object.value = decodeURIComponent(value);
-            params.push(object)
+        if (queryParamString){
+            const pairs = queryParamString.split('&');
+            for (let pair of pairs) {
+                let [key, value] = pair.split('=');
+                let object = {};
+                object.key = decodeURIComponent(key);
+                object.value = decodeURIComponent(value);
+                params.push(object);
+            }
         }
         return params;
     }
 
     function generateInitialQueryString(essentialProperty, defaultInitialString, dst, mpdUrlQuery) {
         dst.initialQueryString = '';
-        if (essentialProperty) {
-            let queryInfo;
-            if (essentialProperty?.ExtUrlQueryInfo) {
-                queryInfo = essentialProperty.ExtUrlQueryInfo;
-            } else {
-                queryInfo = essentialProperty.UrlQueryInfo;
-            }
-            let initialQueryString = '';
-
-            if (queryInfo && queryInfo.queryString) {
-                if (defaultInitialString && defaultInitialString.length > 0) {
-                    initialQueryString = defaultInitialString + '&' + queryInfo.queryString;
-                } else {
-                    initialQueryString = queryInfo.queryString;
-                }
-            } else {
-                initialQueryString = defaultInitialString;
-            }
-            if (queryInfo?.useMPDUrlQuery === 'true' && mpdUrlQuery) {
-                initialQueryString = initialQueryString ? initialQueryString + '&' + mpdUrlQuery : mpdUrlQuery;
-            }
-            dst.initialQueryString = initialQueryString;
+        // if (essentialProperty) {
+        let queryInfo;
+        if (essentialProperty?.ExtUrlQueryInfo) {
+            queryInfo = essentialProperty?.ExtUrlQueryInfo;
+        } else {
+            queryInfo = essentialProperty?.UrlQueryInfo;
         }
+        let initialQueryString = '';
+
+        if (queryInfo && queryInfo.queryString) {
+            if (defaultInitialString && defaultInitialString.length > 0) {
+                initialQueryString = defaultInitialString + '&' + queryInfo.queryString;
+            } else {
+                initialQueryString = queryInfo.queryString;
+            }
+        } else {
+            initialQueryString = defaultInitialString;
+        }
+        if (queryInfo?.useMPDUrlQuery === 'true' && mpdUrlQuery) {
+            initialQueryString = initialQueryString ? initialQueryString + '&' + mpdUrlQuery : mpdUrlQuery;
+        }
+        dst.initialQueryString = initialQueryString;
+        // }
     }
 
     function buildInitialQueryParams(initialQueryString) {
@@ -151,7 +153,7 @@ function ExtUrlQueryInfoController() {
                 queryTemplate = essentialProperty?.UrlQueryInfo?.queryTemplate;
             }
 
-            let initialQueryParams = buildInitialQueryParams(initialQueryString)
+            let initialQueryParams = buildInitialQueryParams(initialQueryString);
             if (queryTemplate === '$querypart$') {
                 return Object.entries(initialQueryParams)
                     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
@@ -181,8 +183,8 @@ function ExtUrlQueryInfoController() {
                 let queryInfo = mpd
                     .period[period.index]
                     .adaptation[adaptation.index]
-                    .representation[representation.index]
-                let requestUrl = new URL(request.url)
+                    .representation[representation.index];
+                let requestUrl = new URL(request.url);
                 let canSendToOrigin = !queryInfo.sameOriginOnly || mpd.origin == requestUrl.origin;
                 let inRequest = queryInfo.includeInRequests.includes('segment');
                 if (inRequest && canSendToOrigin) {
@@ -192,9 +194,9 @@ function ExtUrlQueryInfoController() {
         }
         else if (request.type == 'MPD') {
             if (mpd) {
-                let inRequest = ['mpd', 'mpdpatch'].some(r => mpd.queryString.includeInRequests.includes(r));
-                if (mpd.queryString && inRequest) {
-                    return mpd.queryString.queryParams;
+                let inRequest = ['mpd', 'mpdpatch'].some(r => mpd.includeInRequests.includes(r));
+                if (inRequest) {
+                    return mpd.queryParams;
                 }
             }
         }
@@ -203,7 +205,7 @@ function ExtUrlQueryInfoController() {
     instance = {
         getFinalQueryString,
         createFinalQueryStrings
-    }
+    };
     return instance;
 }
 
