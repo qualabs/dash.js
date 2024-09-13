@@ -698,8 +698,8 @@ function DashAdapter() {
 
         return patchLocations.filter((patchLocation) => {
             // check if the patch location has expired, if so do not consider it
-            return isNaN(patchLocation.ttl) || (publishTime.getTime() + patchLocation.ttl > new Date().getTime());
-        });
+            return isNaN(patchLocation.ttl) || (publishTime.getTime() + patchLocation.ttl > new Date().getTime())
+        })
     }
 
     /**
