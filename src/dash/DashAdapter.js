@@ -598,7 +598,7 @@ function DashAdapter() {
     }
 
     /**
-     * Returns all regular periods of the MPD
+     * Returns all linked periods of the MPD
      * @param {object} externalManifest Omit this value if no external manifest should be used
      * @returns {Array} linked periods
      * @memberOf module:DashAdapter
@@ -610,7 +610,7 @@ function DashAdapter() {
     }
 
     /**
-     * Returns all linked periods of the MPD
+     * Returns all regular periods of the MPD
      * @param {object} externalManifest Omit this value if no external manifest should be used
      * @returns {Array} regular periods
      * @memberOf module:DashAdapter
