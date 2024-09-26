@@ -683,7 +683,7 @@ function CmcdModel() {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
         }
         if (internalData.v === 2) {
-            data.ts = new Date();
+            data.ts = Date.now();
         }
 
         return data;
