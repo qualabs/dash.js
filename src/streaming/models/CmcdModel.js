@@ -270,13 +270,12 @@ function CmcdModel() {
             var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
             // MSD key must be send once per mode.
-            if (cmcdReportingMode > 0) {
+            if (cmcdData.msd) {
                 const msdSentIndex = cmcdReportingMode - 1;
                 if (_msdSent[msdSentIndex]) {
-                    enabledCMCDKeys = enabledCMCDKeys.filter(item => item !== 'msd');
-                }
-                if (!_msdSent[msdSentIndex] && cmcdData.msd) {
-                    _msdSent[msdSentIndex] = true
+                    delete cmcdData.msd;
+                } else {
+                    _msdSent[msdSentIndex] = true;
                 }
             }
             // For CMCD v2 use the reporting mode keys or global ones as default
@@ -680,15 +679,11 @@ function CmcdModel() {
         }
 
         // Add v2 mandatory keys
-        const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
-        const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
-        if (request && internalData.v === 2 && cmcdResponseMode.enabled) {
+        if (request && internalData.v === 2) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
         }
-        if (internalData.v === 2 && (cmcdResponseMode.enabled || cmcdStateIntervalMode.enabled)) {
-            // TODO: This key needs to be generated when loading the media request in _loadRequest for response Mode
-            // or in the onStateChange() for the state-interval mode
-            data.ts = Date.now();
+        if (internalData.v === 2) {
+            data.ts = new Date();
         }
 
         return data;
