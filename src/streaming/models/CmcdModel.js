@@ -61,6 +61,7 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        _msdSent,
         _lastMediaTypeRequest,
         _isStartup,
         _bufferLevelStarved,
@@ -138,6 +139,7 @@ function CmcdModel() {
             cid: null,
             sta: null
         };
+        _msdSent = [false, false, false];
         _bufferLevelStarved = {};
         _isStartup = {};
         _initialMediaRequestsDone = {};
@@ -261,12 +263,22 @@ function CmcdModel() {
             return null;
         }
     }
-
+    
     function _applyWhitelist(cmcdData, cmcdReportingMode) {
         try {
             const cmcdParametersFromManifest = getCmcdParametersFromManifest();
             var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
+            // MSD key must be send once per mode.
+            if (cmcdReportingMode > 0) {
+                const msdSentIndex = cmcdReportingMode - 1;
+                if (_msdSent[msdSentIndex]) {
+                    enabledCMCDKeys = enabledCMCDKeys.filter(item => item !== 'msd');
+                }
+                if (!_msdSent[msdSentIndex] && cmcdData.msd) {
+                    _msdSent[msdSentIndex] = true
+                }
+            }
             // For CMCD v2 use the reporting mode keys or global ones as default
             // TODO: Try to improve this block by using _checkAvailableKeys(cmcdParametersFromManifest)
             if (cmcdReportingMode === 1){
@@ -650,7 +662,7 @@ function CmcdModel() {
         if (!isNaN(ltc)) {
             data.ltc = ltc;
         }
-        // TODO: Send this key only once for each reporting mode
+
         if (!isNaN(internalData.msd)) {
             data.msd = internalData.msd;
         }
