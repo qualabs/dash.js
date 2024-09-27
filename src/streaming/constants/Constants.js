@@ -221,6 +221,12 @@ export default {
      *  @static
      */
     CMCD_AVAILABLE_KEYS: ['br', 'd', 'ot', 'tb', 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su', 'bs', 'rtp', 'cid', 'pr', 'sf', 'sid', 'st', 'v'],
+    /**
+     *  @constant {string} CMCD_AVAILABLE_KEYS_V2 specifies all the availables keys for CMCD metrics.
+     *  @memberof Constants#
+     *  @static
+     */
+    CMCD_V2_AVAILABLE_KEYS: ['msd', 'ltc'],
 
     /**
      *  @constant {string} CMCD_AVAILABLE_REQUESTS specifies all the availables requests type for CMCD metrics.
