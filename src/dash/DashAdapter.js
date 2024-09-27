@@ -306,6 +306,17 @@ function DashAdapter() {
 
         checkConfig();
 
+        if (newManifest.profiles === DashConstants.LIST_PROFILE_SCHEME) {
+            const linkPeriods = getLinkPeriods(newManifest);
+            console.log('Linked periods', linkPeriods);
+            // Add logic to merge linked periods and local manifest.
+            // Ex:
+            // while (linkedPeriods.length) {
+            //     mergeManifests(newManifest, linkedPeriods)
+            //     const linkedPeriods = getLinkedPeriods(newManifest)
+            // }
+        }
+
         voPeriods = getRegularPeriods(newManifest);
     }
 
@@ -503,13 +514,13 @@ function DashAdapter() {
             const manifest = voPeriods[0].mpd.manifest;
 
             if (info instanceof StreamInfo) {
-                const period = getPeriodForStreamInfo(info, voPeriods)
+                const period = getPeriodForStreamInfo(info, voPeriods);
                 events = dashManifestModel.getEventsForPeriod(period);
             } else if (info instanceof MediaInfo) {
-                const period = getPeriodForStreamInfo(streamInfo, voPeriods)
+                const period = getPeriodForStreamInfo(streamInfo, voPeriods);
                 events = dashManifestModel.getEventStreamForAdaptationSet(manifest, getAdaptationForMediaInfo(info), period);
             } else if (info instanceof Representation) {
-                const period = getPeriodForStreamInfo(streamInfo, voPeriods)
+                const period = getPeriodForStreamInfo(streamInfo, voPeriods);
                 events = dashManifestModel.getEventStreamForRepresentation(manifest, voRepresentation, period);
             }
         }
@@ -589,9 +600,21 @@ function DashAdapter() {
     }
 
     /**
-     * Returns all periods of the MPD
+     * Returns all linked periods of the MPD
      * @param {object} externalManifest Omit this value if no external manifest should be used
-     * @returns {Array} periods
+     * @returns {Array} linked periods
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getLinkPeriods(externalManifest) {
+        const mpd = getMpd(externalManifest);
+        return dashManifestModel.getLinkPeriods(mpd);
+    }
+
+    /**
+     * Returns all regular periods of the MPD
+     * @param {object} externalManifest Omit this value if no external manifest should be used
+     * @returns {Array} regular periods
      * @memberOf module:DashAdapter
      * @instance
      */

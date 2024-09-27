@@ -52,6 +52,7 @@ import PatchLocation from '../vo/PatchLocation.js';
 import ContentProtection from '../vo/ContentProtection.js';
 import ClientDataReporting from '../vo/ClientDataReporting.js';
 import CMCDParameters from '../vo/CMCDParameters.js';
+import AlternativeMpd from '../vo/AlternativeMpd.js';
 
 function DashManifestModel() {
     let instance,
@@ -927,6 +928,23 @@ function DashManifestModel() {
         return voPeriods;
     }
 
+    function getLinkPeriods(mpd) {
+        const linkedPeriods = [];
+
+        if (!mpd || !mpd.manifest || !mpd.manifest.Period) {
+            return linkedPeriods;
+        }
+
+        let currentPeriod = null;
+        for (let i = 0, len = mpd.manifest.Period.length; i < len; i++) {
+            currentPeriod = mpd.manifest.Period[i];
+            if (currentPeriod.hasOwnProperty(DashConstants.MPD_LINK)) {
+                linkedPeriods.push(currentPeriod);
+            }
+        }
+        return linkedPeriods;
+    }
+
     function getPeriodId(realPeriod, i) {
         if (!realPeriod) {
             throw new Error('Period cannot be null or undefined');
@@ -1024,7 +1042,6 @@ function DashManifestModel() {
                 const eventStream = new EventStream();
                 eventStream.period = period;
                 eventStream.timescale = 1;
-
                 if (eventStreams[i].hasOwnProperty(Constants.SCHEME_ID_URI)) {
                     eventStream.schemeIdUri = eventStreams[i][Constants.SCHEME_ID_URI];
                 } else {
@@ -1058,6 +1075,11 @@ function DashManifestModel() {
                         event.id = currentMpdEvent.id;
                     } else {
                         event.id = null;
+                    }
+                    if (currentMpdEvent.hasOwnProperty(DashConstants.ALTERNATIVE_MPD)) {
+                        event.alternativeMpd = getAlternativeMpd(currentMpdEvent.AlternativeMPD);
+                    } else {
+                        event.alternativeMpd = null;
                     }
 
                     if (currentMpdEvent.Signal && currentMpdEvent.Signal.Binary) {
@@ -1151,6 +1173,16 @@ function DashManifestModel() {
         }
 
         return getEventStreams(inbandStreams, representation, period);
+    }
+
+    function getAlternativeMpd(event) {
+        const alternativeMpd = new AlternativeMpd();
+        alternativeMpd.uri = event.uri ?? null;
+        alternativeMpd.earliestResolutionTimeOffset = event.earliestResolutionTimeOffset ?? null;
+        alternativeMpd.mode = event.mode ?? null;
+        alternativeMpd.disableJumpTimeOffest = event.disableJumpTimeOffest ?? null;
+        alternativeMpd.playTimes = event.playTimes ?? null;
+        return alternativeMpd
     }
 
     function getUTCTimingSources(manifest) {
@@ -1351,6 +1383,10 @@ function DashManifestModel() {
         return mpd && mpd.hasOwnProperty(DashConstants.SUGGESTED_PRESENTATION_DELAY) ? mpd.suggestedPresentationDelay : null;
     }
 
+    function getMpdLists(mpd) {
+        return mpd && mpd.hasOwnProperty(DashConstants.MPD_LISTS) ? mpd.mpdList : null;
+    }
+
     function getAvailabilityStartTime(mpd) {
         return mpd && mpd.hasOwnProperty(DashConstants.AVAILABILITY_START_TIME) && mpd.availabilityStartTime !== null ? mpd.availabilityStartTime.getTime() : null;
     }
@@ -1506,6 +1542,7 @@ function DashManifestModel() {
         getRealPeriodForIndex,
         getRealPeriods,
         getRegularPeriods,
+        getLinkPeriods,
         getRepresentationCount,
         getRepresentationFor,
         getRepresentationSortFunction,
@@ -1520,6 +1557,7 @@ function DashManifestModel() {
         getSupplementalPropertiesForRepresentation,
         getUTCTimingSources,
         getViewpointForAdaptation,
+        getMpdLists,
         hasProfile,
         isPeriodEncrypted,
         setConfig
