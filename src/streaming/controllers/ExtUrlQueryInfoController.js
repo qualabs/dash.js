@@ -43,7 +43,7 @@ function ExtUrlQueryInfoController() {
     function _generateQueryParams(resultObject, manifestObject, mpdUrlQuery, parentLevelInfo, level) {
         const property = _getPropertyFromManifestObject(manifestObject, level);
         _generateInitialQueryString(property, parentLevelInfo.initialQueryString, resultObject, mpdUrlQuery);
-        _generateFinalQueryString(property, resultObject);
+        _generateFinalQueryString(property, resultObject, parentLevelInfo.finalQueryString);
         resultObject.sameOriginOnly = property?.ExtUrlQueryInfo?.sameOriginOnly;
         resultObject.queryParams = Utils.parseQueryParams(resultObject?.finalQueryString);
         resultObject.includeInRequests = _getIncludeInRequestFromProperty(property, parentLevelInfo.includeInRequests);
@@ -87,7 +87,11 @@ function ExtUrlQueryInfoController() {
     }
 
     // The logic for supporting templates with queryTemplate=$query:<param>$ is not in place yet, this only support queryTemplate="$querypart$".
-    function _generateFinalQueryString(property, resultObject) {
+    function _generateFinalQueryString(property, resultObject, parentQueryString) {
+        if (!property) {
+            resultObject.finalQueryString = parentQueryString;
+            return;
+        }
         const queryTemplate = property?.ExtUrlQueryInfo?.queryTemplate || property?.UrlQueryInfo?.queryTemplate || '';
         resultObject.finalQueryString = queryTemplate === DashConstants.QUERY_PART ? resultObject?.initialQueryString : '';
     }

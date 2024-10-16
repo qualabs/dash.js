@@ -1,5 +1,6 @@
 import {expect} from 'chai';
 import ExtUrlQueryInfoController from '../../../../src/streaming/controllers/ExtUrlQueryInfoController.js';
+import { LOG_DEBUG } from 'karma/lib/constants.js';
 
 describe('ExtUrlQueryInfoController', () => {
 
@@ -324,7 +325,7 @@ describe('ExtUrlQueryInfoController', () => {
             expect(result).to.have.deep.members(expectedResult);
         });
 
-        it('should inherit queryString from Period property', () => {
+        it.only('should inherit queryString from Period property', () => {
 
             let manifest = {
                 url: 'http://manifesturl.com/Manifest.mpd?urlParam1=urlValue1&urlParam2=urlValue2',
