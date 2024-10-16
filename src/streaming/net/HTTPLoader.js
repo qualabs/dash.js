@@ -114,7 +114,7 @@ function HTTPLoader(cfg) {
         }
 
         if (config.ExtUrlQueryInfoController) {
-            extUrlQueryInfoController = config.ExtUrlQueryInfoController;
+            extUrlQueryInfoController = config.extUrlQueryInfoController;
         }
     }
 
