@@ -581,13 +581,16 @@ function HTTPLoader(cfg) {
      */
     function _updateRequestUrlAndHeaders(request) {
         _updateRequestUrlAndHeadersWithCmcd(request);
+        _addExtUrlQueryInfoParameters(request);
+        _addPathwayCloningParameters(request);
+        _addCommonAccessToken(request);
+    }
+    function _addExtUrlQueryInfoParameters(request) {
         // Add ExtUrlQueryInfo parameters
         let finalQueryString = extUrlQueryInfoController.getFinalQueryString(request);
         if (finalQueryString) {
             request.url = Utils.addAdditionalQueryParameterToUrl(request.url, finalQueryString);
         }
-        _addPathwayCloningParameters(request);
-        _addCommonAccessToken(request);
     }
 
     function _addPathwayCloningParameters(request) {
