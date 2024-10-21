@@ -34,7 +34,7 @@ import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
 import XHRLoader from '../net/XHRLoader.js';
-import Constants from '../constants/Constants.js';
+import Constants from '../../dash/constants/DashConstants.js';
 
 function EventController() {
 

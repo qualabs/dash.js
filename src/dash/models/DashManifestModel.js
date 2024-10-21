@@ -1182,7 +1182,7 @@ function DashManifestModel() {
         alternativeMpd.mode = event.mode ?? null;
         alternativeMpd.disableJumpTimeOffest = event.disableJumpTimeOffest ?? null;
         alternativeMpd.playTimes = event.playTimes ?? null;
-        return alternativeMpd
+        return alternativeMpd;
     }
 
     function getUTCTimingSources(manifest) {
