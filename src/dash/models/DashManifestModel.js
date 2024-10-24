@@ -856,11 +856,18 @@ function DashManifestModel() {
         let realPeriod = null;
         let voPreviousPeriod = null;
         let voPeriod = null;
-        let len,
-            i;
-
-        for (i = 0, len = mpd && mpd.manifest && mpd.manifest.Period ? mpd.manifest.Period.length : 0; i < len; i++) {
+        let alternativePeriod = null;
+        let splitPeriod = null;
+        let len, index, i;
+        
+        for (i = 0, index = 0, len = mpd && mpd.manifest && mpd.manifest.Period ? mpd.manifest.Period.length : 0; i < len; i++, index++) {
             realPeriod = mpd.manifest.Period[i];
+            
+            let alternativeMpd = ( realPeriod.EventStream && realPeriod.EventStream[0].Event[0].AlternativeMPD ) ? getAlternativeMpd(realPeriod.EventStream[0].Event[0].AlternativeMPD) : null;
+            if (alternativeMpd != null) {
+                alternativeMpd.presentationTime = realPeriod.EventStream[0].Event[0].presentationTime / realPeriod.EventStream[0].timescale;
+                alternativeMpd.duration = realPeriod.EventStream[0].Event[0].duration / realPeriod.EventStream[0].timescale;
+            }
 
             // If the attribute @start is present in the Period, then the
             // Period is a regular Period and the PeriodStart is equal
@@ -905,13 +912,56 @@ function DashManifestModel() {
                     voPreviousPeriod.nextPeriodId = voPeriod.id;
                 }
 
+                // alternative mpd pre roll
+                if (alternativeMpd != null && voPeriod.start >= alternativeMpd.presentationTime) {
+                    alternativePeriod = new Period;
+                    alternativePeriod.start = alternativeMpd.presentationTime;
+                    alternativePeriod.duration = alternativeMpd.duration;
+                    voPeriod.start = alternativeMpd.presentationTime + alternativeMpd.duration;
+                    alternativePeriod.nextPeriodId = voPeriod.id;
+                    alternativePeriod.index = voPeriod.index;
+                    alternativePeriod.mpd = mpd;
+                    alternativePeriod.isAlternative = true;
+                    voPeriod.index = index++;
+                    voPeriods.push(alternativePeriod);
+                }
+                // alternative mpd midroll
+                else if (alternativeMpd != null) {
+                    alternativePeriod = new Period;
+                    alternativePeriod.start = alternativeMpd.presentationTime;
+                    alternativePeriod.duration = alternativeMpd.duration;
+                    alternativePeriod.id = '1';
+                    alternativePeriod.index = 1;
+                    alternativePeriod.mpd = mpd;
+                    alternativePeriod.isAlternative = true;
+
+                    splitPeriod = new Period;
+                    splitPeriod.start = alternativeMpd.presentationTime + alternativeMpd.duration;
+                    splitPeriod.duration = voPeriod.duration - alternativeMpd.presentationTime - voPeriod.start;
+                    splitPeriod.id = '2';
+                    splitPeriod.index = 2;
+                    splitPeriod.mpd = voPeriod.mpd;
+                    voPeriod.duration = alternativeMpd.presentationTime - voPeriod.start;
+
+                    alternativePeriod.nextPeriodId = splitPeriod.id;
+                }
+
                 voPeriods.push(voPeriod);
                 realPreviousPeriod = realPeriod;
                 voPreviousPeriod = voPeriod;
+                if (splitPeriod && alternativePeriod)
+                {
+                    voPeriods.push(alternativePeriod);
+                    voPeriods.push(splitPeriod);
+                    voPreviousPeriod = splitPeriod;
+                    voPeriod.nextPeriodId = alternativePeriod;
+                }
             }
 
             realPeriod = null;
             voPeriod = null;
+            splitPeriod = null;
+            alternativePeriod = null;
         }
 
         if (voPeriods.length === 0) {
@@ -1078,6 +1128,7 @@ function DashManifestModel() {
                     }
                     if (currentMpdEvent.hasOwnProperty(DashConstants.ALTERNATIVE_MPD)) {
                         event.alternativeMpd = getAlternativeMpd(currentMpdEvent.AlternativeMPD);
+                        event.calculatedPresentationTime = event.calculatedPresentationTime - event.alternativeMpd.earliestResolutionTimeOffset;
                     } else {
                         event.alternativeMpd = null;
                     }

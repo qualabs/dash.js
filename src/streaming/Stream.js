@@ -223,6 +223,11 @@ function Stream(config) {
         });
     }
 
+    function isAlternative() {
+        return streamInfo ? streamInfo.isAlternative : false;
+    }
+
+    // Funcion para precargar el siguiente stream, la podemos usar para precargar el siguiente mpd si lo podemos pedir a tiempo.
     function startPreloading(mediaSource, previousBuffers, representationsFromPreviousPeriod = []) {
         return new Promise((resolve, reject) => {
 
@@ -1042,6 +1047,7 @@ function Stream(config) {
         getThumbnailController,
         initialize,
         initializeForTextWithMediaSource,
+        isAlternative,
         prepareQualityChange,
         prepareTrackChange,
         reset,

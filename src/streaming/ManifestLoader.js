@@ -38,6 +38,7 @@ import DashJSError from './vo/DashJSError.js';
 import {HTTPRequest} from './vo/metrics/HTTPRequest.js';
 import EventBus from '../core/EventBus.js';
 import Events from '../core/events/Events.js';
+import MediaPlayerEvents from './MediaPlayerEvents.js';
 import Errors from '../core/errors/Errors.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import DashParser from '../dash/parser/DashParser.js';
@@ -107,7 +108,7 @@ function ManifestLoader(config) {
         }
     }
 
-    function load(url, serviceLocation = null, queryParams = null) {
+    function load(url, serviceLocation = null, queryParams = null, alternative = false) {
 
         const requestStartDate = new Date();
         const request = new TextRequest(url, HTTPRequest.MPD_TYPE);
@@ -227,6 +228,8 @@ function ManifestLoader(config) {
                     xlinkController.resolveManifestOnLoad(manifest);
 
                     eventBus.trigger(Events.ORIGINAL_MANIFEST_LOADED, { originalManifest: data });
+                    if (alternative)
+                        eventBus.trigger(MediaPlayerEvents.ALTERNATIVE_MPD_LOADED, { manifest: manifest });
                 } else {
                     eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
                         manifest: null,

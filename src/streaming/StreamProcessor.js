@@ -1127,6 +1127,7 @@ function StreamProcessor(config) {
         const bytes = chunk.bytes;
         const representationId = chunk.representation.id;
         const currentRepresentation = getRepresentation(representationId);
+        logger.debug(`_onInitFragmentLoaded for representation id ${representationId}`);
         if (currentRepresentation) {
             currentRepresentation.timescale = boxParser.getMediaTimescaleFromMoov(bytes);
         }

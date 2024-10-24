@@ -487,6 +487,18 @@ class MediaPlayerEvents extends EventsBase {
          * @type {string}
          */
         this.MANAGED_MEDIA_SOURCE_END_STREAMING = 'managedMediaSourceEndStreaming';
+
+        /**
+         * The streaming attribute of the Managed Media Source is false
+         * @type {string}
+         */
+        this.ALTERNATIVE_MPD = 'alternativeMPD';
+
+        /**
+         * The streaming attribute of the Managed Media Source is false
+         * @type {string}
+         */
+        this.ALTERNATIVE_MPD_LOADED = 'alternativeMPDLoaded';
     }
 }
 

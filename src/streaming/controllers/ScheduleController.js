@@ -163,6 +163,7 @@ function ScheduleController(config) {
             } else {
                 logger.debug('Quality has changed, get init request for representationid = ' + currentRepresentation.id);
             }
+            logger.debug(`Init segment needed for ${type} and stream id ${streamInfo.id} and representation id ${currentRepresentation.id}`);
             eventBus.trigger(Events.INIT_FRAGMENT_NEEDED,
                 { representationId: currentRepresentation.id, sender: instance },
                 { streamId: streamInfo.id, mediaType: type }

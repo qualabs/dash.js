@@ -344,7 +344,7 @@ function DashAdapter() {
                 maxStreamsInfo = voLocalPeriods.length;
             }
             for (let i = 0; i < maxStreamsInfo; i++) {
-                streams.push(convertPeriodToStreamInfo(voLocalPeriods[i]));
+                streams.push(convertPeriodToStreamInfo(voLocalPeriods[i], maxStreamsInfo));
             }
         }
 
@@ -1151,7 +1151,7 @@ function DashAdapter() {
         mediaInfo.type = constants.IMAGE;
     }
 
-    function convertPeriodToStreamInfo(period) {
+    function convertPeriodToStreamInfo(period, periodsLength) {
         let streamInfo = new StreamInfo();
         const THRESHOLD = 1;
 
@@ -1160,7 +1160,13 @@ function DashAdapter() {
         streamInfo.start = period.start;
         streamInfo.duration = period.duration;
         streamInfo.manifestInfo = convertMpdToManifestInfo(period.mpd);
-        streamInfo.isLast = period.mpd.manifest.Period.length === 1 || Math.abs((streamInfo.start + streamInfo.duration) - streamInfo.manifestInfo.duration) < THRESHOLD;
+        streamInfo.isAlternative = period.isAlternative;
+        if (!periodsLength){
+            streamInfo.isLast = period.mpd.manifest.Period.length === 1 || Math.abs((streamInfo.start + streamInfo.duration) - streamInfo.manifestInfo.duration) < THRESHOLD;
+        }
+        else {
+            streamInfo.isLast = periodsLength === 1 || Math.abs((streamInfo.start + streamInfo.duration) - streamInfo.manifestInfo.duration) < THRESHOLD;
+        }
         streamInfo.isEncrypted = period.isEncrypted;
 
         return streamInfo;

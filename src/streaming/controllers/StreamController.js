@@ -45,6 +45,10 @@ import DashJSError from '../vo/DashJSError.js';
 import Errors from '../../core/errors/Errors.js';
 import EventController from './EventController.js';
 import ConformanceViolationConstants from '../constants/ConformanceViolationConstants.js';
+import StreamInfo from '../../dash/vo/StreamInfo.js';
+import DashManifestModel from '../../dash/models/DashManifestModel.js';
+import ManifestInfo from '../../dash/vo/ManifestInfo.js';
+
 
 const PLAYBACK_ENDED_TIMER_INTERVAL = 200;
 const DVR_WAITING_OFFSET = 2;
@@ -130,6 +134,8 @@ function StreamController() {
         eventBus.on(MediaPlayerEvents.MANIFEST_VALIDITY_CHANGED, _onManifestValidityChanged, instance);
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_UPDATED, _onBufferLevelUpdated, instance);
         eventBus.on(MediaPlayerEvents.QUALITY_CHANGE_REQUESTED, _onQualityChanged, instance);
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_MPD, _alternativeMpd, instance);
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_MPD_LOADED, _alternativeMpdLoaded, instance);
 
         if (Events.KEY_SESSION_UPDATED) {
             eventBus.on(Events.KEY_SESSION_UPDATED, _onKeySessionUpdated, instance);
@@ -216,6 +222,103 @@ function StreamController() {
     function _onKeySessionUpdated() {
         firstLicenseIsFetched = true;
     }
+
+
+    function _alternativeMpd(alternativeMpd) {
+        console.log(alternativeMpd); 
+        manifestLoader.load(alternativeMpd.alternativeMPD.uri, null, null, true);
+    }
+
+    function _alternativeMpdLoaded(e) {
+        console.log('_alternativeMpdLoaded', e);
+    
+        // Get the parsed alternative MPD
+        const alternativeManifest = e.manifest;
+    
+        // Initialize the alternative stream
+        _initializeAlternativeStream(alternativeManifest);
+    }
+
+
+    function _initializeAlternativeStream(alternativeManifest) {
+        // Get StreamInfo from the alternative manifest
+        // const streamsInfo = adapter.getStreamsInfo(alternativeManifest);
+        // if (streamsInfo.length === 0) {
+        //     console.error('No periods in alternative MPD');
+        //     return;
+        // }
+        
+        // const streamInfo = streams[0].getStreamInfo(); // Assuming single-period alternative MPD
+    
+        // streamInfo.duration = streams[1].getStreamInfo().duration;
+        // streamInfo.start = streams[1].getStreamInfo().start;
+        // console.log('stream info', streamInfo);
+
+
+        const alternativePeriods = adapter.getRegularPeriods(alternativeManifest);
+
+        const alternativePeriod = alternativePeriods[0];
+
+        const streamInfo = new StreamInfo;
+
+        streamInfo.id = alternativePeriod.id;
+        streamInfo.index = alternativePeriod.index;
+        streamInfo.start = alternativePeriod.start;
+        streamInfo.duration = alternativePeriod.duration;
+        
+        let manifestInfo = new ManifestInfo();
+
+        manifestInfo.dvrWindowSize = alternativePeriod.mpd.timeShiftBufferDepth;
+        manifestInfo.loadedTime = alternativePeriod.mpd.manifest.loadedTime;
+        manifestInfo.availableFrom = alternativePeriod.mpd.availabilityStartTime;
+        manifestInfo.minBufferTime = alternativePeriod.mpd.manifest.minBufferTime;
+        manifestInfo.maxFragmentDuration = alternativePeriod.mpd.maxSegmentDuration;
+
+        const dashManifestModel = DashManifestModel(context).getInstance();
+        manifestInfo.duration = dashManifestModel.getDuration(alternativePeriod.mpd.manifest);
+        manifestInfo.isDynamic = dashManifestModel.getIsDynamic(alternativePeriod.mpd.manifest);
+        manifestInfo.serviceDescriptions = dashManifestModel.getServiceDescriptions(alternativePeriod.mpd.manifest);
+        manifestInfo.protocol = alternativePeriod.mpd.manifest.protocol;
+        
+        streamInfo.manifestInfo = manifestInfo;
+
+
+        streamInfo.isAlternative = alternativePeriod.isAlternative;
+
+        
+        // Create a new Stream instance
+        const alternativeStream = Stream(context).create({
+            manifestModel,
+            mediaPlayerModel,
+            dashMetrics,
+            manifestUpdater,
+            adapter,
+            timelineConverter,
+            capabilities,
+            capabilitiesFilter,
+            errHandler,
+            baseURLController,
+            segmentBaseController,
+            textController,
+            abrController,
+            playbackController,
+            throughputController,
+            eventController,
+            mediaController,
+            protectionController,
+            videoModel,
+            streamInfo,
+            settings
+        });
+    
+        streams[1] = alternativeStream;
+        // streams.push(alternativeStream);
+        // alternativeStream.initialize();
+    
+        // Switch to the alternative stream
+        // _switchStream(alternativeStream, activeStream, playbackController.getTime());
+    }
+
 
     /**
      * Setup the stream objects after the stream start and each MPD reload. This function is called after the UTC sync has been done (TIME_SYNCHRONIZATION_COMPLETED)
@@ -399,6 +502,7 @@ function StreamController() {
         _startPlaybackEndedTimerInterval();
     }
 
+    // Puede servir para cambiar
     /**
      * Switch from the current stream (period) to the next stream (period).
      * @param {object} stream
@@ -680,6 +784,7 @@ function StreamController() {
         }
     }
 
+    // Funcion para iniciar el preloading del siguiente stream
     /**
      * Initiate the preloading of the next stream
      * @param {object} nextStream
@@ -688,7 +793,7 @@ function StreamController() {
      */
     function _onStreamCanLoadNext(nextStream, previousStream = null) {
 
-        if (mediaSource && !nextStream.getPreloaded()) {
+        if (mediaSource && !nextStream.getPreloaded() && !nextStream.isAlternative()) {
             let seamlessPeriodSwitch = _canSourceBuffersBeReused(nextStream, previousStream);
 
             if (seamlessPeriodSwitch) {
@@ -875,6 +980,12 @@ function StreamController() {
     }
 
     /**
+    Funcion para verificar si podemos arrancar el prebuffering. Se ejecuta por _onStreamBufferingCompleted 
+    si la necesitamos ejecutar desde este metodo vamos a tener que definir una forma de hacer que dash entienda 
+    que termino el buffering del primer manifest, o también se ejecuta desde _composePeriods() que creo que se 
+    ejecuta cuando se hace un manifest update y verifica se se agrego algun period para validar si se necesita 
+    hacer un prebuffering. */
+    /**
      * Check if we can start prebuffering the next period.
      * @private
      */
@@ -969,6 +1080,7 @@ function StreamController() {
         return activeStream ? activeStream.getStreamProcessors() : [];
     }
 
+    // Podríamos setear el fin del playback de un stream en el comienzo del playback del otro, si conseguimos agregar el period del manifest del alternative mpd como parte de la playlist podría funcionar el insert, para la parte del replace sería meterle un seak time al querer volver a la playlist inicial. 
     /**
      * Once playback has ended we switch to the next stream
      * @param {object} e
@@ -1037,6 +1149,7 @@ function StreamController() {
      * @return {array}
      */
     function _getNextStreams(stream = null) {
+        console.log('getNextStreams:', stream);
         try {
             const refStream = stream ? stream : activeStream ? activeStream : null;
 

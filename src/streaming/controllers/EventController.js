@@ -490,6 +490,8 @@ function EventController() {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
                     _sendCallbackRequest(event.messageData);
                 } else if (event.eventStream.schemeIdUri === Constants.ALTERNATIVE_MPD_SCHEME_ID) {
+                    logger.debug(`Starting callback event Alternative MPD ${eventId} at ${currentVideoTime}`);
+                    eventBus.trigger(MediaPlayerEvents.ALTERNATIVE_MPD, { alternativeMPD: event.alternativeMpd});
                     // Add alternative MPD trigger logic
                 } else {
                     logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
