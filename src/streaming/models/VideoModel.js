@@ -53,6 +53,7 @@ function VideoModel() {
         setCurrentTimeReadyStateFunction,
         TTMLRenderingDiv,
         vttRenderingDiv,
+        overlayRenderingDiv,
         previousPlaybackRate,
         timeout;
 
@@ -213,6 +214,10 @@ function VideoModel() {
         return vttRenderingDiv;
     }
 
+    function getOverlayRenderingDiv() {
+        return overlayRenderingDiv;
+    }
+
     function setTTMLRenderingDiv(div) {
         TTMLRenderingDiv = div;
         // The styling will allow the captions to match the video window size and position.
@@ -226,6 +231,17 @@ function VideoModel() {
 
     function setVttRenderingDiv(div) {
         vttRenderingDiv = div;
+    }
+
+    function setOverlayRenderingDiv(div) {
+        overlayRenderingDiv = div;
+        overlayRenderingDiv.style.position = 'absolute';
+        overlayRenderingDiv.style.pointerEvents = 'none';
+        overlayRenderingDiv.style.height = '100%';
+        overlayRenderingDiv.style.top = 0;
+        overlayRenderingDiv.style.bottom = 0;
+        overlayRenderingDiv.style.left = 0;
+        overlayRenderingDiv.style.right = 0;
     }
 
     function setStallState(type, state) {
@@ -495,6 +511,7 @@ function VideoModel() {
         getReadyState,
         getSource,
         getTTMLRenderingDiv,
+        getOverlayRenderingDiv,
         getTextTrack,
         getTextTracks,
         getTime,
@@ -521,6 +538,7 @@ function VideoModel() {
         setStallState,
         setTTMLRenderingDiv,
         setVttRenderingDiv,
+        setOverlayRenderingDiv,
         waitForReadyState,
     };
 

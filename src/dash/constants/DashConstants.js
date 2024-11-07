@@ -122,6 +122,7 @@ export default {
     MPD: 'MPD',
     ORIGINAL_MPD_ID: 'mpdId',
     ORIGINAL_PUBLISH_TIME: 'originalPublishTime',
+    OVERLAY: 'Overlay',
     PATCH_LOCATION: 'PatchLocation',
     PERIOD: 'Period',
     PRESENTATION_TIME: 'presentationTime',
