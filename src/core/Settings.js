@@ -309,11 +309,7 @@ import Events from './events/Events.js';
  *                mode: Constants.CMCD_MODE_QUERY,
  *                enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v']
  *                includeInRequests: ['segment', 'mpd'],
- *                reporting: {
- *                    requestMode: {
- *                        version: 1
- *                    }
- *                }
+ *                version: 1
  *            },
  *            cmsd: {
  *                enabled: false,
@@ -887,11 +883,7 @@ import Events from './events/Events.js';
  * Specifies which HTTP GET requests shall carry parameters.
  *
  * If not specified this value defaults to ['segment'].
- * @property {Object} [reporting]
- * Configuration for CMCD reporting.
- * @property {Object} [reporting.requestMode]
- * Configuration for the request mode.
- * @property {number} [reporting.requestMode.version=1]
+ * @property {number} [version=1]
  * The version of the CMCD to use.
  * 
  * If not specified this value defaults to 1.
@@ -1339,11 +1331,7 @@ function Settings() {
                 mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
                 includeInRequests: ['segment', 'mpd'],
-                reporting: {
-                    requestMode: {
-                        version: 1
-                    }
-                }  
+                version: 1
             },
             cmsd: {
                 enabled: false,

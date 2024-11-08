@@ -285,7 +285,7 @@ function CmcdModel() {
         const defaultAvailableKeys = Constants.CMCD_AVAILABLE_KEYS;
         const defaultV2AvailableKeys = Constants.CMCD_V2_AVAILABLE_KEYS;
         const enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
-        const cmcdVersion = settings.get().streaming.cmcd.reporting.requestMode.version;
+        const cmcdVersion = settings.get().streaming.cmcd.version;
         const invalidKeys = enabledCMCDKeys.filter(k => !defaultAvailableKeys.includes(k) && !(cmcdVersion === 2 && defaultV2AvailableKeys.includes(k)));
 
         if (invalidKeys.length === enabledCMCDKeys.length && enabledCMCDKeys.length > 0) {
@@ -525,7 +525,7 @@ function CmcdModel() {
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
         cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
 
-        data.v = settings.get().streaming.cmcd.reporting.requestMode.version ?? DEFAULT_CMCD_VERSION;
+        data.v = settings.get().streaming.cmcd.version ?? DEFAULT_CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
@@ -566,7 +566,7 @@ function CmcdModel() {
     }
 
     function _createCmcdV2HeadersCustomMap() {
-        const cmcdVersion = settings.get().streaming.cmcd.reporting.requestMode.version;
+        const cmcdVersion = settings.get().streaming.cmcd.version;
         return cmcdVersion === 1 ? {} : { 
             customHeaderMap: { 
                 [CmcdHeaderField.REQUEST]: ['ltc'],
