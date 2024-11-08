@@ -1287,6 +1287,11 @@ declare namespace dashjs {
                 mode?: 'query' | 'header',
                 enabledKeys?: Array<string>,
                 includeInRequests?: Array<string>
+                reporting?: {
+                    requestMode?: {
+                        version?: number
+                    }
+                }
             },
             cmsd?: {
                 enabled?: boolean,

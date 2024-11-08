@@ -79,13 +79,18 @@ function CmcdModel() {
         _resetInitialSettings();
     }
 
-    function initialize() {
+    function initialize(autoPlay) {
         eventBus.on(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
         eventBus.on(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, instance);
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
+        if (autoPlay) {
+            eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
+        }
+        else {
+            eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
+        }
         eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, _onPlaybackPlaying, instance);
     }
 
@@ -215,7 +220,7 @@ function CmcdModel() {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
                 const filteredCmcdData = _applyWhitelist(cmcdData);
-                const options = _creatCmcdV2HeadersCustomMap();
+                const options = _createCmcdV2HeadersCustomMap();
                 const headers = toCmcdHeaders(filteredCmcdData, options);
 
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
@@ -560,7 +565,7 @@ function CmcdModel() {
         return data;
     }
 
-    function _creatCmcdV2HeadersCustomMap() {
+    function _createCmcdV2HeadersCustomMap() {
         const cmcdVersion = settings.get().streaming.cmcd.reporting.requestMode.version;
         return cmcdVersion === 1 ? {} : { 
             customHeaderMap: { 

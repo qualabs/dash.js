@@ -302,7 +302,12 @@ import Events from './events/Events.js';
  *                rtpSafetyFactor: 5,
  *                mode: Constants.CMCD_MODE_QUERY,
  *                enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v']
- *                includeInRequests: ['segment', 'mpd']
+ *                includeInRequests: ['segment', 'mpd'],
+ *                reporting: {
+ *                    requestMode: {
+ *                        version: 1
+ *                    }
+ *                }
  *            },
  *            cmsd: {
  *                enabled: false,
@@ -863,6 +868,14 @@ import Events from './events/Events.js';
  * Specifies which HTTP GET requests shall carry parameters.
  *
  * If not specified this value defaults to ['segment'].
+ * @property {Object} [reporting]
+ * Configuration for CMCD reporting.
+ * @property {Object} [reporting.requestMode]
+ * Configuration for the request mode.
+ * @property {number} [reporting.requestMode.version=1]
+ * The version of the CMCD to use.
+ * 
+ * If not specified this value defaults to 1.
  */
 
 /**
