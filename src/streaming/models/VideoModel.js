@@ -238,6 +238,7 @@ function VideoModel() {
         overlayRenderingDiv.style.position = 'absolute';
         overlayRenderingDiv.style.pointerEvents = 'none';
         overlayRenderingDiv.style.height = '100%';
+        overlayRenderingDiv.style.width = '100%';
         overlayRenderingDiv.style.top = 0;
         overlayRenderingDiv.style.bottom = 0;
         overlayRenderingDiv.style.left = 0;

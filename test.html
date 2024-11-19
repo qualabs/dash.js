@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Dash.js Rocks</title>
+        <link
+            rel="stylesheet"
+            href="contrib/akamai/controlbar/controlbar.css"
+        />
+    </head>
+    <body>
+        <div class="dash-video-player">
+            <div class="videoContainer" id="videoContainer">
+                <video
+                    id="main-video"
+                    preload="auto"
+                    autoplay=""
+                    style="width: 100%"
+                ></video>
+                <div id="overlay"></div>
+                <div id="videoController" class="video-controller unselectable">
+                    <div
+                        id="playPauseBtn"
+                        class="btn-play-pause"
+                        title="Play/Pause"
+                    >
+                        <span id="iconPlayPause" class="icon-play"></span>
+                    </div>
+                    <span id="videoTime" class="time-display">00:00:00</span>
+                    <div
+                        id="fullscreenBtn"
+                        class="btn-fullscreen control-icon-layout"
+                        title="Fullscreen"
+                    >
+                        <span class="icon-fullscreen-enter"></span>
+                    </div>
+                    <div
+                        id="bitrateListBtn"
+                        class="control-icon-layout"
+                        title="Bitrate List"
+                    >
+                        <span class="icon-bitrate"></span>
+                    </div>
+                    <input
+                        type="range"
+                        id="volumebar"
+                        class="volumebar"
+                        value="1"
+                        min="0"
+                        max="1"
+                        step=".01"
+                    />
+                    <div
+                        id="muteBtn"
+                        class="btn-mute control-icon-layout"
+                        title="Mute"
+                    >
+                        <span id="iconMute" class="icon-mute-off"></span>
+                    </div>
+                    <div
+                        id="trackSwitchBtn"
+                        class="control-icon-layout"
+                        title="A/V Tracks"
+                    >
+                        <span class="icon-tracks"></span>
+                    </div>
+                    <div
+                        id="captionBtn"
+                        class="btn-caption control-icon-layout"
+                        title="Closed Caption"
+                    >
+                        <span class="icon-caption"></span>
+                    </div>
+                    <span id="videoDuration" class="duration-display"
+                        >00:00:00</span
+                    >
+                    <div class="seekContainer">
+                        <div id="seekbar" class="seekbar seekbar-complete">
+                            <div
+                                id="seekbar-buffer"
+                                class="seekbar seekbar-buffer"
+                            ></div>
+                            <div
+                                id="seekbar-play"
+                                class="seekbar seekbar-play"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script src="dist/dash.all.debug.js"></script>
+        <script src="contrib/akamai/controlbar/ControlBar.js"></script>
+        <script>
+            (async function () {
+                var video,
+                    url =
+                        "https://comcast-dash-6-assets.s3.us-east-2.amazonaws.com/Overlay/case8-b/manifest.mpd",
+                    //url = 'https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd',
+                    //url = 'https://comcast-dash-6-assets.s3.us-east-2.amazonaws.com/ExtUrlQueryInfo/case1.mpd',
+                    //url = 'https://comcast-dash-6-assets.s3.us-east-2.amazonaws.com/ExtUrlQueryInfo/case2.mpd',
+                    //url = 'https://livesim.dashif.org/livesim/scte35_2/testpic_2s/Manifest.mpd',
+                    //url = 'https://dash.akamaized.net/dash264/TestCases/5a/nomor/1.mpd',
+                    version;
+
+                var player = dashjs.MediaPlayer().create();
+                video = document.querySelector("video");
+                player.initialize();
+                version = player.getVersion();
+
+                player.updateSettings({
+                    debug: {
+                        logLevel: dashjs.Debug.LOG_LEVEL_DEBUG,
+                    },
+                });
+                player.setAutoPlay(false);
+                player.attachView(video);
+                player.attachSource(url);
+
+                OverlayRenderingDiv = document.querySelector("#overlay");
+                player.attachVideoOverlayRenderingDiv(OverlayRenderingDiv);
+
+                var controlBar = new ControlBar(player);
+                controlBar.initialize();
+            })();
+        </script>
+    </body>
+</html>

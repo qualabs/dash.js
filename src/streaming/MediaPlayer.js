@@ -1490,27 +1490,37 @@ function MediaPlayer() {
         videoModel.setVttRenderingDiv(div);
     }
 
-    function attachVideoOverlayRenderingDiv(div) {
+    function attachVideoOverlayRenderingDiv(overlayDiv) {
         if (!videoModel.getElement()) {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
-        videoModel.getElement().parentElement.style.position = 'relative';
-        videoModel.setOverlayRenderingDiv(div);
-        eventBus.on('urn:scte:dash:scte214-events', function(e) {
+        const parent = videoModel.getElement().parentElement;
+        parent.style.position = 'relative';
+        videoModel.setOverlayRenderingDiv(overlayDiv);
+        eventBus.on('urn:scte:dash:scte214-events', function (e) {
             var overlayVideo = document.createElement('video');
             overlayVideo.id = 'video-overlay';
             overlayVideo.loop = true;
             overlayVideo.autoplay = true;
             overlayVideo.src = e.event.overlay.uri;
-            overlayVideo.style.height = videoModel.getClientWidth();
-            overlayVideo.style.width = videoModel.getClientHeight();
-            div.appendChild(overlayVideo);
+            overlayDiv.appendChild(overlayVideo);
 
-            eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
-                overlayVideo.play();
+            const resizeObserver = new ResizeObserver((entries) => {
+                for (let entry of entries) {
+                    const { width, height } = entry.contentRect; // Get the new dimensions
+                    overlayVideo.style.width = `${width}px`;
+                    overlayVideo.style.height = `${height}px`;
+                }
             });
+            resizeObserver.observe(videoModel.getElement());
 
-            eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
+            eventBus.on(
+                dashjs.MediaPlayer.events.PLAYBACK_PLAYING,
+                function () {
+                    overlayVideo.play();
+                });
+
+            eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function () {
                 overlayVideo.pause();
             });
         });
