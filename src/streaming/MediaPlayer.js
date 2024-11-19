@@ -1497,32 +1497,105 @@ function MediaPlayer() {
         const parent = videoModel.getElement().parentElement;
         parent.style.position = 'relative';
         videoModel.setOverlayRenderingDiv(overlayDiv);
-        eventBus.on('urn:scte:dash:scte214-events', function (e) {
-            var overlayVideo = document.createElement('video');
-            overlayVideo.id = 'video-overlay';
-            overlayVideo.loop = true;
-            overlayVideo.autoplay = true;
-            overlayVideo.src = e.event.overlay.uri;
-            overlayDiv.appendChild(overlayVideo);
+        eventBus.on('urn:scte:dash:scte214-events', function(e) {
+            let overlayElement;
+            if (e.event.overlay.mimeType === 'video/mp4') {
+                overlayElement = document.createElement('video');
+                overlayElement.id = 'overlay-element';
+                overlayElement.autoplay = true;
+                overlayElement.src = e.event.overlay.uri;
+                overlayElement.loop = e.event.overlay.loop;
 
+                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
+                    overlayElement.play();
+                });
+
+                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
+                    overlayElement.pause();
+                });
+
+                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
+                    overlayElement.seek(videoModel.getElement.currentTime);
+                });
+            }
+            if (e.event.overlay.mimeType === 'text/html') {
+                overlayElement = document.createElement('iframe');
+                overlayElement.id = 'overlay-element';
+                overlayElement.src = e.event.overlay.uri;
+                if (e.event.overlay.allowScripts) {
+                    overlayElement.sandbox = 'allow-scripts';
+                }
+                overlayElement.frameBorder = 0;
+                if (e.event.overlay.customMessage) {
+                    overlayElement.contentWindow.postMessage(
+                        {
+                            event: 'customMessage',
+                            value: e.event.overlay.customMessage
+                        }, '*');
+                }
+                if (e.event.overlay.sendPlaybackData) {
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'started'
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'playing'
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'paused'
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, function(e) {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'update',
+                                value: e.time
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'seeking'
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKED, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'seeked'
+                            }, '*');
+                    });
+
+                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_ENDED, function() {
+                        overlayElement.contentWindow.postMessage(
+                            {
+                                event: 'ended'
+                            }, '*');
+                    });
+                }
+            }
+            overlayElement.style.width = '100%';
+            overlayElement.style.height = '100%';
             const resizeObserver = new ResizeObserver((entries) => {
                 for (let entry of entries) {
                     const { width, height } = entry.contentRect; // Get the new dimensions
-                    overlayVideo.style.width = `${width}px`;
-                    overlayVideo.style.height = `${height}px`;
+                    overlayElement.style.width = `${width}px`;
+                    overlayElement.style.height = `${height}px`;
                 }
             });
             resizeObserver.observe(videoModel.getElement());
-
-            eventBus.on(
-                dashjs.MediaPlayer.events.PLAYBACK_PLAYING,
-                function () {
-                    overlayVideo.play();
-                });
-
-            eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function () {
-                overlayVideo.pause();
-            });
+            overlayDiv.appendChild(overlayElement);
         });
     }
 
