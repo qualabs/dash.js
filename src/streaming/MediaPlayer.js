@@ -1494,6 +1494,7 @@ function MediaPlayer() {
         if (!videoModel.getElement()) {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
+        videoModel.getElement().style.width = '100%';
         const parent = videoModel.getElement().parentElement;
         parent.style.position = 'relative';
         videoModel.setOverlayRenderingDiv(overlayDiv);
@@ -1501,9 +1502,8 @@ function MediaPlayer() {
             let overlayElement;
             if (e.event.overlay.mimeType === 'video/mp4') {
                 overlayElement = document.createElement('video');
-                overlayElement.id = 'overlay-element';
+                overlayElement.preload = 'auto';
                 overlayElement.autoplay = true;
-                overlayElement.src = e.event.overlay.uri;
                 overlayElement.loop = e.event.overlay.loop;
 
                 eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
@@ -1520,71 +1520,10 @@ function MediaPlayer() {
             }
             if (e.event.overlay.mimeType === 'text/html') {
                 overlayElement = document.createElement('iframe');
-                overlayElement.id = 'overlay-element';
-                overlayElement.src = e.event.overlay.uri;
-                if (e.event.overlay.allowScripts) {
-                    overlayElement.sandbox = 'allow-scripts';
-                }
                 overlayElement.frameBorder = 0;
-                if (e.event.overlay.customMessage) {
-                    overlayElement.contentWindow.postMessage(
-                        {
-                            event: 'customMessage',
-                            value: e.event.overlay.customMessage
-                        }, '*');
-                }
-                if (e.event.overlay.sendPlaybackData) {
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'started'
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'playing'
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'paused'
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, function(e) {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'update',
-                                value: e.time
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'seeking'
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKED, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'seeked'
-                            }, '*');
-                    });
-
-                    eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_ENDED, function() {
-                        overlayElement.contentWindow.postMessage(
-                            {
-                                event: 'ended'
-                            }, '*');
-                    });
-                }
             }
+            overlayElement.id = 'overlay-element';
+            overlayElement.src = e.event.overlay.uri;
             overlayElement.style.width = '100%';
             overlayElement.style.height = '100%';
             const resizeObserver = new ResizeObserver((entries) => {
@@ -1595,7 +1534,9 @@ function MediaPlayer() {
                 }
             });
             resizeObserver.observe(videoModel.getElement());
-            overlayDiv.appendChild(overlayElement);
+            setTimeout(function() {
+                overlayDiv.appendChild(overlayElement);
+            }, e.event.overlay.earliestResolutionTime);
         });
     }
 
