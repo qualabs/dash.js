@@ -1537,6 +1537,9 @@ function MediaPlayer() {
             setTimeout(function() {
                 overlayDiv.appendChild(overlayElement);
             }, e.event.overlay.earliestResolutionTime);
+            setTimeout(function() {
+                overlayElement.remove();
+            }, e.event.duration * 1000);
         });
     }
 
