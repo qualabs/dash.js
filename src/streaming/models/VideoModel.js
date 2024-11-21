@@ -57,6 +57,8 @@ function VideoModel() {
         previousPlaybackRate,
         timeout;
 
+    let overlayElements = [];
+
     const VIDEO_MODEL_WRONG_ELEMENT_TYPE = 'element is not video or audio DOM type!';
 
     const context = this.context;
@@ -243,6 +245,30 @@ function VideoModel() {
         overlayRenderingDiv.style.bottom = 0;
         overlayRenderingDiv.style.left = 0;
         overlayRenderingDiv.style.right = 0;
+    }
+
+    function setOverlayElement(element, id, intervalId) {
+        overlayRenderingDiv.appendChild(element)
+        overlayElements.push({
+            element,
+            id,
+            intervalId,
+        })
+    }
+
+    function getOverlayElementById(id) {
+        return overlayElements.find((element) => element.id == id)
+    }
+    
+    function removeOverlayElementById(id) {
+        const overlayElement = overlayElements.find((element) => element.id == id);
+        if (!overlayElement) {
+            return
+        }
+        const intervalId = overlayElement.intervalId;
+        overlayElement.element.remove();
+        overlayElements = overlayElements.filter((element) => element.id != id);
+        return intervalId;
     }
 
     function setStallState(type, state) {
@@ -512,6 +538,7 @@ function VideoModel() {
         getReadyState,
         getSource,
         getTTMLRenderingDiv,
+        getOverlayElementById,
         getOverlayRenderingDiv,
         getTextTrack,
         getTextTracks,
@@ -530,6 +557,7 @@ function VideoModel() {
         play,
         removeChild,
         removeEventListener,
+        removeOverlayElementById,
         reset,
         setCurrentTime,
         setDisableRemotePlayback,
@@ -539,6 +567,7 @@ function VideoModel() {
         setStallState,
         setTTMLRenderingDiv,
         setVttRenderingDiv,
+        setOverlayElement,
         setOverlayRenderingDiv,
         waitForReadyState,
     };

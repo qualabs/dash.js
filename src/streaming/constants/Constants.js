@@ -341,5 +341,14 @@ export default {
         DTSC: 'dtsc',
         AVC: 'avc',
         HEVC: 'hevc'
+    },
+
+    OVERLAY: {
+        SCHEME_ID: 'urn:scte:dash:scte214-events',
+        START_MODE: 'start',
+        STOP_MODE: 'stop',
+        EXTEND_MODE: 'extend',
+        VIDEO_MIMETYPE: 'video/mp4',
+        IFRMAE_MIMETYPE: 'text/html'
     }
 }

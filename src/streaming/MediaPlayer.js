@@ -1491,57 +1491,16 @@ function MediaPlayer() {
     }
 
     function attachVideoOverlayRenderingDiv(overlayDiv) {
-        if (!videoModel.getElement()) {
+        const videoElement = videoModel.getElement()
+        if (!videoElement) {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
-        videoModel.getElement().style.width = '100%';
-        const parent = videoModel.getElement().parentElement;
-        parent.style.position = 'relative';
+
+        _configureVideoElementForOverlay(videoElement)
         videoModel.setOverlayRenderingDiv(overlayDiv);
-        eventBus.on('urn:scte:dash:scte214-events', function(e) {
-            let overlayElement;
-            if (e.event.overlay.mimeType === 'video/mp4') {
-                overlayElement = document.createElement('video');
-                overlayElement.preload = 'auto';
-                overlayElement.autoplay = true;
-                overlayElement.loop = e.event.overlay.loop;
 
-                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
-                    overlayElement.play();
-                });
-
-                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
-                    overlayElement.pause();
-                });
-
-                eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-                    overlayElement.seek(videoModel.getElement.currentTime);
-                });
-            }
-            if (e.event.overlay.mimeType === 'text/html') {
-                overlayElement = document.createElement('iframe');
-                overlayElement.frameBorder = 0;
-            }
-            overlayElement.id = 'overlay-element';
-            overlayElement.src = e.event.overlay.uri;
-            overlayElement.style.width = '100%';
-            overlayElement.style.height = '100%';
-            const resizeObserver = new ResizeObserver((entries) => {
-                for (let entry of entries) {
-                    const { width, height } = entry.contentRect; // Get the new dimensions
-                    overlayElement.style.width = `${width}px`;
-                    overlayElement.style.height = `${height}px`;
-                }
-            });
-            resizeObserver.observe(videoModel.getElement());
-            setTimeout(function() {
-                overlayDiv.appendChild(overlayElement);
-            }, e.event.overlay.earliestResolutionTime);
-            setTimeout(function() {
-                overlayElement.remove();
-            }, e.event.duration * 1000);
-        });
-    }
+        eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
+    }   
 
     /*
     ---------------------------------------------------------------------------
@@ -2783,6 +2742,127 @@ function MediaPlayer() {
             eventBus.trigger(MediaPlayerEvents.PLAYBACK_INITIALIZED)
             logger.info('Playback Initialized');
         }
+    }
+
+    function _handleOverlayEvent(e) {
+        let overlayElement,
+            toExtendOverlayInfo
+
+        const { event } = e;
+        const videoElement = videoModel.getElement()
+        const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE
+        if (overlayMode === Constants.OVERLAY.STOP_MODE) {
+            const intervalId = videoModel.removeOverlayElementById(event.overlay.refId)
+            clearInterval(intervalId)
+            return
+        }
+        
+        if (overlayMode === Constants.OVERLAY.START_MODE) {
+            if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
+                overlayElement = _createVideoOverlayElement(event)
+            } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
+                overlayElement = _createIframeOverlayElement()
+            }
+            _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri)
+        }
+        
+        if (overlayMode === Constants.OVERLAY.EXTEND_MODE) {
+            toExtendOverlayInfo = videoModel.getOverlayElementById(event.overlay.refId);
+            if (event.duration) {
+                clearInterval(toExtendOverlayInfo.intervalId)
+            }
+            overlayElement = toExtendOverlayInfo.element
+        }
+
+        if (!overlayElement) {
+            return
+        }
+
+        let eventId = _getOverlayEventId(toExtendOverlayInfo, event) 
+
+        let intervalId
+        if (event.duration) {
+            intervalId = setInterval(function() {
+                const presentationTime = event.presentationTime / 1000 
+                if (presentationTime + event.duration <= playbackController.getTime()) {
+                    videoModel.removeOverlayElementById(eventId);
+                    clearInterval(intervalId)
+                }
+            }, 100);
+        }
+
+        if (event.overlay.mode === Constants.OVERLAY.START_MODE) {
+            const setOverlayIntervalId = setInterval(function() {
+                const presentationTime = event.presentationTime / 1000 
+                const currentTime = playbackController.getTime();
+                if (_canSetOverlayElement(presentationTime, currentTime, event.duration)) {
+                    videoModel.setOverlayElement(overlayElement, eventId, intervalId)
+                    clearInterval(setOverlayIntervalId)
+                }
+            }, 100);
+        } else if (event.overlay.mode === Constants.OVERLAY.EXTEND_MODE && toExtendOverlayInfo) {
+            toExtendOverlayInfo.intervalId = intervalId;
+        }
+    }
+
+    function _canSetOverlayElement(presentationTime, currentTime, duration) {
+        return presentationTime <= currentTime && (presentationTime + duration > currentTime || !duration)
+    }
+
+    function _createVideoOverlayElement (event) {
+        const overlayElement = document.createElement('video');
+        overlayElement.preload = 'auto';
+        overlayElement.autoplay = true;
+        overlayElement.loop = event.loop;
+        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
+            overlayElement.play();
+        });
+
+        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
+            overlayElement.pause();
+        });
+
+        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
+            const seekTime = event.presentationTime - videoModel.getElement().currentTime
+            if (seekTime) {
+                overlayElement.currentTime = event.presentationTime - videoModel.getElement().currentTime;
+            }
+        });
+        return overlayElement
+    }
+
+    function _createIframeOverlayElement () {
+        const overlayElement = document.createElement('iframe');
+        overlayElement.style.border = 0;
+        return overlayElement
+    }
+
+    function _configureVideoElementForOverlay(videoElement) {
+        videoElement.style.width = '100%';
+        const parent = videoElement.parentElement;
+        parent.style.position = 'relative';
+    }
+
+    function _adaptOverlayElement(overlayElement, videoElement, uri) {
+        overlayElement.src = uri;
+        overlayElement.style.width = '100%';
+        overlayElement.style.height = '100%';
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                overlayElement.style.width = `${width}px`;
+                overlayElement.style.height = `${height}px`;
+            }
+        });
+        resizeObserver.observe(videoElement);
+    }
+
+    function _getOverlayEventId(extendOverlayElement, event) {
+        let eventId = extendOverlayElement ? extendOverlayElement.id : event.id
+        if (!eventId) {
+            eventId = 'randomId';
+        }
+        return eventId
     }
 
     instance = {
