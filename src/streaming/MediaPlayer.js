@@ -54,6 +54,7 @@ import CmcdModel from './models/CmcdModel.js';
 import CmsdModel from './models/CmsdModel.js';
 import DOMStorage from './utils/DOMStorage.js';
 import Debug from './../core/Debug.js';
+import Utils from './../core/Utils.js';
 import Errors from './../core/errors/Errors.js';
 import EventBus from './../core/EventBus.js';
 import Events from './../core/events/Events.js';
@@ -1490,7 +1491,7 @@ function MediaPlayer() {
         videoModel.setVttRenderingDiv(div);
     }
 
-    function attachVideoOverlayRenderingDiv(overlayDiv) {
+    function attachOverlayRenderingDiv(overlayDiv) {
         const videoElement = videoModel.getElement()
         if (!videoElement) {
             throw ELEMENT_NOT_ATTACHED_ERROR;
@@ -2761,7 +2762,7 @@ function MediaPlayer() {
             if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
                 overlayElement = _createVideoOverlayElement(event)
             } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
-                overlayElement = _createIframeOverlayElement()
+                overlayElement = _createIframeOverlayElement(event)
             }
             _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri)
         }
@@ -2823,17 +2824,29 @@ function MediaPlayer() {
         });
 
         eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-            const seekTime = event.presentationTime - videoModel.getElement().currentTime
-            if (seekTime) {
-                overlayElement.currentTime = event.presentationTime - videoModel.getElement().currentTime;
+            const presentationTime = event.presentationTime / 1000
+            const seekTime = videoModel.getElement().currentTime - presentationTime 
+            if (seekTime > presentationTime && (seekTime <= presentationTime + event.duration || !event.duration)) {
+                overlayElement.currentTime = seekTime;
+            } else if (seekTime < 0) {
+                const intervalId = videoModel.removeOverlayElementById(event.id);
+                clearInterval(intervalId)
             }
         });
         return overlayElement
     }
 
-    function _createIframeOverlayElement () {
+    function _createIframeOverlayElement (event) {
         const overlayElement = document.createElement('iframe');
-        overlayElement.style.border = 0;
+        overlayElement.style.border = 'none';
+        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
+            const presentationTime = event.presentationTime / 1000
+            const seekTime = videoModel.getElement().currentTime - presentationTime;
+            if (seekTime < 0) {
+                const intervalId = videoModel.removeOverlayElementById(event.id);
+                clearInterval(intervalId)
+            }
+        });
         return overlayElement
     }
 
@@ -2860,7 +2873,7 @@ function MediaPlayer() {
     function _getOverlayEventId(extendOverlayElement, event) {
         let eventId = extendOverlayElement ? extendOverlayElement.id : event.id
         if (!eventId) {
-            eventId = 'randomId';
+            eventId = `${Utils.generateUuid()}`;
         }
         return eventId
     }
@@ -2873,7 +2886,7 @@ function MediaPlayer() {
         attachProtectionController,
         attachSource,
         attachTTMLRenderingDiv,
-        attachVideoOverlayRenderingDiv,
+        attachOverlayRenderingDiv,
         attachView,
         attachVttRenderingDiv,
         clearDefaultUTCTimingSources,
