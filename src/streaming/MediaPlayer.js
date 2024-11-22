@@ -2747,58 +2747,60 @@ function MediaPlayer() {
 
     function _handleOverlayEvent(e) {
         let overlayElement,
-            toExtendOverlayInfo
+            toExtendOverlayInfo;
 
         const { event } = e;
-        const videoElement = videoModel.getElement()
-        const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE
+        const videoElement = videoModel.getElement();
+        const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
         if (overlayMode === Constants.OVERLAY.STOP_MODE) {
-            const intervalId = videoModel.removeOverlayElementById(event.overlay.refId)
+            const intervalId = videoModel.removeOverlayElementById(event.overlay.refId);
             clearInterval(intervalId)
             return
         }
         
         if (overlayMode === Constants.OVERLAY.START_MODE) {
             if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
-                overlayElement = _createVideoOverlayElement(event)
+                overlayElement = _createVideoOverlayElement(event);
             } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
-                overlayElement = _createIframeOverlayElement(event)
+                overlayElement = _createIframeOverlayElement(event);
             }
-            _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri)
+            _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri);
         }
         
+        _configureOverlayContainter(event.overlay)
+
         if (overlayMode === Constants.OVERLAY.EXTEND_MODE) {
             toExtendOverlayInfo = videoModel.getOverlayElementById(event.overlay.refId);
             if (event.duration) {
-                clearInterval(toExtendOverlayInfo.intervalId)
+                clearInterval(toExtendOverlayInfo.intervalId);
             }
-            overlayElement = toExtendOverlayInfo.element
+            overlayElement = toExtendOverlayInfo.element;
         }
 
         if (!overlayElement) {
             return
         }
 
-        let eventId = _getOverlayEventId(toExtendOverlayInfo, event) 
+        let eventId = _getOverlayEventId(toExtendOverlayInfo, event) ;
 
         let intervalId
         if (event.duration) {
             intervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 
+                const presentationTime = event.presentationTime / 1000 ;
                 if (presentationTime + event.duration <= playbackController.getTime()) {
                     videoModel.removeOverlayElementById(eventId);
-                    clearInterval(intervalId)
+                    clearInterval(intervalId);
                 }
             }, 100);
         }
 
         if (event.overlay.mode === Constants.OVERLAY.START_MODE) {
             const setOverlayIntervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 
+                const presentationTime = event.presentationTime / 1000 ;
                 const currentTime = playbackController.getTime();
                 if (_canSetOverlayElement(presentationTime, currentTime, event.duration)) {
-                    videoModel.setOverlayElement(overlayElement, eventId, intervalId)
-                    clearInterval(setOverlayIntervalId)
+                    videoModel.setOverlayElement(overlayElement, eventId, intervalId);
+                    clearInterval(setOverlayIntervalId);
                 }
             }, 100);
         } else if (event.overlay.mode === Constants.OVERLAY.EXTEND_MODE && toExtendOverlayInfo) {
@@ -2807,7 +2809,7 @@ function MediaPlayer() {
     }
 
     function _canSetOverlayElement(presentationTime, currentTime, duration) {
-        return presentationTime <= currentTime && (presentationTime + duration > currentTime || !duration)
+        return presentationTime <= currentTime && (presentationTime + duration > currentTime || !duration);
     }
 
     function _createVideoOverlayElement (event) {
@@ -2830,21 +2832,21 @@ function MediaPlayer() {
                 overlayElement.currentTime = seekTime;
             } else if (seekTime < 0) {
                 const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId)
+                clearInterval(intervalId);
             }
         });
-        return overlayElement
+        return overlayElement;
     }
 
     function _createIframeOverlayElement (event) {
         const overlayElement = document.createElement('iframe');
         overlayElement.style.border = 'none';
         eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-            const presentationTime = event.presentationTime / 1000
+            const presentationTime = event.presentationTime / 1000;
             const seekTime = videoModel.getElement().currentTime - presentationTime;
             if (seekTime < 0) {
                 const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId)
+                clearInterval(intervalId);
             }
         });
         return overlayElement
@@ -2871,11 +2873,22 @@ function MediaPlayer() {
     }
 
     function _getOverlayEventId(extendOverlayElement, event) {
-        let eventId = extendOverlayElement ? extendOverlayElement.id : event.id
+        let eventId = extendOverlayElement ? extendOverlayElement.id : event.id;
         if (!eventId) {
             eventId = `${Utils.generateUuid()}`;
         }
-        return eventId
+        return eventId;
+    }
+
+    function _configureOverlayContainter(overlayEvent) {
+        const overlayDiv = videoModel.getOverlayRenderingDiv();
+        if (!isNaN(overlayEvent.z)) {
+            overlayDiv.style.zIndex = overlayEvent.z;
+        }
+
+        if (overlayEvent.z === -1) {
+            // TODO: Implement SqueezeCurrent logic.
+        }
     }
 
     instance = {
