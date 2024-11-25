@@ -53,6 +53,17 @@ function OverlayController() {
         }
     }
 
+    function configureVideoElementForOverlay() {
+        const videoElement = videoModel.getElement()
+        videoElement.style.width = '100%'; 
+        videoElement.style.height = 'auto';
+        videoElement.style.transform = 'scale(1)';
+
+        const parent = videoElement.parentElement;
+        parent.style.position = 'relative';
+        parent.style.overflow = 'hidden';
+    }
+
     function setupOverlayEvents() {
         eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
     }
@@ -87,7 +98,6 @@ function OverlayController() {
         }
 
         _adaptOverlayElement(overlayElement, event.overlay.uri);
-        _stylizeOverlayContainter(event.overlay)
 
         if (!overlayElement) {
             return
@@ -101,6 +111,7 @@ function OverlayController() {
                 const presentationTime = event.presentationTime / 1000 ;
                 if (presentationTime + event.duration <= playbackController.getTime()) {
                     videoModel.removeOverlayElementById(eventId);
+                    configureVideoElementForOverlay()
                     clearInterval(intervalId);
                 }
             }, 100);
@@ -111,6 +122,7 @@ function OverlayController() {
                 const presentationTime = event.presentationTime / 1000 ;
                 const currentTime = playbackController.getTime();
                 if (_canSetOverlayElement(presentationTime, currentTime, event.duration)) {
+                    _stylizeOverlayContainter(event.overlay);
                     videoModel.setOverlayElement(overlayElement, eventId, intervalId);
                     clearInterval(setOverlayIntervalId);
                 }
@@ -164,18 +176,10 @@ function OverlayController() {
         return overlayElement
     }
 
-    function configureVideoElementForOverlay() {
-        const videoElement = videoModel.getElement()
-        videoElement.style.width = '100%';
-        const parent = videoElement.parentElement;
-        parent.style.position = 'relative';
-        parent.style.overflow = 'hidden';
-    }
-
     function _adaptOverlayElement(overlayElement, uri) {
         overlayElement.src = uri;
         overlayElement.style.width = '100%';
-        overlayElement.style.height = '100%';
+        overlayElement.style.height = 'auto';
     }
 
     function _getOverlayEventId(extendOverlayElement, event) {
@@ -190,31 +194,50 @@ function OverlayController() {
         const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
 
+
         if (!isNaN(overlayEvent.z)) {
             overlayDiv.style.zIndex = overlayEvent.z;
         }
 
-        const { Viewport, Size, TopLeft } = overlayEvent
+        const { Viewport, Size, TopLeft, SqueezeContent, z } = overlayEvent
+
+
+        if (!Viewport || !Viewport?.x || !Viewport?.y ) {
+            return;
+        }
 
         const overlaySize = {
-            x: Size.x / Viewport.x,
-            y: Size.y / Viewport.y
-        }
+            x: Size.x ? Size.x / Viewport.x : 1,
+            y: Size.y ? Size.y / Viewport.y : 1
+        };
 
         const overlayTopLeft = {
-            x: TopLeft.x / Viewport.x,
-            y: TopLeft.y / Viewport.y
+            x: TopLeft.x ? TopLeft.x / Viewport.x : 0,
+            y: TopLeft.y ? TopLeft.y / Viewport.y : 0
+        };
+
+        if (SqueezeContent && z == -1) {
+            const squeezeContent = {
+                x: SqueezeContent.x ? SqueezeContent.x / Viewport.x : 1,
+                y: SqueezeContent.y ? SqueezeContent.y / Viewport.y : 1
+            };
+
+            videoElement.style.transition = 'transform';
+            videoElement.style['transform-origin'] = 'top left';
+            videoElement.style.transform = `scale(${squeezeContent.x}, ${squeezeContent.y})`;
         }
-        
+
         const resizeFunction = (entries) => {
-            for (let entry of entries) {
-                const { width, height } = entry.contentRect;
-                overlayDiv.style.width = `${width * overlaySize.x}px`;
-                overlayDiv.style.height = `${height * overlaySize.y}px`;
-                
-                overlayDiv .style.left = `${width * overlayTopLeft.x}px`;
-                overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
-            }
+            const entry = entries[0]
+            const { width, height } = entry.contentRect;
+            
+            overlayDiv.style.width = `${width * overlaySize.x}px`;
+            overlayDiv.style.height = `${height * overlaySize.y}px`;
+            
+            
+            overlayDiv .style.left = `${width * overlayTopLeft.x}px`;
+            overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
+            
         }
         const resizeObserver = new ResizeObserver(resizeFunction);
         resizeObserver.observe(videoElement);
