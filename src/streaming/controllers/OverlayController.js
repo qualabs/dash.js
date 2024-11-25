@@ -124,7 +124,7 @@ function OverlayController() {
         const overlayElement = document.createElement('video');
         overlayElement.preload = 'auto';
         overlayElement.autoplay = true;
-        overlayElement.loop = event.loop;
+        overlayElement.loop = event.loop === 'true';
         eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
             overlayElement.play();
         });
