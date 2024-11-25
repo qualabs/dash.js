@@ -39,6 +39,7 @@ import CatchupController from './controllers/CatchupController.js';
 import ServiceDescriptionController from '../dash/controllers/ServiceDescriptionController.js';
 import ContentSteeringController from '../dash/controllers/ContentSteeringController.js';
 import MediaController from './controllers/MediaController.js';
+import OverlayController from './controllers/OverlayController.js';
 import BaseURLController from './controllers/BaseURLController.js';
 import ManifestLoader from './ManifestLoader.js';
 import ErrorHandler from './utils/ErrorHandler.js';
@@ -54,7 +55,6 @@ import CmcdModel from './models/CmcdModel.js';
 import CmsdModel from './models/CmsdModel.js';
 import DOMStorage from './utils/DOMStorage.js';
 import Debug from './../core/Debug.js';
-import Utils from './../core/Utils.js';
 import Errors from './../core/errors/Errors.js';
 import EventBus from './../core/EventBus.js';
 import Events from './../core/events/Events.js';
@@ -145,6 +145,7 @@ function MediaPlayer() {
         schemeLoaderFactory,
         timelineConverter,
         mediaController,
+        overlayController,
         protectionController,
         metricsReportingController,
         mssHandler,
@@ -258,6 +259,9 @@ function MediaPlayer() {
         if (config.mediaController) {
             mediaController = config.mediaController;
         }
+        if (config.overlayController) {
+            overlayController = config.overlayController;
+        }
         if (config.settings) {
             settings = config.settings;
         }
@@ -327,6 +331,10 @@ function MediaPlayer() {
 
             if (!mediaController) {
                 mediaController = MediaController(context).getInstance();
+            }
+
+            if (!overlayController) {
+                overlayController = OverlayController(context).getInstance();
             }
 
             if (!streamController) {
@@ -413,6 +421,9 @@ function MediaPlayer() {
                 customParametersModel,
                 videoModel
             });
+
+            overlayController.setConfig({
+                videoModel});
 
             mediaPlayerModel.setConfig({
                 playbackController,
@@ -1497,11 +1508,11 @@ function MediaPlayer() {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
 
-        _configureVideoElementForOverlay(videoElement)
+        overlayController.configureVideoElementForOverlay(videoElement)
         videoModel.setOverlayRenderingDiv(overlayDiv);
 
-        eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
-    }   
+        eventBus.on(Constants.OVERLAY.SCHEME_ID, overlayController.handleOverlayEvent);
+    }
 
     /*
     ---------------------------------------------------------------------------
@@ -2742,152 +2753,6 @@ function MediaPlayer() {
             playbackInitialized = true;
             eventBus.trigger(MediaPlayerEvents.PLAYBACK_INITIALIZED)
             logger.info('Playback Initialized');
-        }
-    }
-
-    function _handleOverlayEvent(e) {
-        let overlayElement,
-            toExtendOverlayInfo;
-
-        const { event } = e;
-        const videoElement = videoModel.getElement();
-        const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
-        if (overlayMode === Constants.OVERLAY.STOP_MODE) {
-            const intervalId = videoModel.removeOverlayElementById(event.overlay.refId);
-            clearInterval(intervalId)
-            return
-        }
-        
-        if (overlayMode === Constants.OVERLAY.START_MODE) {
-            if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
-                overlayElement = _createVideoOverlayElement(event);
-            } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
-                overlayElement = _createIframeOverlayElement(event);
-            }
-            _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri);
-        }
-        
-        _configureOverlayContainter(event.overlay)
-
-        if (overlayMode === Constants.OVERLAY.EXTEND_MODE) {
-            toExtendOverlayInfo = videoModel.getOverlayElementById(event.overlay.refId);
-            if (event.duration) {
-                clearInterval(toExtendOverlayInfo.intervalId);
-            }
-            overlayElement = toExtendOverlayInfo.element;
-        }
-
-        if (!overlayElement) {
-            return
-        }
-
-        let eventId = _getOverlayEventId(toExtendOverlayInfo, event) ;
-
-        let intervalId
-        if (event.duration) {
-            intervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 ;
-                if (presentationTime + event.duration <= playbackController.getTime()) {
-                    videoModel.removeOverlayElementById(eventId);
-                    clearInterval(intervalId);
-                }
-            }, 100);
-        }
-
-        if (event.overlay.mode === Constants.OVERLAY.START_MODE) {
-            const setOverlayIntervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 ;
-                const currentTime = playbackController.getTime();
-                if (_canSetOverlayElement(presentationTime, currentTime, event.duration)) {
-                    videoModel.setOverlayElement(overlayElement, eventId, intervalId);
-                    clearInterval(setOverlayIntervalId);
-                }
-            }, 100);
-        } else if (event.overlay.mode === Constants.OVERLAY.EXTEND_MODE && toExtendOverlayInfo) {
-            toExtendOverlayInfo.intervalId = intervalId;
-        }
-    }
-
-    function _canSetOverlayElement(presentationTime, currentTime, duration) {
-        return presentationTime <= currentTime && (presentationTime + duration > currentTime || !duration);
-    }
-
-    function _createVideoOverlayElement (event) {
-        const overlayElement = document.createElement('video');
-        overlayElement.preload = 'auto';
-        overlayElement.autoplay = true;
-        overlayElement.loop = event.loop;
-        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
-            overlayElement.play();
-        });
-
-        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PAUSED, function() {
-            overlayElement.pause();
-        });
-
-        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-            const presentationTime = event.presentationTime / 1000
-            const seekTime = videoModel.getElement().currentTime - presentationTime 
-            if (seekTime > presentationTime && (seekTime <= presentationTime + event.duration || !event.duration)) {
-                overlayElement.currentTime = seekTime;
-            } else if (seekTime < 0) {
-                const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId);
-            }
-        });
-        return overlayElement;
-    }
-
-    function _createIframeOverlayElement (event) {
-        const overlayElement = document.createElement('iframe');
-        overlayElement.style.border = 'none';
-        eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-            const presentationTime = event.presentationTime / 1000;
-            const seekTime = videoModel.getElement().currentTime - presentationTime;
-            if (seekTime < 0) {
-                const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId);
-            }
-        });
-        return overlayElement
-    }
-
-    function _configureVideoElementForOverlay(videoElement) {
-        videoElement.style.width = '100%';
-        const parent = videoElement.parentElement;
-        parent.style.position = 'relative';
-    }
-
-    function _adaptOverlayElement(overlayElement, videoElement, uri) {
-        overlayElement.src = uri;
-        overlayElement.style.width = '100%';
-        overlayElement.style.height = '100%';
-        const resizeObserver = new ResizeObserver((entries) => {
-            for (let entry of entries) {
-                const { width, height } = entry.contentRect;
-                overlayElement.style.width = `${width}px`;
-                overlayElement.style.height = `${height}px`;
-            }
-        });
-        resizeObserver.observe(videoElement);
-    }
-
-    function _getOverlayEventId(extendOverlayElement, event) {
-        let eventId = extendOverlayElement ? extendOverlayElement.id : event.id;
-        if (!eventId) {
-            eventId = `${Utils.generateUuid()}`;
-        }
-        return eventId;
-    }
-
-    function _configureOverlayContainter(overlayEvent) {
-        const overlayDiv = videoModel.getOverlayRenderingDiv();
-        if (!isNaN(overlayEvent.z)) {
-            overlayDiv.style.zIndex = overlayEvent.z;
-        }
-
-        if (overlayEvent.z === -1) {
-            // TODO: Implement SqueezeCurrent logic.
         }
     }
 
