@@ -53,13 +53,17 @@ function OverlayController() {
         }
     }
 
-    function handleOverlayEvent(e) {
+    function setupOverlayEvents() {
+        eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
+    }
+
+    function _handleOverlayEvent(e) {
         let overlayElement,
             toExtendOverlayInfo;
 
         const { event } = e;
-        const videoElement = videoModel.getElement();
         const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
+
         if (overlayMode === Constants.OVERLAY.STOP_MODE) {
             const intervalId = videoModel.removeOverlayElementById(event.overlay.refId);
             clearInterval(intervalId)
@@ -72,10 +76,7 @@ function OverlayController() {
             } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
                 overlayElement = _createIframeOverlayElement(event);
             }
-            _adaptOverlayElement(overlayElement, videoElement, event.overlay.uri);
         }
-
-        _configureOverlayContainter(event.overlay)
 
         if (overlayMode === Constants.OVERLAY.EXTEND_MODE) {
             toExtendOverlayInfo = videoModel.getOverlayElementById(event.overlay.refId);
@@ -84,6 +85,9 @@ function OverlayController() {
             }
             overlayElement = toExtendOverlayInfo.element;
         }
+
+        _adaptOverlayElement(overlayElement, event.overlay.uri);
+        _stylizeOverlayContainter(event.overlay)
 
         if (!overlayElement) {
             return
@@ -160,24 +164,18 @@ function OverlayController() {
         return overlayElement
     }
 
-    function configureVideoElementForOverlay(videoElement) {
+    function configureVideoElementForOverlay() {
+        const videoElement = videoModel.getElement()
         videoElement.style.width = '100%';
         const parent = videoElement.parentElement;
         parent.style.position = 'relative';
+        parent.style.overflow = 'hidden';
     }
 
-    function _adaptOverlayElement(overlayElement, videoElement, uri) {
+    function _adaptOverlayElement(overlayElement, uri) {
         overlayElement.src = uri;
         overlayElement.style.width = '100%';
         overlayElement.style.height = '100%';
-        const resizeObserver = new ResizeObserver((entries) => {
-            for (let entry of entries) {
-                const { width, height } = entry.contentRect;
-                overlayElement.style.width = `${width}px`;
-                overlayElement.style.height = `${height}px`;
-            }
-        });
-        resizeObserver.observe(videoElement);
     }
 
     function _getOverlayEventId(extendOverlayElement, event) {
@@ -188,21 +186,44 @@ function OverlayController() {
         return eventId;
     }
 
-    function _configureOverlayContainter(overlayEvent) {
+    function _stylizeOverlayContainter(overlayEvent) {
+        const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
+
         if (!isNaN(overlayEvent.z)) {
             overlayDiv.style.zIndex = overlayEvent.z;
         }
 
-        if (overlayEvent.z === -1) {
-            // TODO: Implement SqueezeCurrent logic.
+        const { Viewport, Size, TopLeft } = overlayEvent
+
+        const overlaySize = {
+            x: Size.x / Viewport.x,
+            y: Size.y / Viewport.y
         }
+
+        const overlayTopLeft = {
+            x: TopLeft.x / Viewport.x,
+            y: TopLeft.y / Viewport.y
+        }
+        
+        const resizeFunction = (entries) => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                overlayDiv.style.width = `${width * overlaySize.x}px`;
+                overlayDiv.style.height = `${height * overlaySize.y}px`;
+                
+                overlayDiv .style.left = `${width * overlayTopLeft.x}px`;
+                overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
+            }
+        }
+        const resizeObserver = new ResizeObserver(resizeFunction);
+        resizeObserver.observe(videoElement);
     }
 
     instance = {
         setConfig,
         configureVideoElementForOverlay,
-        handleOverlayEvent,
+        setupOverlayEvents,
     };
 
     return instance;

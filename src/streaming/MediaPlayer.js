@@ -1508,10 +1508,10 @@ function MediaPlayer() {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
 
-        overlayController.configureVideoElementForOverlay(videoElement)
+        overlayController.configureVideoElementForOverlay()
         videoModel.setOverlayRenderingDiv(overlayDiv);
 
-        eventBus.on(Constants.OVERLAY.SCHEME_ID, overlayController.handleOverlayEvent);
+        overlayController.setupOverlayEvents();
     }
 
     /*
