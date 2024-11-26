@@ -194,7 +194,6 @@ function OverlayController() {
         const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
 
-
         if (!isNaN(overlayEvent.z)) {
             overlayDiv.style.zIndex = overlayEvent.z;
         }
@@ -230,10 +229,10 @@ function OverlayController() {
         const resizeFunction = (entries) => {
             const entry = entries[0]
             const { width, height } = entry.contentRect;
-            
-            overlayDiv.style.width = `${width * overlaySize.x}px`;
-            overlayDiv.style.height = `${height * overlaySize.y}px`;
-            
+
+            overlayDiv.style.transition = 'transform';
+            overlayDiv.style['transform-origin'] = 'top left';
+            overlayDiv.style.transform = `scale(${overlaySize.x}, ${overlaySize.y})`;
             
             overlayDiv .style.left = `${width * overlayTopLeft.x}px`;
             overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
