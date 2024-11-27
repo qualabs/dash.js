@@ -41,7 +41,9 @@ function OverlayController() {
     const playbackController = PlaybackController(context).getInstance();
 
     let instance,
-        videoModel;
+        videoModel,
+        schedulerInitialized,
+        overlayList = [];
 
     function setConfig(config) {
         if (!config) {
@@ -56,7 +58,7 @@ function OverlayController() {
     function configureVideoElementForOverlay() {
         const videoElement = videoModel.getElement()
         videoElement.style.width = '100%'; 
-        videoElement.style.height = 'auto';
+        videoElement.style.height = '100%';
         videoElement.style.transform = 'scale(1)';
 
         const parent = videoElement.parentElement;
@@ -68,6 +70,50 @@ function OverlayController() {
         eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
     }
 
+    function _initializeScheduler() {
+        if (!schedulerInitialized) {
+            schedulerInitialized = setInterval(_handleScheduleInerval, 100);
+        }
+    }
+
+    function _stopScheduler() {
+        clearInterval(schedulerInitialized);
+        schedulerInitialized = false;
+    }
+
+    function _handleScheduleInerval() {
+        if (overlayList.length) {
+            _startScheduledOverlay();
+            _stopScheduledOverlay();
+        }
+    }
+    
+    function _startScheduledOverlay() {
+        const currentTime = playbackController.getTime();
+        overlayList.forEach((scheduledOverlay) => {      
+            const { eventId, duration, presentationTime, overlay, overlayElement } = scheduledOverlay;
+            if (!scheduledOverlay.started && _canSetOverlayElement(presentationTime, currentTime, duration)) { 
+                scheduledOverlay.started = true;
+                _stylizeOverlayContainter(overlay);
+                videoModel.setOverlayElement(overlayElement, eventId);
+            }
+        })
+       
+    }
+
+    function _stopScheduledOverlay() {
+        const currentTime = playbackController.getTime();
+        overlayList.forEach((scheduledOverlay) => { 
+            const { eventId, duration, presentationTime } = scheduledOverlay;
+            if (duration && presentationTime + duration <= currentTime) {
+                _stopOverlayEvent(eventId);
+            }
+        })
+        if (!overlayList.length) {
+            _stopScheduler();
+        }
+    }
+
     function _handleOverlayEvent(e) {
         let overlayElement,
             toExtendOverlayInfo;
@@ -75,61 +121,51 @@ function OverlayController() {
         const { event } = e;
         const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
 
-        if (overlayMode === Constants.OVERLAY.STOP_MODE) {
-            const intervalId = videoModel.removeOverlayElementById(event.overlay.refId);
-            clearInterval(intervalId)
-            return
-        }
-
         if (overlayMode === Constants.OVERLAY.START_MODE) {
             if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
                 overlayElement = _createVideoOverlayElement(event);
             } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
                 overlayElement = _createIframeOverlayElement(event);
             }
+
+            _adaptOverlayElement(overlayElement, event.overlay.uri);
+
+            let eventId = _getOverlayEventId(toExtendOverlayInfo, event) ;
+            const presentationTime = event.presentationTime / 1000;
+            overlayList.push({
+                eventId,
+                duration: event.duration,
+                presentationTime,
+                overlay: event.overlay,
+                overlayElement,
+                started: false
+            });
+            _initializeScheduler();
+            return;
         }
 
         if (overlayMode === Constants.OVERLAY.EXTEND_MODE) {
-            toExtendOverlayInfo = videoModel.getOverlayElementById(event.overlay.refId);
             if (event.duration) {
-                clearInterval(toExtendOverlayInfo.intervalId);
+                const overlayElement = overlayList.find(element => element.eventId == event.overlay.refId);
+                if (overlayElement) {
+                    overlayElement.duration = event.duration;
+                    overlayElement.presentationTime = event.presentationTime / 1000;
+                }
             }
-            overlayElement = toExtendOverlayInfo.element;
+            return;
         }
 
-        _adaptOverlayElement(overlayElement, event.overlay.uri);
-
-        if (!overlayElement) {
-            return
+        if (overlayMode === Constants.OVERLAY.STOP_MODE) {
+            _stopOverlayEvent(event.overlay.refId);
+            return;
         }
+    }
 
-        let eventId = _getOverlayEventId(toExtendOverlayInfo, event) ;
-
-        let intervalId
-        if (event.duration) {
-            intervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 ;
-                if (presentationTime + event.duration <= playbackController.getTime()) {
-                    videoModel.removeOverlayElementById(eventId);
-                    configureVideoElementForOverlay()
-                    clearInterval(intervalId);
-                }
-            }, 100);
-        }
-
-        if (event.overlay.mode === Constants.OVERLAY.START_MODE) {
-            const setOverlayIntervalId = setInterval(function() {
-                const presentationTime = event.presentationTime / 1000 ;
-                const currentTime = playbackController.getTime();
-                if (_canSetOverlayElement(presentationTime, currentTime, event.duration)) {
-                    _stylizeOverlayContainter(event.overlay);
-                    videoModel.setOverlayElement(overlayElement, eventId, intervalId);
-                    clearInterval(setOverlayIntervalId);
-                }
-            }, 100);
-        } else if (event.overlay.mode === Constants.OVERLAY.EXTEND_MODE && toExtendOverlayInfo) {
-            toExtendOverlayInfo.intervalId = intervalId;
-        }
+    function _stopOverlayEvent(refId) {
+        videoModel.removeOverlayElementById(refId);
+        configureVideoElementForOverlay();
+        // Do not filter if we want to reuse the overlays once they end.
+        overlayList = overlayList.filter((element) => element.eventId != refId);
     }
 
     function _canSetOverlayElement(presentationTime, currentTime, duration) {
@@ -141,6 +177,11 @@ function OverlayController() {
         overlayElement.preload = 'auto';
         overlayElement.autoplay = true;
         overlayElement.loop = event.loop === 'true';
+        _setVideoOverlayEvents(event, overlayElement)
+        return overlayElement;
+    }
+
+    function _setVideoOverlayEvents(event, overlayElement) {
         eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
             overlayElement.play();
         });
@@ -150,16 +191,14 @@ function OverlayController() {
         });
 
         eventBus.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKING, function() {
-            const presentationTime = event.presentationTime / 1000
-            const seekTime = videoModel.getElement().currentTime - presentationTime
+            const presentationTime = event.presentationTime / 1000;
+            const seekTime = videoModel.getElement().currentTime - presentationTime;
             if (seekTime > presentationTime && (seekTime <= presentationTime + event.duration || !event.duration)) {
                 overlayElement.currentTime = seekTime;
             } else if (seekTime < 0) {
-                const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId);
+                _stopOverlayEvent(event.id);
             }
         });
-        return overlayElement;
     }
 
     function _createIframeOverlayElement (event) {
@@ -169,8 +208,7 @@ function OverlayController() {
             const presentationTime = event.presentationTime / 1000;
             const seekTime = videoModel.getElement().currentTime - presentationTime;
             if (seekTime < 0) {
-                const intervalId = videoModel.removeOverlayElementById(event.id);
-                clearInterval(intervalId);
+                _stopOverlayEvent(event.id);
             }
         });
         return overlayElement
@@ -179,7 +217,7 @@ function OverlayController() {
     function _adaptOverlayElement(overlayElement, uri) {
         overlayElement.src = uri;
         overlayElement.style.width = '100%';
-        overlayElement.style.height = 'auto';
+        overlayElement.style.height = '100%';
     }
 
     function _getOverlayEventId(extendOverlayElement, event) {
@@ -194,52 +232,52 @@ function OverlayController() {
         const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
 
-        if (!isNaN(overlayEvent.z)) {
-            overlayDiv.style.zIndex = overlayEvent.z;
-        }
-
-        const { Viewport, Size, TopLeft, SqueezeContent, z } = overlayEvent
-
-
+        const { Viewport, Size, TopLeft, SqueezeCurrent, z } = overlayEvent
         if (!Viewport || !Viewport?.x || !Viewport?.y ) {
             return;
         }
 
-        const overlaySize = {
-            x: Size.x ? Size.x / Viewport.x : 1,
-            y: Size.y ? Size.y / Viewport.y : 1
-        };
-
-        const overlayTopLeft = {
-            x: TopLeft.x ? TopLeft.x / Viewport.x : 0,
-            y: TopLeft.y ? TopLeft.y / Viewport.y : 0
-        };
-
-        if (SqueezeContent && z == -1) {
-            const squeezeContent = {
-                x: SqueezeContent.x ? SqueezeContent.x / Viewport.x : 1,
-                y: SqueezeContent.y ? SqueezeContent.y / Viewport.y : 1
-            };
-
+        const { 
+            overlaySize, 
+            overlayTopLeft, 
+            videoSqueezeCurrent 
+        } = _calculateOverlayDimensions(Viewport, Size, TopLeft, SqueezeCurrent);
+        
+        if (SqueezeCurrent && z == -1) {
             videoElement.style.transition = 'transform';
             videoElement.style['transform-origin'] = 'top left';
-            videoElement.style.transform = `scale(${squeezeContent.x}, ${squeezeContent.y})`;
+            videoElement.style.transform = `scale(${videoSqueezeCurrent.x}, ${videoSqueezeCurrent.y})`;
         }
 
         const resizeFunction = (entries) => {
             const entry = entries[0]
             const { width, height } = entry.contentRect;
-
-            overlayDiv.style.transition = 'transform';
-            overlayDiv.style['transform-origin'] = 'top left';
-            overlayDiv.style.transform = `scale(${overlaySize.x}, ${overlaySize.y})`;
-            
-            overlayDiv .style.left = `${width * overlayTopLeft.x}px`;
-            overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
-            
+            overlayDiv.style.width = `${width * overlaySize.x}px`,
+            overlayDiv.style.height = `${height * overlaySize.y}px`,
+            overlayDiv.style.left = `${width * overlayTopLeft.x}px`,
+            overlayDiv.style.top = `${height * overlayTopLeft.y}px`
         }
         const resizeObserver = new ResizeObserver(resizeFunction);
         resizeObserver.observe(videoElement);
+    }
+
+    function _calculateOverlayDimensions(viewport, size, topLeft, squeezeCurrent) {
+        const overlaySize = {
+            x: size && size.x ? size.x / viewport.x : 1,
+            y: size && size.y ? size.y / viewport.y : 1
+        };
+
+        const overlayTopLeft = {
+            x: topLeft && topLeft.x ? topLeft.x / viewport.x : 0,
+            y: topLeft && topLeft.y ? topLeft.y / viewport.y : 0
+        };
+
+        const videoSqueezeCurrent = {
+            x: squeezeCurrent && squeezeCurrent.x ? squeezeCurrent.x / viewport.x : 1,
+            y: squeezeCurrent && squeezeCurrent.y ? squeezeCurrent.y / viewport.y : 1
+        };
+
+        return { overlaySize, overlayTopLeft, videoSqueezeCurrent }
     }
 
     instance = {

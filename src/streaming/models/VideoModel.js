@@ -239,16 +239,17 @@ function VideoModel() {
         overlayRenderingDiv = div;
         overlayRenderingDiv.style.position = 'absolute';
         overlayRenderingDiv.style.width = '100%'
-        overlayRenderingDiv.style.height = 'auto'
+        overlayRenderingDiv.style.height = '100%'
         overlayRenderingDiv.style.pointerEvents = 'none';
+        overlayRenderingDiv.style.top = 0;
+        overlayRenderingDiv.style.left = 0;
     }
 
-    function setOverlayElement(element, id, intervalId) {
+    function setOverlayElement(element, id) {
         overlayRenderingDiv.appendChild(element)
         overlayElements.push({
             element,
             id,
-            intervalId,
         })
     }
 
@@ -261,10 +262,8 @@ function VideoModel() {
         if (!overlayElement) {
             return
         }
-        const intervalId = overlayElement.intervalId;
         overlayElement.element.remove();
         overlayElements = overlayElements.filter((element) => element.id != id);
-        return intervalId;
     }
 
     function setStallState(type, state) {
