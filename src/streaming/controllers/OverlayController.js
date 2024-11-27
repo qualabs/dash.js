@@ -222,24 +222,24 @@ function OverlayController() {
     function _stylizeOverlayContainter(overlayEvent) {
         const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
-
         const { Viewport, Size, TopLeft, SqueezeCurrent, z } = overlayEvent;
+
+        if (!isNaN(z)) {
+            overlayDiv.style['z-index'] = z
+        }
+
+        const squeezeCurrent = SqueezeCurrent.percentage
+        if (SqueezeCurrent && z == -1) {
+            videoElement.style.transition = 'transform';
+            videoElement.style['transform-origin'] = 'top left';
+            videoElement.style.transform = `scale(${squeezeCurrent})`;
+        }
+
         if (!Viewport || !Viewport?.x || !Viewport?.y ) {
             return;
         }
 
-        const { 
-            overlaySize, 
-            overlayTopLeft, 
-            videoSqueezeCurrent 
-        } = _calculateOverlayDimensions(Viewport, Size, TopLeft, SqueezeCurrent);
-        
-        if (SqueezeCurrent && z == -1) {
-            videoElement.style.transition = 'transform';
-            videoElement.style['transform-origin'] = 'top left';
-            videoElement.style.transform = `scale(${videoSqueezeCurrent.x}, ${videoSqueezeCurrent.y})`;
-        }
-
+        const { overlaySize, overlayTopLeft } = _calculateOverlayDimensions(Viewport, Size, TopLeft);
         const resizeFunction = (entries) => {
             const entry = entries[0];
             const { width, height } = entry.contentRect;
@@ -252,7 +252,7 @@ function OverlayController() {
         resizeObserver.observe(videoElement);
     }
 
-    function _calculateOverlayDimensions(viewport, size, topLeft, squeezeCurrent) {
+    function _calculateOverlayDimensions(viewport, size, topLeft) {
         const overlaySize = {
             x: size && size.x ? size.x / viewport.x : 1,
             y: size && size.y ? size.y / viewport.y : 1
@@ -263,12 +263,7 @@ function OverlayController() {
             y: topLeft && topLeft.y ? topLeft.y / viewport.y : 0
         };
 
-        const videoSqueezeCurrent = {
-            x: squeezeCurrent && squeezeCurrent.x ? squeezeCurrent.x / viewport.x : 1,
-            y: squeezeCurrent && squeezeCurrent.y ? squeezeCurrent.y / viewport.y : 1
-        };
-
-        return { overlaySize, overlayTopLeft, videoSqueezeCurrent };
+        return { overlaySize, overlayTopLeft };
     }
 
     instance = {
