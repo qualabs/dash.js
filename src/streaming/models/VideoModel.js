@@ -238,29 +238,29 @@ function VideoModel() {
     function setOverlayRenderingDiv(div) {
         overlayRenderingDiv = div;
         overlayRenderingDiv.style.position = 'absolute';
-        overlayRenderingDiv.style.width = '100%'
-        overlayRenderingDiv.style.height = '100%'
+        overlayRenderingDiv.style.width = '100%';
+        overlayRenderingDiv.style.height = '100%';
         overlayRenderingDiv.style.pointerEvents = 'none';
         overlayRenderingDiv.style.top = 0;
         overlayRenderingDiv.style.left = 0;
     }
 
     function setOverlayElement(element, id) {
-        overlayRenderingDiv.appendChild(element)
+        overlayRenderingDiv.appendChild(element);
         overlayElements.push({
             element,
             id,
-        })
+        });
     }
 
     function getOverlayElementById(id) {
-        return overlayElements.find((element) => element.id == id)
+        return overlayElements.find((element) => element.id == id);
     }
     
     function removeOverlayElementById(id) {
         const overlayElement = overlayElements.find((element) => element.id == id);
         if (!overlayElement) {
-            return
+            return;
         }
         overlayElement.element.remove();
         overlayElements = overlayElements.filter((element) => element.id != id);

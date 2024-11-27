@@ -56,7 +56,7 @@ function OverlayController() {
     }
 
     function configureVideoElementForOverlay() {
-        const videoElement = videoModel.getElement()
+        const videoElement = videoModel.getElement();
         videoElement.style.width = '100%'; 
         videoElement.style.height = '100%';
         videoElement.style.transform = 'scale(1)';
@@ -97,7 +97,7 @@ function OverlayController() {
                 _stylizeOverlayContainter(overlay);
                 videoModel.setOverlayElement(overlayElement, eventId);
             }
-        })
+        });
        
     }
 
@@ -108,7 +108,7 @@ function OverlayController() {
             if (duration && presentationTime + duration <= currentTime) {
                 _stopOverlayEvent(eventId);
             }
-        })
+        });
         if (!overlayList.length) {
             _stopScheduler();
         }
@@ -177,7 +177,7 @@ function OverlayController() {
         overlayElement.preload = 'auto';
         overlayElement.autoplay = true;
         overlayElement.loop = event.loop === 'true';
-        _setVideoOverlayEvents(event, overlayElement)
+        _setVideoOverlayEvents(event, overlayElement);
         return overlayElement;
     }
 
@@ -211,7 +211,7 @@ function OverlayController() {
                 _stopOverlayEvent(event.id);
             }
         });
-        return overlayElement
+        return overlayElement;
     }
 
     function _adaptOverlayElement(overlayElement, uri) {
@@ -232,7 +232,7 @@ function OverlayController() {
         const videoElement = videoModel.getElement();
         const overlayDiv = videoModel.getOverlayRenderingDiv();
 
-        const { Viewport, Size, TopLeft, SqueezeCurrent, z } = overlayEvent
+        const { Viewport, Size, TopLeft, SqueezeCurrent, z } = overlayEvent;
         if (!Viewport || !Viewport?.x || !Viewport?.y ) {
             return;
         }
@@ -250,13 +250,13 @@ function OverlayController() {
         }
 
         const resizeFunction = (entries) => {
-            const entry = entries[0]
+            const entry = entries[0];
             const { width, height } = entry.contentRect;
-            overlayDiv.style.width = `${width * overlaySize.x}px`,
-            overlayDiv.style.height = `${height * overlaySize.y}px`,
-            overlayDiv.style.left = `${width * overlayTopLeft.x}px`,
-            overlayDiv.style.top = `${height * overlayTopLeft.y}px`
-        }
+            overlayDiv.style.width = `${width * overlaySize.x}px`;
+            overlayDiv.style.height = `${height * overlaySize.y}px`;
+            overlayDiv.style.left = `${width * overlayTopLeft.x}px`;
+            overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
+        };
         const resizeObserver = new ResizeObserver(resizeFunction);
         resizeObserver.observe(videoElement);
     }
@@ -277,7 +277,7 @@ function OverlayController() {
             y: squeezeCurrent && squeezeCurrent.y ? squeezeCurrent.y / viewport.y : 1
         };
 
-        return { overlaySize, overlayTopLeft, videoSqueezeCurrent }
+        return { overlaySize, overlayTopLeft, videoSqueezeCurrent };
     }
 
     instance = {

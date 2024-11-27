@@ -1503,12 +1503,12 @@ function MediaPlayer() {
     }
 
     function attachOverlayRenderingDiv(overlayDiv) {
-        const videoElement = videoModel.getElement()
+        const videoElement = videoModel.getElement();
         if (!videoElement) {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
 
-        overlayController.configureVideoElementForOverlay()
+        overlayController.configureVideoElementForOverlay();
         videoModel.setOverlayRenderingDiv(overlayDiv);
 
         overlayController.setupOverlayEvents();
