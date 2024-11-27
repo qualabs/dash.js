@@ -115,8 +115,7 @@ function OverlayController() {
     }
 
     function _handleOverlayEvent(e) {
-        let overlayElement,
-            toExtendOverlayInfo;
+        let overlayElement
 
         const { event } = e;
         const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
@@ -130,7 +129,7 @@ function OverlayController() {
 
             _adaptOverlayElement(overlayElement, event.overlay.uri);
 
-            let eventId = _getOverlayEventId(toExtendOverlayInfo, event) ;
+            let eventId = event.id ?? `${Utils.generateUuid()}`;
             const presentationTime = event.presentationTime / 1000;
             overlayList.push({
                 eventId,
@@ -218,14 +217,6 @@ function OverlayController() {
         overlayElement.src = uri;
         overlayElement.style.width = '100%';
         overlayElement.style.height = '100%';
-    }
-
-    function _getOverlayEventId(extendOverlayElement, event) {
-        let eventId = extendOverlayElement ? extendOverlayElement.id : event.id;
-        if (!eventId) {
-            eventId = `${Utils.generateUuid()}`;
-        }
-        return eventId;
     }
 
     function _stylizeOverlayContainter(overlayEvent) {
