@@ -225,10 +225,10 @@ function OverlayController() {
         const { Viewport, Size, TopLeft, SqueezeCurrent, z } = overlayEvent;
 
         if (!isNaN(z)) {
-            overlayDiv.style['z-index'] = z
+            overlayDiv.style['z-index'] = z;
         }
 
-        const squeezeCurrent = SqueezeCurrent.percentage
+        const squeezeCurrent = SqueezeCurrent.percentage;
         if (SqueezeCurrent && z == -1) {
             videoElement.style.transition = 'transform';
             videoElement.style['transform-origin'] = 'top left';
