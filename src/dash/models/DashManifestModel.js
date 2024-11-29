@@ -1066,8 +1066,6 @@ function DashManifestModel() {
                         if (event.overlay.earliestResolutionTime) {
                             event.calculatedPresentationTime -= event.overlay.earliestResolutionTime / eventStream.timescale;
                         }
-                    } else {
-                        event.overlay = null;
                     }
 
                     if (currentMpdEvent.Signal && currentMpdEvent.Signal.Binary) {

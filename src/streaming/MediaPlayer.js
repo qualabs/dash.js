@@ -423,7 +423,8 @@ function MediaPlayer() {
             });
 
             overlayController.setConfig({
-                videoModel});
+                videoModel
+            });
 
             mediaPlayerModel.setConfig({
                 playbackController,
