@@ -39,6 +39,7 @@ import CatchupController from './controllers/CatchupController.js';
 import ServiceDescriptionController from '../dash/controllers/ServiceDescriptionController.js';
 import ContentSteeringController from '../dash/controllers/ContentSteeringController.js';
 import MediaController from './controllers/MediaController.js';
+import OverlayController from './controllers/OverlayController.js';
 import BaseURLController from './controllers/BaseURLController.js';
 import ManifestLoader from './ManifestLoader.js';
 import ErrorHandler from './utils/ErrorHandler.js';
@@ -144,6 +145,7 @@ function MediaPlayer() {
         schemeLoaderFactory,
         timelineConverter,
         mediaController,
+        overlayController,
         protectionController,
         metricsReportingController,
         mssHandler,
@@ -257,6 +259,9 @@ function MediaPlayer() {
         if (config.mediaController) {
             mediaController = config.mediaController;
         }
+        if (config.overlayController) {
+            overlayController = config.overlayController;
+        }
         if (config.settings) {
             settings = config.settings;
         }
@@ -326,6 +331,10 @@ function MediaPlayer() {
 
             if (!mediaController) {
                 mediaController = MediaController(context).getInstance();
+            }
+
+            if (!overlayController) {
+                overlayController = OverlayController(context).getInstance();
             }
 
             if (!streamController) {
@@ -410,6 +419,10 @@ function MediaPlayer() {
                 settings,
                 mediaPlayerModel,
                 customParametersModel,
+                videoModel
+            });
+
+            overlayController.setConfig({
                 videoModel
             });
 
@@ -1488,6 +1501,18 @@ function MediaPlayer() {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
         videoModel.setVttRenderingDiv(div);
+    }
+
+    function attachOverlayRenderingDiv(overlayDiv) {
+        const videoElement = videoModel.getElement();
+        if (!videoElement) {
+            throw ELEMENT_NOT_ATTACHED_ERROR;
+        }
+
+        overlayController.configureVideoElementForOverlay();
+        videoModel.setOverlayRenderingDiv(overlayDiv);
+
+        overlayController.setupOverlayEvents();
     }
 
     /*
@@ -2740,6 +2765,7 @@ function MediaPlayer() {
         attachProtectionController,
         attachSource,
         attachTTMLRenderingDiv,
+        attachOverlayRenderingDiv,
         attachView,
         attachVttRenderingDiv,
         clearDefaultUTCTimingSources,

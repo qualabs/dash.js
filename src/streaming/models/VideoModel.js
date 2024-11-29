@@ -55,8 +55,11 @@ function VideoModel() {
         resumeReadyStateFunction,
         TTMLRenderingDiv,
         vttRenderingDiv,
+        overlayRenderingDiv,
         previousPlaybackRate,
         timeout;
+
+    let overlayElements = [];
 
     const VIDEO_MODEL_WRONG_ELEMENT_TYPE = 'element is not video or audio DOM type!';
 
@@ -223,6 +226,10 @@ function VideoModel() {
         return vttRenderingDiv;
     }
 
+    function getOverlayRenderingDiv() {
+        return overlayRenderingDiv;
+    }
+
     function setTTMLRenderingDiv(div) {
         TTMLRenderingDiv = div;
         // The styling will allow the captions to match the video window size and position.
@@ -236,6 +243,37 @@ function VideoModel() {
 
     function setVttRenderingDiv(div) {
         vttRenderingDiv = div;
+    }
+
+    function setOverlayRenderingDiv(div) {
+        overlayRenderingDiv = div;
+        overlayRenderingDiv.style.position = 'absolute';
+        overlayRenderingDiv.style.width = '100%';
+        overlayRenderingDiv.style.height = '100%';
+        overlayRenderingDiv.style.pointerEvents = 'none';
+        overlayRenderingDiv.style.top = 0;
+        overlayRenderingDiv.style.left = 0;
+    }
+
+    function setOverlayElement(element, id) {
+        overlayRenderingDiv.appendChild(element);
+        overlayElements.push({
+            element,
+            id,
+        });
+    }
+
+    function getOverlayElementById(id) {
+        return overlayElements.find((element) => element.id == id);
+    }
+    
+    function removeOverlayElementById(id) {
+        const overlayElement = overlayElements.find((element) => element.id == id);
+        if (!overlayElement) {
+            return;
+        }
+        overlayElement.element.remove();
+        overlayElements = overlayElements.filter((element) => element.id != id);
     }
 
     function setStallState(type, state) {
@@ -534,6 +572,8 @@ function VideoModel() {
         getReadyState,
         getSource,
         getTTMLRenderingDiv,
+        getOverlayElementById,
+        getOverlayRenderingDiv,
         getTextTrack,
         getTextTracks,
         getTime,
@@ -551,6 +591,7 @@ function VideoModel() {
         play,
         removeChild,
         removeEventListener,
+        removeOverlayElementById,
         reset,
         setConfig,
         setCurrentTime,
@@ -561,6 +602,8 @@ function VideoModel() {
         setStallState,
         setTTMLRenderingDiv,
         setVttRenderingDiv,
+        setOverlayElement,
+        setOverlayRenderingDiv,
         waitForReadyState,
     };
 

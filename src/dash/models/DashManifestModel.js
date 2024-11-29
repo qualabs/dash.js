@@ -1060,6 +1060,12 @@ function DashManifestModel() {
                     } else {
                         event.id = null;
                     }
+                    if (currentMpdEvent.hasOwnProperty(DashConstants.OVERLAY)) {
+                        event.overlay = currentMpdEvent.OverlayEvent;
+                        if (event.overlay.earliestResolutionTime) {
+                            event.calculatedPresentationTime -= event.overlay.earliestResolutionTime / eventStream.timescale;
+                        }
+                    }
 
                     if (currentMpdEvent.Signal && currentMpdEvent.Signal.Binary) {
                         // toString is used to manage both regular and namespaced tags

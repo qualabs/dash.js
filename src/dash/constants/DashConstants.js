@@ -124,6 +124,7 @@ export default {
     MPD_PATCH_TYPE: 'mpdpatch',
     ORIGINAL_MPD_ID: 'mpdId',
     ORIGINAL_PUBLISH_TIME: 'originalPublishTime',
+    OVERLAY: 'OverlayEvent',
     PATCH_LOCATION: 'PatchLocation',
     PERIOD: 'Period',
     PRESENTATION_TIME: 'presentationTime',
