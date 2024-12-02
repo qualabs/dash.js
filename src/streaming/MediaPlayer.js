@@ -485,6 +485,9 @@ function MediaPlayer() {
         if (customParametersModel) {
             customParametersModel.reset();
         }
+        if (overlayController) {
+            overlayController.reset()
+        }
 
         settings.reset();
 
@@ -1479,6 +1482,16 @@ function MediaPlayer() {
      */
     function getTTMLRenderingDiv() {
         return videoModel ? videoModel.getTTMLRenderingDiv() : null;
+    }
+
+    /**
+     * Returns instance of Div that was attached by calling attachOverlayRenderingDiv()
+     * @returns {Object}
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function getOverlayRenderingDiv() {
+        return videoModel ? videoModel.getOverlayRenderingDiv() : null;
     }
 
     /**
@@ -2804,6 +2817,7 @@ function MediaPlayer() {
         getSource,
         getStreamsFromManifest,
         getTTMLRenderingDiv,
+        getOverlayRenderingDiv,
         getTargetLiveDelay,
         getTracksFor,
         getTracksForTypeFromManifest,

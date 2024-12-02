@@ -26,6 +26,10 @@ class VideoElementMock {
         this.nodeName = 'VIDEO';
         this.videoWidth = 800;
         this.videoHeight = 600;
+        this.style = {};
+        this.parentElement = {
+            style: {}
+        };
     }
 
     constructor() {

@@ -70,6 +70,12 @@ function OverlayController() {
         eventBus.on(Constants.OVERLAY.SCHEME_ID, _handleOverlayEvent);
     }
 
+    function reset() {
+        overlayList = [];
+        clearInterval(schedulerInitialized)
+        schedulerInitialized = false
+    }
+
     function _initializeScheduler() {
         if (!schedulerInitialized) {
             schedulerInitialized = setInterval(_handleScheduleInerval, 100);
@@ -98,7 +104,6 @@ function OverlayController() {
                 videoModel.setOverlayElement(overlayElement, eventId);
             }
         });
-       
     }
 
     function _stopScheduledOverlay() {
@@ -116,6 +121,9 @@ function OverlayController() {
 
     function _handleOverlayEvent(e) {
         const { event } = e;
+        if (!event || !event.overlay) {
+            return
+        }
         const overlayMode = event.overlay.mode ?? Constants.OVERLAY.START_MODE;
         switch (overlayMode) {
             case Constants.OVERLAY.START_MODE:
@@ -280,6 +288,7 @@ function OverlayController() {
         setConfig,
         configureVideoElementForOverlay,
         setupOverlayEvents,
+        reset
     };
 
     return instance;

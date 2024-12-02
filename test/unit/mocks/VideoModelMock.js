@@ -14,6 +14,7 @@ class VideoModelMock {
         this.height = 600;
         this.width = 800;
         this.events = {};
+        this.overlayRenderingDiv = document.createElement('div');
     }
 
     addEventListener(name, handler) {
@@ -198,6 +199,10 @@ class VideoModelMock {
 
     setPlaybackRate() {
 
+    }
+
+    removeOverlayElementById () {
+        return
     }
 }
 

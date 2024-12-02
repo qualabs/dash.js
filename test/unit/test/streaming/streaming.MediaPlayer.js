@@ -968,6 +968,21 @@ describe('MediaPlayer', function () {
                 expect(areEquals).to.be.true;
             });
 
+            it('should be able to attach Overlay renderer div', function () {
+                let overlayRenderer = player.getOverlayRenderingDiv();
+                expect(overlayRenderer).to.be.undefined;
+
+                const myOverlatRenderer = {
+                    style: {}
+                };
+
+                player.attachOverlayRenderingDiv(myOverlatRenderer);
+
+                overlayRenderer = player.getOverlayRenderingDiv();
+                const areEquals = objectUtils.areEqual(overlayRenderer, myOverlatRenderer);
+                expect(areEquals).to.be.true;
+            });
+
             it('Method attachView should throw an exception when attaching a view which is not VIDEO or AUDIO DOM element', function () {
                 player.attachView(null);
                 const myNewView = {
