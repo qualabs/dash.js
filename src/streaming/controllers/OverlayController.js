@@ -147,7 +147,7 @@ function OverlayController() {
         }
         _adaptOverlayElement(overlayElement, event.overlay.uri);
 
-        let eventId = event.id ?? `${Utils.generateUuid()}`;
+        const eventId = event.id ?? `${Utils.generateUuid()}`;
         const presentationTime = event.presentationTime / 1000;
         overlayList.push({
             eventId,

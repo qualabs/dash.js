@@ -202,7 +202,7 @@ class VideoModelMock {
     }
 
     removeOverlayElementById () {
-        return
+        return;
     }
 }
 
