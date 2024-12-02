@@ -56,14 +56,14 @@ describe('OverlayController', function () {
             expect(() => overlayController.setupOverlayEvents()).to.not.throw();
         });
 
-        it.only('should handle triggering an empty event without errors', function () {
+        it('should handle triggering an empty event without errors', function () {
             
             expect(() => {
                 eventBus.trigger(Constants.OVERLAY.SCHEME_ID, {}); 
             }).to.not.throw();
         });
 
-        it.only('should handle triggering the event start mode and video mimetype without errors', function () {
+        it('should handle triggering the event start mode and video mimetype without errors', function () {
             expect(() => {
                 eventBus.trigger(Constants.OVERLAY.SCHEME_ID, { event: {
                     overlay: {
@@ -74,7 +74,7 @@ describe('OverlayController', function () {
             }).to.not.throw();
         });
 
-        it.only('should handle triggering the event start mode and iframe mimetype without errors', function () {
+        it('should handle triggering the event start mode and iframe mimetype without errors', function () {
             expect(() => {
                 eventBus.trigger(Constants.OVERLAY.SCHEME_ID, { event: {
                     overlay: {
@@ -85,7 +85,7 @@ describe('OverlayController', function () {
             }).to.not.throw();
         });
 
-        it.only('should handle triggering the event extend mode without errors', function () {
+        it('should handle triggering the event extend mode without errors', function () {
             expect(() => {
                 eventBus.trigger(Constants.OVERLAY.SCHEME_ID, { event: {
                     overlay: {
@@ -108,7 +108,7 @@ describe('OverlayController', function () {
             }).to.not.throw();
         });
 
-        it.only('should handle triggering the event stop mode without errors', function () {
+        it('should handle triggering the event stop mode without errors', function () {
             expect(() => {
                 eventBus.trigger(Constants.OVERLAY.SCHEME_ID, { event: {
                     overlay: {
