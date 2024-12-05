@@ -246,8 +246,8 @@ function OverlayController() {
             overlayDiv.style['z-index'] = z;
         }
 
-        const squeezeCurrent = SqueezeCurrent.percentage;
         if (SqueezeCurrent && z == -1) {
+            const squeezeCurrent = SqueezeCurrent.percentage;
             videoElement.style.transition = 'transform';
             videoElement.style['transform-origin'] = 'top left';
             videoElement.style.transform = `scale(${squeezeCurrent})`;
