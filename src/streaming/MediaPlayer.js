@@ -2126,6 +2126,12 @@ function MediaPlayer() {
             _resetPlaybackControllers();
         }
 
+        const overlayDiv = videoModel.getOverlayRenderingDiv() 
+
+        if (overlayDiv) {
+            overlayController.reset();
+        }
+
         if (isReady()) {
             _initializePlayback(providedStartTime);
         }

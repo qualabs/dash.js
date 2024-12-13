@@ -241,6 +241,7 @@ function VideoModel() {
         overlayRenderingDiv.style.width = '100%';
         overlayRenderingDiv.style.height = '100%';
         overlayRenderingDiv.style.pointerEvents = 'none';
+        overlayRenderingDiv.style['z-index'] = 'auto';
         overlayRenderingDiv.style.top = 0;
         overlayRenderingDiv.style.left = 0;
     }

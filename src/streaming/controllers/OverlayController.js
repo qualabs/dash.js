@@ -43,6 +43,7 @@ function OverlayController() {
     let instance,
         videoModel,
         schedulerInitialized,
+        resizeObserver,
         overlayList = [];
 
     function setConfig(config) {
@@ -59,6 +60,7 @@ function OverlayController() {
         const videoElement = videoModel.getElement();
         videoElement.style.width = '100%'; 
         videoElement.style.height = '100%';
+        videoElement.style.display = 'block';
         videoElement.style.transform = 'scale(1)';
 
         const parent = videoElement.parentElement;
@@ -71,9 +73,33 @@ function OverlayController() {
     }
 
     function reset() {
+        _stopAllOverlayEvents();
+
         overlayList = [];
-        clearInterval(schedulerInitialized)
-        schedulerInitialized = false
+
+        clearInterval(schedulerInitialized);
+        schedulerInitialized = false;
+
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+        }
+
+        _removeOverlayStyles()
+    }
+
+    function _stopAllOverlayEvents () {
+        overlayList.forEach((overlay) => {
+            _stopOverlayEvent(overlay.eventId);
+        })
+    }
+
+    function _removeOverlayStyles() {
+        const overlayDiv = videoModel.getOverlayRenderingDiv();
+        if (!overlayDiv) {
+            return
+        }
+        
+        videoModel.setOverlayRenderingDiv(overlayDiv);
     }
 
     function _initializeScheduler() {
@@ -266,7 +292,7 @@ function OverlayController() {
             overlayDiv.style.left = `${width * overlayTopLeft.x}px`;
             overlayDiv.style.top = `${height * overlayTopLeft.y}px`;
         };
-        const resizeObserver = new ResizeObserver(resizeFunction);
+        resizeObserver = new ResizeObserver(resizeFunction);
         resizeObserver.observe(videoElement);
     }
 
