@@ -58,7 +58,7 @@ function OverlayController() {
 
     function configureVideoElementForOverlay() {
         const videoElement = videoModel.getElement();
-        videoElement.style.width = '100%'; 
+        videoElement.style.width = '100%';
         videoElement.style.height = '100%';
         videoElement.style.display = 'block';
         videoElement.style.transform = 'scale(1)';
@@ -98,7 +98,7 @@ function OverlayController() {
         if (!overlayDiv) {
             return
         }
-        
+
         videoModel.setOverlayRenderingDiv(overlayDiv);
     }
 
@@ -119,14 +119,15 @@ function OverlayController() {
             _stopScheduledOverlay();
         }
     }
-    
+
     function _startScheduledOverlay() {
         const currentTime = playbackController.getTime();
-        overlayList.forEach((scheduledOverlay) => {      
+        overlayList.forEach((scheduledOverlay) => {
             const { eventId, duration, presentationTime, overlay, overlayElement } = scheduledOverlay;
-            if (!scheduledOverlay.started && _canSetOverlayElement(presentationTime, currentTime, duration)) { 
+            if (!scheduledOverlay.started && _canSetOverlayElement(presentationTime, currentTime, duration)) {
                 scheduledOverlay.started = true;
                 _stylizeOverlayContainter(overlay);
+                overlayElement.loop = overlay.loop === 'true';
                 videoModel.setOverlayElement(overlayElement, eventId);
             }
         });
@@ -134,7 +135,7 @@ function OverlayController() {
 
     function _stopScheduledOverlay() {
         const currentTime = playbackController.getTime();
-        overlayList.forEach((scheduledOverlay) => { 
+        overlayList.forEach((scheduledOverlay) => {
             const { eventId, duration, presentationTime } = scheduledOverlay;
             if (duration && _overlayEventIsFinished(presentationTime, duration, currentTime)) {
                 _stopOverlayEvent(eventId);
@@ -219,7 +220,6 @@ function OverlayController() {
         const overlayElement = document.createElement('video');
         overlayElement.preload = 'auto';
         overlayElement.autoplay = true;
-        overlayElement.loop = event.loop === 'true';
         _setVideoOverlayEvents(event, overlayElement);
         return overlayElement;
     }
