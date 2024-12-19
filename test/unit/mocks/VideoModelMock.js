@@ -182,7 +182,11 @@ class VideoModelMock {
     }
 
     getVttRenderingDiv() {
-        return
+        return;
+    }
+
+    getOverlayRenderingDiv() {
+        return;
     }
 
     setSource(source) {
