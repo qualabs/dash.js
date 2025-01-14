@@ -31,6 +31,7 @@
 import {Cta608Parser} from '@svta/common-media-library/cta/608/Cta608Parser';
 import Constants from './constants/Constants.js';
 import DashConstants from '../dash/constants/DashConstants.js';
+import AlternativeMpdController from './controllers/AlternativeMpdController.js';
 import MetricsConstants from './constants/MetricsConstants.js';
 import PlaybackController from './controllers/PlaybackController.js';
 import StreamController from './controllers/StreamController.js';
@@ -144,6 +145,7 @@ function MediaPlayer() {
         throughputController,
         schemeLoaderFactory,
         timelineConverter,
+        alternativeMpdController,
         mediaController,
         protectionController,
         metricsReportingController,
@@ -226,6 +228,9 @@ function MediaPlayer() {
         if (config.gapController) {
             gapController = config.gapController;
         }
+        if (config.alternativeMpdController) {
+            alternativeMpdController = config.alternativeMpdController;
+        }
         if (config.throughputController) {
             throughputController = config.throughputController
         }
@@ -288,7 +293,7 @@ function MediaPlayer() {
      * @memberof module:MediaPlayer
      * @instance
      */
-    function initialize(view, source, autoPlay, startTime = NaN) {
+    function initialize(view, source, autoPlay, startTime = NaN, alternativeContext = null) {
         if (!capabilities) {
             capabilities = Capabilities(context).getInstance();
             capabilities.setConfig({
@@ -320,6 +325,10 @@ function MediaPlayer() {
 
             if (!schemeLoaderFactory) {
                 schemeLoaderFactory = SchemeLoaderFactory(context).getInstance();
+            }
+
+            if (!alternativeMpdController) {
+                alternativeMpdController = AlternativeMpdController(alternativeContext ? alternativeContext : context).getInstance();
             }
 
             if (!playbackController) {
@@ -396,6 +405,15 @@ function MediaPlayer() {
                 adapter
             });
 
+            alternativeMpdController.setConfig({
+                videoModel,
+                manifestModel,
+                DashConstants,
+                mediaPlayerFactory: FactoryMaker.getClassFactory(MediaPlayer)(),
+                playbackController,
+                alternativeContext: context
+            });
+
             if (!segmentBaseController) {
                 segmentBaseController = SegmentBaseController(context).getInstance({
                     dashMetrics: dashMetrics,
@@ -470,8 +488,12 @@ function MediaPlayer() {
      * @memberof module:MediaPlayer
      * @instance
      */
-    function reset() {
-        attachSource(null);
+    function reset(onlyControllers) {
+
+        if (!onlyControllers) {
+            attachSource(null);
+        }
+
         attachView(null);
         protectionData = null;
         if (protectionController) {
@@ -598,12 +620,14 @@ function MediaPlayer() {
      * @throws {@link module:MediaPlayer~SOURCE_NOT_ATTACHED_ERROR SOURCE_NOT_ATTACHED_ERROR} if called before attachSource function
      * @instance
      */
-    function preload() {
-        if (videoModel.getElement() || streamingInitialized) {
+    function preload(time) {
+        if (videoModel.getElement() || (streamingInitialized && !time)) {
             return;
         }
         if (source) {
-            _initializePlayback(providedStartTime);
+            const playbackTime = time ? time : providedStartTime;
+            console.log(playbackTime)
+            _initializePlayback(playbackTime);
         } else {
             throw SOURCE_NOT_ATTACHED_ERROR;
         }
@@ -1467,6 +1491,7 @@ function MediaPlayer() {
         if (playbackInitialized) { //Reset if we have been playing before, so this is a new element.
             _resetPlaybackControllers();
         }
+        console.log(providedStartTime);
 
         _initializePlayback(providedStartTime);
     }
@@ -2495,6 +2520,7 @@ function MediaPlayer() {
         textController.initialize();
         gapController.initialize();
         catchupController.initialize();
+        alternativeMpdController.initialize();
         cmcdModel.initialize();
         cmsdModel.initialize();
         contentSteeringController.initialize();

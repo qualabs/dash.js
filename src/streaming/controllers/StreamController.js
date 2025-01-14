@@ -664,6 +664,8 @@ function StreamController() {
         // If the track was changed in the active stream we need to stop preloading and remove the already prebuffered stuff. Since we do not support preloading specific handling of specific AdaptationSets yet.
         _deactivateAllPreloadingStreams();
 
+        console.log('_onCurrentTrackChanged');
+
         if (settings.get().streaming.buffer.resetSourceBuffersForTrackSwitch && e.oldMediaInfo && e.oldMediaInfo.codec !== e.newMediaInfo.codec) {
             const seekTime = playbackController.getTime();
             activeStream.deactivate(false);
@@ -1330,6 +1332,8 @@ function StreamController() {
 
 
     function switchToVideoElement(seekTime) {
+        console.log('switchToVideoElement');
+        
         if (activeStream) {
             playbackController.initialize(getActiveStreamInfo());
             _openMediaSource({ seekTime, keepBuffers: false, streamActivated: true });
@@ -1523,6 +1527,9 @@ function StreamController() {
             return;
         }
 
+        if (config.streams) {
+            streams = config.streams;
+        }
         if (config.capabilities) {
             capabilities = config.capabilities;
         }
@@ -1627,6 +1634,50 @@ function StreamController() {
         }
     }
 
+    function resetAlt() {
+        // _checkConfig();
+
+        // timeSyncController.reset();
+
+        // _flushPlaylistMetrics(hasMediaError || hasInitialisationError ? PlayListTrace.FAILURE_STOP_REASON : PlayListTrace.USER_REQUEST_STOP_REASON);
+        const config = {};
+        config.streamsCpy = [...streams];
+
+        for (let i = 0, ln = streams ? streams.length : 0; i < ln; i++) {
+            const stream = streams[i];
+            stream.resetAlt(true);
+        }
+
+        unRegisterEvents();
+
+        // baseURLController.reset();
+        // manifestUpdater.reset();
+        // eventController.reset();
+        // dashMetrics.clearAllCurrentMetrics();
+        // manifestModel.setValue(null);
+        // manifestLoader.reset();
+        // timelineConverter.reset();
+        // initCache.reset();
+
+        // if (mediaSource) {
+        //     mediaSourceController.detachMediaSource(videoModel);
+        //     mediaSource = null;
+        // }
+        // videoModel = null;
+        // if (protectionController) {
+        //     protectionController = null;
+        //     protectionData = null;
+        //     if (manifestModel.getValue()) {
+        //         eventBus.trigger(Events.PROTECTION_DESTROYED, { data: manifestModel.getValue().url });
+        //     }
+        // }
+
+        _stopPlaybackEndedTimerInterval();
+        eventBus.trigger(Events.STREAM_TEARDOWN_COMPLETE);
+        resetInitialSettings();
+        return config;
+    }
+
     function reset() {
         _checkConfig();
 
@@ -1709,6 +1760,7 @@ function StreamController() {
         loadWithManifest,
         refreshManifest,
         reset,
+        resetAlt,
         setConfig,
         setProtectionData,
         switchToVideoElement,

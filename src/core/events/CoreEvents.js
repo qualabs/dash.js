@@ -54,6 +54,7 @@ class CoreEvents extends EventsBase {
         this.INIT_FRAGMENT_LOADED = 'initFragmentLoaded';
         this.INIT_FRAGMENT_NEEDED = 'initFragmentNeeded';
         this.INTERNAL_MANIFEST_LOADED = 'internalManifestLoaded';
+        this.ORIGINAL_ALTERNATIVE_MANIFEST_LOADED = 'originalAlternativeManifestLoaded'
         this.ORIGINAL_MANIFEST_LOADED = 'originalManifestLoaded';
         this.IMPORTED_MPDS_LOADED = 'imporedMpdLoaded';
         this.LOADING_COMPLETED = 'loadingCompleted';
