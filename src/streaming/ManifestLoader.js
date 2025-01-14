@@ -135,6 +135,9 @@ function ManifestLoader() {
             return {
                 request: request,
                 success: function (data, textStatus, responseURL) {
+                    Events.MANIFEST_LOADING_STARTED, {
+                        request
+                    }                    
                     // Manage situations in which success is called after calling reset
                     if (!xlinkController) {
                         return;
@@ -228,14 +231,15 @@ function ManifestLoader() {
 
                         manifest.baseUri = baseUri;
                         manifest.loadedTime = new Date();
+                        xlinkController.resolveManifestOnLoad(manifest);
                         
-
                         if (linkPeriod) {
-                            // eventBus.trigger(Events.LINKED_MANIFEST_LOADED, { originalManifest: data });
+                            //TODO: Change name of the event.
+                            eventBus.trigger(Events.ORIGINAL_MANIFEST_LOADED, { originalManifest: data }); 
                             resolve(manifest)
                         } else if (alternative) {
                             eventBus.trigger(Events.ORIGINAL_ALTERNATIVE_MANIFEST_LOADED, { manifest: data });
-                            xlinkController.resolveManifestOnLoad(manifest);
+                            resolve(manifest)
                         } else {
                             eventBus.trigger(Events.ORIGINAL_MANIFEST_LOADED, { originalManifest: data });
                             resolve(manifest);
@@ -265,7 +269,12 @@ function ManifestLoader() {
                 }
             }
         }
+        
+        return new Promise((resolve, reject) => {
+            urlLoader.load(createUrlLoaderObject(resolve, reject));
+        });
 
+        /*
         if (linkPeriod) {
             return new Promise((resolve, reject) => {
                 urlLoader.load(createUrlLoaderObject(resolve, reject));
@@ -278,6 +287,7 @@ function ManifestLoader() {
             );
             urlLoader.load(createUrlLoaderObject());
         }
+        */
     }
 
     function reset() {

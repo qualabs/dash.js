@@ -997,6 +997,7 @@ function StreamController() {
                 const streamId = nextStream.getStreamInfo().id;
                 logger.debug(`StreamController onEnded, found next stream with id ${streamId}. Switching from ${activeStream.getStreamInfo().id} to ${nextStream.getStreamInfo().id}`);
                 const nextPeriod = manifestModel.getValue().Period[streamId];
+                console.log(nextPeriod)
                 if (!nextPeriod.ImportedMPD) {
                     _switchStream(nextStream, activeStream, NaN);
                 }
