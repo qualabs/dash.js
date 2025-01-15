@@ -709,6 +709,17 @@
                 ]
             },
             {
+                "title": "Live + AlternativeMPD + ListMPD + CMCD",
+                "description": "This sample shows how use AlternativeMPD and ListMPD to replace and Ad slot with an Ad Pod while sending all the CMCD v2 requests.",
+                "href": "advanced/cmcd-alternative-ads.html",
+                "image": "lib/img/livesim-1.jpg",
+                "labels": [
+                    "Live",
+                    "Video",
+                    "Audio"
+                ]
+            },
+            {
                 "title": "Flexible Insertion of URL Parameters Sample",
                 "description": "This sample demonstrates the Flexible Insertion of URL Parameters in dash.js.",
                 "href": "advanced/ext-url-query-info.html",
