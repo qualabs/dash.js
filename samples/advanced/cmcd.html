@@ -46,11 +46,33 @@
             player.updateSettings({
                 streaming: {
                     cmcd: {
-                        enabled: true, /* enable reporting of cmcd parameters */
+                        enabled: true, /* global enable reporting of cmcd parameters */
+                        version: 2, /* 1 is the default version */
+                        reporting: {
+                            requestMode: {
+                                enabled: true, /* enable cmcdv2 request mode */
+                                mode: CMCD_MODE_QUERY, /* overrides global mode */
+                            },
+                            responseMode: {
+                                enabled: true, /* enable cmcdv2 response mode. FALSE by default */
+                                mode: CMCD_MODE_QUERY, /* overrides global mode. JSON not supported */
+                                enabledKeys: ['sid', 'cid', 'ts', 'url', 'br', 'd', 'ot', 'tb', 'v', 'sta', 'ttfb', 'ttlb','rc'], /* optional, overrides global keys */
+                                requestUrl: 'http://localhost:3000/cmcd/response-mode', /*mandatory, URL to send report */
+                                requestMethod: 'POST', /*optional, get by default */
+                            },
+                            stateIntervalMode: {
+                                enabled: true, /* enable cmcdv2 state-interval mode. FALSE by default */
+                                mode: CMCD_MODE_QUERY, /*overrides global mode. JSON not supported */
+                                interval: 10000,  /* time in ms between regular requests. Default 30s or 0 to omit */
+                                enabledKeys: ['sta', 'sid', 'cid', 'sf', 'v', 'ltc', 'msd', 'sta'], /* Currently only supports: 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr' */
+                                requestUrl: 'http://localhost:3000/cmcd/state-interval-mode', /* mandatory, URL to send report */
+                                requestMethod: 'POST',  /* optional, get by default */
+                            }
+                        },
                         sid: 'b248658d-1d1a-4039-91d0-8c08ba597da5', /* session id send with each request */
                         cid: '21cf726cfe3d937b5f974f72bb5bd06a', /* content id send with each request */
-                        mode: CMCD_MODE_QUERY,
-                        enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v']
+                        mode: CMCD_MODE_QUERY, /* global mode if not specified in each mode */
+                        enabledKeys: ['br', 'd', 'ot', 'tb' , 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su' , 'bs', 'rtp' , 'cid', 'pr', 'sf', 'sid', 'st', 'v', 'sta', 'ltc', 'msd', 'sta']
                     }
                 }
             });
@@ -63,7 +85,14 @@
             log('type: ' + event.mediaType);
             log('file: ' + event.url.split('/').pop())
             var mode = player.getSettings().streaming.cmcd.mode;
-            var data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
+            const cmcdVersion = player.getSettings().streaming.cmcd.version;
+            var data = {};
+            if (cmcdVersion === 1) {
+                data = mode === CMCD_MODE_HEADER ? getKeysForHeaderMode(event) : getKeysForQueryMode(event);
+            } else if (cmcdVersion === 2){
+                /* Currently, headers are always generated in cmcd version 2 */
+                data = getKeysForHeaderMode(event);
+            }
             var keys = Object.keys(data);
             keys = keys.sort();
             for (var key of keys) {

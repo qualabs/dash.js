@@ -1330,13 +1330,36 @@ function Settings() {
             cmcd: {
                 applyParametersFromMpd: true,
                 enabled: false,
+                version: 2,
                 sid: null,
                 cid: null,
                 rtp: null,
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
-                includeInRequests: ['segment', 'mpd']
+                includeInRequests: ['segment', 'mpd'],
+                reporting: {
+                    requestMode: {
+                        enabled: true,
+                        mode: null,
+                        enabledKeys: null,
+                    },
+                    responseMode: {
+                        enabled: false,
+                        mode: null,
+                        enabledKeys: null,
+                        requestUrl: 'http://localhost:3000/cmcd_server',
+                        requestMethod: 'POST'
+                    },
+                    stateIntervalMode: {
+                        enabled: false,
+                        mode: null,
+                        interval: 30000,
+                        requestUrl: 'http://localhost:3000/cmcd_server',
+                        requestMethod: 'POST',
+                        enabledKeys: null
+                    }
+                }
             },
             cmsd: {
                 enabled: false,

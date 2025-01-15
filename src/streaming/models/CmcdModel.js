@@ -61,10 +61,12 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        _msdSent,
         _lastMediaTypeRequest,
         _isStartup,
         _bufferLevelStarved,
-        _initialMediaRequestsDone;
+        _initialMediaRequestsDone,
+        _playbackStartedTime;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -83,6 +85,22 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
+        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        
+        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+        if (cmcdStateIntervalMode){
+            const interval = settings.get().streaming.cmcd.reporting.stateIntervalMode.interval;
+            if (interval !== 0) {
+                _startCmcdStateIntervalTimer(interval, cmcdStateIntervalMode);
+            }
+        }
     }
 
     function setConfig(config) {
@@ -118,17 +136,87 @@ function CmcdModel() {
             st: null,
             sf: null,
             sid: `${Utils.generateUuid()}`,
-            cid: null
+            cid: null,
+            sta: null
         };
+        _msdSent = [false, false, false];
         _bufferLevelStarved = {};
         _isStartup = {};
         _initialMediaRequestsDone = {};
         _lastMediaTypeRequest = undefined;
         _updateStreamProcessors();
+        _setCmcdVersion();
     }
 
     function _onPeriodSwitchComplete() {
         _updateStreamProcessors();
+    }
+
+    function _onStateChange(state) {
+        if (!internalData.msd){
+            // Calculate msd key
+            if (!_playbackStartedTime && state === 'p'){
+                _playbackStartedTime = Date.now();
+            }
+            if (_playbackStartedTime && state === 'pl'){
+                internalData.msd = Date.now() - _playbackStartedTime
+                return
+            }
+        }
+        
+        if (internalData.state !== state) {
+            const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+            internalData.sta = state;
+            if (cmcdStateIntervalMode){
+                _sendCmcdStateIntervalData(cmcdStateIntervalMode);
+            }
+        }
+    }
+
+    function _sendCmcdStateIntervalData(cmcdStateIntervalMode) {
+        const cmcdData = _getGenericCmcdData(null);
+        const filteredCmcdData = _applyWhitelist(cmcdData, 3);
+
+        var requestUrl = cmcdStateIntervalMode.requestUrl;
+        var headers = {}
+
+        if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_QUERY) {
+            const additionalQueryParameter = [];
+            const cmcdQueryParams = encodeCmcd(filteredCmcdData);
+            if (cmcdQueryParams) {
+                additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
+            }
+            requestUrl = Utils.addAditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
+        } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
+            headers = toCmcdHeaders(filteredCmcdData)
+        }
+        
+        fetch(requestUrl, {
+            method: cmcdStateIntervalMode.requestMethod,
+            headers: headers
+        }).then(response => {
+            console.log('State-interval CMCD data sent successfully:', response);
+        }).catch(error => {
+            console.error('Error sending state-interval CMCD data:', error);
+        });
+    }
+
+    function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
+        setTimeout(() => {
+            _sendCmcdStateIntervalData(stateIntervalMode)
+            // Restart the timer
+            _startCmcdStateIntervalTimer(interval, stateIntervalMode);
+        }, interval); 
+    }
+
+    function _getCmcdStateIntervalData() {
+        if (isCmcdEnabled() && internalData.v === 2) {
+            const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
+            if (cmcdStateIntervalMode && cmcdStateIntervalMode.enabled) {
+                return cmcdStateIntervalMode
+            }
+        }
+        return null
     }
 
     function _updateStreamProcessors() {
@@ -149,19 +237,21 @@ function CmcdModel() {
         streamProcessors = activeStream.getStreamProcessors();
     }
 
-    function getQueryParameter(request) {
+    function getQueryParameter(request, triggerEvent = true, cmcdReportingMode = null) {
         try {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
-                const filteredCmcdData = _applyWhitelist(cmcdData);
+                const filteredCmcdData = _applyWhitelist(cmcdData, cmcdReportingMode);
                 const finalPayloadString = encodeCmcd(filteredCmcdData);
 
-                eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
-                    url: request.url,
-                    mediaType: request.mediaType,
-                    cmcdData,
-                    cmcdString: finalPayloadString
-                });
+                if (triggerEvent){
+                    eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
+                        url: request.url,
+                        mediaType: request.mediaType,
+                        cmcdData,
+                        cmcdString: finalPayloadString
+                    });
+                }
                 return {
                     key: CMCD_PARAM,
                     value: finalPayloadString
@@ -173,12 +263,48 @@ function CmcdModel() {
             return null;
         }
     }
-
-    function _applyWhitelist(cmcdData) {
+    
+    function _applyWhitelist(cmcdData, cmcdReportingMode) {
         try {
             const cmcdParametersFromManifest = getCmcdParametersFromManifest();
-            const enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
+            var enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
 
+            // MSD key must be send once per mode.
+            if (cmcdData.msd) {
+                const msdSentIndex = cmcdReportingMode - 1;
+                if (_msdSent[msdSentIndex]) {
+                    delete cmcdData.msd;
+                } else {
+                    _msdSent[msdSentIndex] = true;
+                }
+            }
+            // For CMCD v2 use the reporting mode keys or global ones as default
+            // TODO: Try to improve this block by using _checkAvailableKeys(cmcdParametersFromManifest)
+            if (cmcdReportingMode === 1){
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.requestMode.enabledKeys ? settings.get().streaming.cmcd.reporting.requestMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(item => item !== 'url');
+            } else if (cmcdReportingMode === 2) {
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.responseMode.enabledKeys ? settings.get().streaming.cmcd.reporting.responseMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Add CMCD v2 response mode mandatory keys
+                const requiredKeys = ['ts', 'url'];
+                requiredKeys.forEach(key => {
+                    if (!enabledCMCDKeys.includes(key)) {
+                        enabledCMCDKeys.push(key);
+                    }
+                });
+            } else if (cmcdReportingMode === 3) {
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys ? settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported State-Interval mode keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_STATE_INTERVAL.includes(key));
+                // Add CMCD v2 State-interval mode mandatory keys
+                const requiredKeys = ['ts', 'sta'];
+                requiredKeys.forEach(key => {
+                    if (!enabledCMCDKeys.includes(key)) {
+                        enabledCMCDKeys.push(key);
+                    }
+                });
+            }
             return Object.keys(cmcdData)
                 .filter(key => enabledCMCDKeys.includes(key))
                 .reduce((obj, key) => {
@@ -190,19 +316,21 @@ function CmcdModel() {
         }
     }
 
-    function getHeaderParameters(request) {
+    function getHeaderParameters(request, triggerEvent = true, cmcdReportingMode = null) {
         try {
             if (isCmcdEnabled()) {
                 const cmcdData = getCmcdData(request);
-                const filteredCmcdData = _applyWhitelist(cmcdData);
+                const filteredCmcdData = _applyWhitelist(cmcdData, cmcdReportingMode);
                 const headers = toCmcdHeaders(filteredCmcdData)
 
-                eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
-                    url: request.url,
-                    mediaType: request.mediaType,
-                    cmcdData,
-                    headers
-                });
+                if (triggerEvent) {
+                    eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
+                        url: request.url,
+                        mediaType: request.mediaType,
+                        cmcdData,
+                        headers
+                    });
+                }
                 return headers;
             }
 
@@ -269,6 +397,11 @@ function CmcdModel() {
         });
 
         return true;
+    }
+
+    function _setCmcdVersion() {
+        const cmcdVersion = settings.get().streaming.cmcd?.version
+        internalData.v = cmcdVersion ? cmcdVersion : CMCD_VERSION;
     }
 
     function getCmcdParametersFromManifest() {
@@ -359,8 +492,8 @@ function CmcdModel() {
         return data;
     }
 
-    function _getCmcdDataForMpd() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForMpd(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.MANIFEST;
 
@@ -369,7 +502,7 @@ function CmcdModel() {
 
     function _getCmcdDataForMediaSegment(request, mediaType) {
         _initForMediaType(mediaType);
-        const data = _getGenericCmcdData();
+        const data = _getGenericCmcdData(request);
         const encodedBitrate = _getBitrateByRequest(request);
         const d = _getObjectDurationByRequest(request);
         const mtp = _getMeasuredThroughputByType(mediaType);
@@ -454,6 +587,17 @@ function CmcdModel() {
             _initialMediaRequestsDone[mediaType] = true;
         }
 
+        // Response timing and status code
+        if (request.startDate && request.firstByteDate){
+            data.ttfb = request.firstByteDate - request.startDate
+        }
+        if (request.endDate && request.startDate){
+            data.ttlb = request.endDate - request.startDate
+        }
+        if (request.status){
+            data.rc = request.status
+        }
+
         return data;
     }
 
@@ -472,8 +616,8 @@ function CmcdModel() {
         }
     }
 
-    function _getCmcdDataForInitSegment() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForInitSegment(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.INIT;
         data.su = true;
@@ -481,8 +625,8 @@ function CmcdModel() {
         return data;
     }
 
-    function _getCmcdDataForOther() {
-        const data = _getGenericCmcdData();
+    function _getCmcdDataForOther(request) {
+        const data = _getGenericCmcdData(request);
 
         data.ot = CmcdObjectType.OTHER;
 
@@ -490,14 +634,18 @@ function CmcdModel() {
     }
 
 
-    function _getGenericCmcdData() {
+    function _getGenericCmcdData(request) {
         const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
+
+        if (internalData.sta) {
+            data.sta = internalData.sta;
+        }
 
         let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
         cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
 
-        data.v = CMCD_VERSION;
+        data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
@@ -506,6 +654,16 @@ function CmcdModel() {
 
         if (cid) {
             data.cid = `${cid}`;
+        }
+
+        // Add new ltc and msd cmcd v2 keys
+        let ltc = playbackController.getCurrentLiveLatency() * 1000;
+        if (!isNaN(ltc)) {
+            data.ltc = ltc;
+        }
+
+        if (!isNaN(internalData.msd)) {
+            data.msd = internalData.msd;
         }
 
         if (!isNaN(internalData.pr) && internalData.pr !== 1 && internalData.pr !== null) {
@@ -518,6 +676,14 @@ function CmcdModel() {
 
         if (internalData.sf) {
             data.sf = internalData.sf;
+        }
+
+        // Add v2 mandatory keys
+        if (request && internalData.v === 2) {
+            data.url = request.url.split('?')[0]; // remove potential cmcd query params 
+        }
+        if (internalData.v === 2) {
+            data.ts = Date.now();
         }
 
         return data;
@@ -684,10 +850,19 @@ function CmcdModel() {
     }
 
     function reset() {
-        eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, this);
-        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
+        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, instance);
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
+        eventBus.off(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
+        eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
 
         _resetInitialSettings();
     }

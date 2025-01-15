@@ -293,6 +293,33 @@ function HTTPLoader(cfg) {
                 }
             });
 
+            /* CMCD V2 ResponseMode */
+            const cmcdResponseMode = settings.get().streaming.cmcd.reporting.responseMode;
+            if (cmcdModel.isCmcdEnabled() && cmcdResponseMode.enabled) {
+
+                const cmcdMode = cmcdResponseMode.mode ? cmcdResponseMode.mode : settings.get().streaming.cmcd.mode;
+                let requestUrl = cmcdResponseMode.requestUrl;
+                let requestHeaderes = {};
+                const request = httpRequest.customData.request;
+                request.status = httpResponse.status
+
+                if (cmcdMode === Constants.CMCD_MODE_QUERY){
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 2);
+                    requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
+                } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
+                    requestHeaderes = cmcdModel.getHeaderParameters(request, false, 2);
+                }
+               
+                fetch(requestUrl, {
+                    method: cmcdResponseMode.requestMethod,
+                    headers: requestHeaderes,
+                }).then(response => {
+                    console.log('CMCD data sent successfully:', response);
+                }).catch(error => {
+                    console.error('Error sending CMCD data:', error);
+                });    
+            }
+
         };
 
         const _updateRequestTimingInfo = function () {
@@ -624,14 +651,20 @@ function HTTPLoader(cfg) {
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
-        if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
+        const cmcdRequestModeEnabled = settings.get().streaming.cmcd.reporting.requestMode.enabled;
+        
+        if (isIncludedFilters && cmcdModel.isCmcdEnabled() && cmcdRequestModeEnabled) {
+            // Needs to be called to trigger the CMCD_DATA_GENERATED event only once
+            // TODO: Check how to generate the event only once
+            cmcdModel.getHeaderParameters(request);
             const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
+            const cmcdResponseMode = settings.get().streaming.cmcd.reporting.requestMode.mode;
+            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : (cmcdResponseMode ? cmcdResponseMode : settings.get().streaming.cmcd.mode);
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
-                const additionalQueryParameter = _getAdditionalQueryParameter(request);
+                const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 1);
                 request.url = Utils.addAdditionalQueryParameterToUrl(request.url, additionalQueryParameter);
             } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
+                request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request, false, 1));
             }
         }
     }
@@ -642,10 +675,10 @@ function HTTPLoader(cfg) {
      * @return {array}
      * @private
      */
-    function _getAdditionalQueryParameter(request) {
+    function _getAdditionalQueryParameter(request, triggerEvent = true, reportingMode = null) {
         try {
             const additionalQueryParameter = [];
-            const cmcdQueryParameter = cmcdModel.getQueryParameter(request);
+            const cmcdQueryParameter = cmcdModel.getQueryParameter(request, triggerEvent, reportingMode);
 
             if (cmcdQueryParameter) {
                 additionalQueryParameter.push(cmcdQueryParameter);
