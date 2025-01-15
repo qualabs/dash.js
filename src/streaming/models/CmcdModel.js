@@ -186,7 +186,7 @@ function CmcdModel() {
             if (cmcdQueryParams) {
                 additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
             }
-            requestUrl = Utils.addAditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
+            requestUrl = Utils.addAdditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
         } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
             headers = toCmcdHeaders(filteredCmcdData)
         }

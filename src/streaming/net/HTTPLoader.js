@@ -305,7 +305,7 @@ function HTTPLoader(cfg) {
 
                 if (cmcdMode === Constants.CMCD_MODE_QUERY){
                     const additionalQueryParameter = _getAdditionalQueryParameter(request, false, 2);
-                    requestUrl = Utils.addAditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
+                    requestUrl = Utils.addAdditionalQueryParameterToUrl(cmcdResponseMode.requestUrl, additionalQueryParameter);
                 } else if (cmcdMode === Constants.CMCD_MODE_HEADER){
                     requestHeaderes = cmcdModel.getHeaderParameters(request, false, 2);
                 }
