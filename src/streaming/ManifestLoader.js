@@ -274,20 +274,6 @@ function ManifestLoader() {
             urlLoader.load(createUrlLoaderObject(resolve, reject));
         });
 
-        /*
-        if (linkPeriod) {
-            return new Promise((resolve, reject) => {
-                urlLoader.load(createUrlLoaderObject(resolve, reject));
-            });
-        } else {
-            eventBus.trigger(
-                Events.MANIFEST_LOADING_STARTED, {
-                    request
-                }
-            );
-            urlLoader.load(createUrlLoaderObject());
-        }
-        */
     }
 
     function reset() {
