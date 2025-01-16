@@ -61,6 +61,7 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        _mainContentCid,
         _msdSent,
         _lastMediaTypeRequest,
         _isStartup,
@@ -88,16 +89,14 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('p'), instance)
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.on(MediaPlayerEvents.ERROR, _onPlayerError, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
-
-        // eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, () => _onStateChange('e'), instance);
-        // eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, () => _onStateChange('e'), instance);
-        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, (data) => {console.log(data)});
-        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, (data) => {console.log(data)});    
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
 
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
@@ -142,8 +141,10 @@ function CmcdModel() {
             sf: null,
             sid: `${Utils.generateUuid()}`,
             cid: null,
-            sta: null
+            sta: null,
+            int: null
         };
+        _mainContentCid = null
         _msdSent = [false, false, false];
         _bufferLevelStarved = {};
         _isStartup = {};
@@ -173,13 +174,41 @@ function CmcdModel() {
             const cmcdStateIntervalMode = _getCmcdStateIntervalData();
             internalData.sta = state;
             if (cmcdStateIntervalMode){
-                _sendCmcdStateIntervalData(cmcdStateIntervalMode);
+                _sendCmcdStateIntervalData(cmcdStateIntervalMode, 'ps');
             }
         }
     }
 
-    function _sendCmcdStateIntervalData(cmcdStateIntervalMode) {
+    function _onPlayerError(data){
+        console.log('ERROR: ', data)
+        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'e')
+
+    }
+
+    function _onAlternativeStarted (data) {
+        _updateStreamProcessors()
+        console.log('CMCD: ALternative content started', data)
+        internalData.int = true
+        _mainContentCid = internalData.cid
+        internalData.cid = `${internalData.cid}#${data.event.id}`
+        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
+    }
+
+    function _onAlternativeEnded (data) {
+        _updateStreamProcessors()
+        console.log('CMCD: Alternative content ended', data)
+        internalData.int = null
+        internalData.cid = _mainContentCid
+        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
+    }
+
+    function _sendCmcdStateIntervalData(cmcdStateIntervalMode, eventKeyValue = null) {
         const cmcdData = _getGenericCmcdData(null);
+
+        // Add the event key data.
+        cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
 
         var requestUrl = cmcdStateIntervalMode.requestUrl;
@@ -208,7 +237,7 @@ function CmcdModel() {
 
     function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
         setTimeout(() => {
-            _sendCmcdStateIntervalData(stateIntervalMode)
+            _sendCmcdStateIntervalData(stateIntervalMode, 't')
             // Restart the timer
             _startCmcdStateIntervalTimer(interval, stateIntervalMode);
         }, interval); 
@@ -646,20 +675,21 @@ function CmcdModel() {
         if (internalData.sta) {
             data.sta = internalData.sta;
         }
-
-        let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
-        cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
-
+        if (!internalData.cid) {
+            let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
+            // TODO: Make this work again to change cid depending on the cmcdParameter of the Alternative. Now is only working for the first time but if the altenrative mpd has a CID, I want to use it
+            cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
+            internalData.cid = cid
+        }
+        if (internalData.cid){
+            data.cid = `${internalData.cid}`
+        }
         data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
 
         data.sid = `${data.sid}`;
-
-        if (cid) {
-            data.cid = `${cid}`;
-        }
 
         // Add new ltc and msd cmcd v2 keys
         let ltc = playbackController.getCurrentLiveLatency() * 1000;
@@ -689,6 +719,9 @@ function CmcdModel() {
         }
         if (internalData.v === 2) {
             data.ts = Date.now();
+        }
+        if (internalData.int){
+            data.int = internalData.int
         }
 
         return data;
