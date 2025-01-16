@@ -93,7 +93,12 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
-        
+
+        // eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, () => _onStateChange('e'), instance);
+        // eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, (data) => {console.log(data)});
+        eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, (data) => {console.log(data)});    
+
         const cmcdStateIntervalMode = _getCmcdStateIntervalData();
         if (cmcdStateIntervalMode){
             const interval = settings.get().streaming.cmcd.reporting.stateIntervalMode.interval;

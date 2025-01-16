@@ -158,9 +158,23 @@ class MediaPlayerEvents extends EventsBase {
         this.MANIFEST_LOADED = 'manifestLoaded';
         /**
          * Triggered when TBD
-         * @event MediaPlayerEvents#MANIFEST_LOADED
+         * @event MediaPlayerEvents#ALTERNATIVE_MANIFEST_LOADED
          */
         this.ALTERNATIVE_MANIFEST_LOADED = 'alternativeManifestLoaded'
+
+        /**
+         * Sent when the alternative media begins to play (either for the first time, after having been paused,
+         * or after ending and then restarting).
+         *
+         * @event MediaPlayerEvents#ALTERNATIVE_PLAYBACK_PLAYING
+         */
+        this.ALTERNATIVE_PLAYBACK_PLAYING = 'alternativePlaybackPlaying';
+        
+        /**
+         * Sent when alternative playback completes.
+         * @event MediaPlayerEvents#ALTERNATIVE_PLAYBACK_ENDED
+         */
+        this.ALTERNATIVE_PLAYBACK_ENDED = 'alternativePlaybackEnded';
 
         /**
          * Triggered anytime there is a change to the overall metrics.

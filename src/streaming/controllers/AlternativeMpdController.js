@@ -116,11 +116,9 @@ function AlternativeMpdController() {
 
         document.addEventListener('fullscreenchange', () => {
             if (document.fullscreenElement === videoModel.getElement()) {
-                console.log('Ay ay');
                 // document.exitFullscreen();
                 // fullscreenDiv.requestFullscreen();
             } else {
-                console.log('Esto no se va a triggerear nunca');
                 // document.exitFullscreen();
             }
         });
@@ -137,8 +135,8 @@ function AlternativeMpdController() {
     }
 
     function _onAlternativeLoad(e) {
-        console.log(e);
-        console.log('I\'m coming from an alternative based event');
+        // console.log(e);
+        // console.log('I\'m coming from an alternative based event');
     }
 
     function _onManifestLoaded(e) {
@@ -197,7 +195,7 @@ function AlternativeMpdController() {
                 }
             }
         } catch (err) {
-            console.log(lastTimestamp);
+            // console.log(lastTimestamp);
             console.error('Error in onDashPlaybackTimeUpdated:', err);
         }
     }
@@ -267,7 +265,9 @@ function AlternativeMpdController() {
                                 returnOffset: parseInt(alternativeMPDNode.returnOffset || '0', 10) / 1000,
                                 triggered: false,
                                 watched: false,
-                                type: 'static'
+                                type: 'static',
+                                id: ev.id
+                                
                             };
                             events.push(eventObj);
                         }
@@ -357,7 +357,7 @@ function AlternativeMpdController() {
         bufferedEvent = event;
 
         altPlayer.on(Events.STREAM_INITIALIZED, () => {
-            console.log('I\'m buffering')
+            // console.log('I\'m buffering')
             // altPlayer.seek(event.earliestResolutionTimeOffset);
             // Do not play yet, just buffer
         }, this);
@@ -384,6 +384,9 @@ function AlternativeMpdController() {
 
         altPlayer.play();
 
+        // Sends the player and the event that trigges this alternative content.
+        eventBus.trigger(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, { sender: this, altPlayer, event});
+
         isSwitching = false;
         bufferedEvent = null;
     }
@@ -393,6 +396,10 @@ function AlternativeMpdController() {
         isSwitching = true;
 
         altPlayer.pause();
+
+        // Sends the player and the event that trigges this alternative content.
+        eventBus.trigger(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, { sender: this, altPlayer, event});
+
         altVideoElement.style.display = 'none';
         videoModel.getElement().style.display = 'block';
 
