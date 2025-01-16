@@ -135,7 +135,7 @@ function AlternativeMpdController() {
     }
 
     function _onAlternativeLoad(e) {
-        // console.log(e);
+        console.log(e);
         // console.log('I\'m coming from an alternative based event');
     }
 
