@@ -12,6 +12,6 @@ Here are notes about the challenge of implementing the new reporting modes of CM
     - The ‘ts’ key is not entirely accurate since the CMCD parameters are generated before the request starts.
 
 
-### State-Interval Mode
+### Event Mode
 
 - Should the state be set to rebuffering when the video buffer gets stalled? or also the audio buffer?

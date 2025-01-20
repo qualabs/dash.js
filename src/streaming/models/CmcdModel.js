@@ -97,11 +97,11 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
 
-        const cmcdStateIntervalMode = _getCmcdStateIntervalData();
-        if (cmcdStateIntervalMode){
-            const interval = settings.get().streaming.cmcd.reporting.stateIntervalMode.interval;
+        const cmcdEventMode = _getCmcdEventData();
+        if (cmcdEventMode){
+            const interval = settings.get().streaming.cmcd.reporting.eventMode.interval;
             if (interval !== 0) {
-                _startCmcdStateIntervalTimer(interval, cmcdStateIntervalMode);
+                _startCmcdEventTimer(interval, cmcdEventMode);
             }
         }
     }
@@ -169,17 +169,17 @@ function CmcdModel() {
         }
         
         if (internalData.state !== state) {
-            const cmcdStateIntervalMode = _getCmcdStateIntervalData();
+            const cmcdEventMode = _getCmcdEventData();
             internalData.sta = state;
-            if (cmcdStateIntervalMode){
-                _sendCmcdStateIntervalData(cmcdStateIntervalMode, 'ps');
+            if (cmcdEventMode){
+                _sendCmcdEventData(cmcdEventMode, 'ps');
             }
         }
     }
 
     function _onPlayerError(data){
         console.log('ERROR: ', data)
-        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'e')
+        _sendCmcdEventData(_getCmcdEventData(),'e')
 
     }
 
@@ -187,64 +187,64 @@ function CmcdModel() {
         _updateStreamProcessors()
         console.log('CMCD: Alternative content started', data)
         internalData.int = true
-        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        _sendCmcdEventData(_getCmcdEventData(),'i')
         // We will not trigger two events, 'c' is not sent
-        //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
+        //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
     function _onAlternativeEnded (data) {
         _updateStreamProcessors()
         console.log('CMCD: Alternative content ended', data)
         internalData.int = null
-        _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        _sendCmcdEventData(_getCmcdEventData(),'i')
         // We will not trigger two events, 'c' is not sent
-        //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
+        //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
-    function _sendCmcdStateIntervalData(cmcdStateIntervalMode, eventKeyValue = null) {
+    function _sendCmcdEventData(cmcdEventMode, eventKeyValue = null) {
         const cmcdData = _getGenericCmcdData(null);
 
         // Add the event key data.
         cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
 
-        var requestUrl = cmcdStateIntervalMode.requestUrl;
+        var requestUrl = cmcdEventMode.requestUrl;
         var headers = {}
 
-        if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_QUERY) {
+        if (cmcdEventMode.mode === Constants.CMCD_MODE_QUERY) {
             const additionalQueryParameter = [];
             const cmcdQueryParams = encodeCmcd(filteredCmcdData);
             if (cmcdQueryParams) {
                 additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
             }
             requestUrl = Utils.addAdditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
-        } else if (cmcdStateIntervalMode.mode === Constants.CMCD_MODE_HEADER) {
+        } else if (cmcdEventMode.mode === Constants.CMCD_MODE_HEADER) {
             headers = toCmcdHeaders(filteredCmcdData)
         }
         
         fetch(requestUrl, {
-            method: cmcdStateIntervalMode.requestMethod,
+            method: cmcdEventMode.requestMethod,
             headers: headers
         }).then(response => {
-            console.log('State-interval CMCD data sent successfully:', response);
+            console.log('Event CMCD data sent successfully:', response);
         }).catch(error => {
-            console.error('Error sending state-interval CMCD data:', error);
+            console.error('Error sending event CMCD data:', error);
         });
     }
 
-    function _startCmcdStateIntervalTimer(interval, stateIntervalMode) {
+    function _startCmcdEventTimer(interval, eventMode) {
         setTimeout(() => {
-            _sendCmcdStateIntervalData(stateIntervalMode, 't')
+            _sendCmcdEventData(eventMode, 't')
             // Restart the timer
-            _startCmcdStateIntervalTimer(interval, stateIntervalMode);
+            _startCmcdEventTimer(interval, eventMode);
         }, interval); 
     }
 
-    function _getCmcdStateIntervalData() {
+    function _getCmcdEventData() {
         if (isCmcdEnabled() && internalData.v === 2) {
-            const cmcdStateIntervalMode = settings.get().streaming.cmcd.reporting.stateIntervalMode;
-            if (cmcdStateIntervalMode && cmcdStateIntervalMode.enabled) {
-                return cmcdStateIntervalMode
+            const cmcdEventMode = settings.get().streaming.cmcd.reporting.eventMode;
+            if (cmcdEventMode && cmcdEventMode.enabled) {
+                return cmcdEventMode
             }
         }
         return null
@@ -325,10 +325,10 @@ function CmcdModel() {
                     }
                 });
             } else if (cmcdReportingMode === 3) {
-                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys ? settings.get().streaming.cmcd.reporting.stateIntervalMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
-                // Remove unsupported State-Interval mode keys
-                enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_STATE_INTERVAL.includes(key));
-                // Add CMCD v2 State-interval mode mandatory keys
+                enabledCMCDKeys = settings.get().streaming.cmcd.reporting.eventMode.enabledKeys ? settings.get().streaming.cmcd.reporting.eventMode.enabledKeys : settings.get().streaming.cmcd.enabledKeys;
+                // Remove unsupported Event mode keys
+                enabledCMCDKeys = enabledCMCDKeys.filter(key => Constants.CMCD_AVAILABLE_KEYS_EVENT.includes(key));
+                // Add CMCD v2 Event mode mandatory keys
                 const requiredKeys = ['ts', 'sta'];
                 requiredKeys.forEach(key => {
                     if (!enabledCMCDKeys.includes(key)) {

@@ -223,13 +223,13 @@ export default {
     CMCD_AVAILABLE_KEYS: ['int', 'br', 'd', 'ot', 'tb', 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su', 'bs', 'rtp', 'cid', 'pr', 'sf', 'sid', 'st', 'v', 'ts', 'url', 'sta', 'ltc', 'msd'],
 
     /**
-     *  @constant {string} CMCD_AVAILABLE_KEYS_STATE_INTERVAL specifies all the availables keys for the State-Interval Mode of CMCD v2.
+     *  @constant {string} CMCD_AVAILABLE_KEYS_EVENT specifies all the availables keys for the Event Mode of CMCD v2.
      *  @memberof Constants#
      *  @static
      *  TODO: Confirm keys and create CMCD AVAILABLE KEYS arrays for CMCD v2 and Response Mode
      *  TODO: Add support for more keys
      */
-    CMCD_AVAILABLE_KEYS_STATE_INTERVAL: ['e', 'int', 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr', 'ltc', 'msd'],
+    CMCD_AVAILABLE_KEYS_EVENT: ['e', 'int', 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr', 'ltc', 'msd'],
 
     /**
      *  @constant {string} CMCD_AVAILABLE_REQUESTS specifies all the availables requests type for CMCD metrics.

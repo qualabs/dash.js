@@ -1351,7 +1351,7 @@ function Settings() {
                         requestUrl: 'http://localhost:3000/cmcd_server',
                         requestMethod: 'POST'
                     },
-                    stateIntervalMode: {
+                    eventMode: {
                         enabled: false,
                         mode: null,
                         interval: 30000,
