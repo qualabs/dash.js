@@ -61,7 +61,6 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
-        _mainContentCid,
         _msdSent,
         _lastMediaTypeRequest,
         _isStartup,
@@ -144,7 +143,6 @@ function CmcdModel() {
             sta: null,
             int: null
         };
-        _mainContentCid = null
         _msdSent = [false, false, false];
         _bufferLevelStarved = {};
         _isStartup = {};
@@ -187,11 +185,10 @@ function CmcdModel() {
 
     function _onAlternativeStarted (data) {
         _updateStreamProcessors()
-        console.log('CMCD: ALternative content started', data)
+        console.log('CMCD: Alternative content started', data)
         internalData.int = true
-        _mainContentCid = internalData.cid
-        internalData.cid = `${internalData.cid}#${data.event.id}`
         _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        // We will not trigger two events, 'c' is not sent
         //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
     }
 
@@ -199,8 +196,8 @@ function CmcdModel() {
         _updateStreamProcessors()
         console.log('CMCD: Alternative content ended', data)
         internalData.int = null
-        internalData.cid = _mainContentCid
         _sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'i')
+        // We will not trigger two events, 'c' is not sent
         //_sendCmcdStateIntervalData(_getCmcdStateIntervalData(),'c')
     }
 
@@ -675,21 +672,20 @@ function CmcdModel() {
         if (internalData.sta) {
             data.sta = internalData.sta;
         }
-        if (!internalData.cid) {
-            let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
-            // TODO: Make this work again to change cid depending on the cmcdParameter of the Alternative. Now is only working for the first time but if the altenrative mpd has a CID, I want to use it
-            cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
-            internalData.cid = cid
-        }
-        if (internalData.cid){
-            data.cid = `${internalData.cid}`
-        }
+
+        let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
+        cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
+
         data.v = internalData.v === 2 ? 2 : CMCD_VERSION;
 
         data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
         data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
 
         data.sid = `${data.sid}`;
+
+        if (cid) {
+            data.cid = `${cid}`;
+        }
 
         // Add new ltc and msd cmcd v2 keys
         let ltc = playbackController.getCurrentLiveLatency() * 1000;

@@ -34,6 +34,8 @@ import MediaPlayer from '../MediaPlayer.js';
 import EventBus from './../../core/EventBus.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Constants from '../constants/Constants.js';
+import Settings from '../../core/Settings.js';
+
 
 /*
 TODOS:
@@ -47,6 +49,7 @@ function AlternativeMpdController() {
 
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
+    let settings = Settings(context).getInstance();
 
     let instance,
         dashConstants,
@@ -232,6 +235,20 @@ function AlternativeMpdController() {
     function _initializeAlternativePlayer(event) {
         // Initialize alternative player
         altPlayer = MediaPlayer().create();
+
+        // Apply same CMCD settings as Main Player
+        const cmcdSettings = {...settings.get().streaming.cmcd};
+        const cmcdSubIncdex = event.id ? event.id : 'ad';
+        cmcdSettings.cid = `${cmcdSettings.cid}#${cmcdSubIncdex}`;
+        altPlayer.updateSettings({streaming: {cmcd: cmcdSettings}});
+        
+        // TODO: Remove hack: I can not disable CMCD in any starnard way, so I created this custom attribute to have contrl with CMCD Request Mode
+        console.log(event.originalEvent)
+        if (event.originalEvent.AlternativeMPD['cmcd:RequestModeEnabled'] == 'false') {
+            cmcdSettings.reporting.requestMode.enabled = false
+        }
+        altPlayer.updateSettings({streaming: {cmcd: cmcdSettings}});
+        
         altPlayer.initialize(altVideoElement, event.alternativeMPD.uri, false, NaN, alternativeContext);
         altPlayer.setAutoPlay(false);
 
@@ -266,7 +283,8 @@ function AlternativeMpdController() {
                                 triggered: false,
                                 watched: false,
                                 type: 'static',
-                                id: ev.id
+                                id: ev.id,
+                                originalEvent: ev
                                 
                             };
                             events.push(eventObj);
