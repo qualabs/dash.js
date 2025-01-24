@@ -196,14 +196,13 @@ function AlternativeMpdController() {
         try {
             const currentTime = e.time;
             if (!currentEvent) {
-                const nextEvent = _getEventToPrebuff(currentTime)
+                const nextEvent = _getEventToPrebuff(currentTime);
                 if (nextEvent) {
                     _prebufferNextAlternative(nextEvent);
                 }
                 
                 actualEventPresentationTime = e.time;
                 const event = _getCurrentEvent(currentTime);
-
                 if (event && !isSwitching && !currentEvent) {
                     currentEvent = event;
                     timeToSwitch = event.startAtPlayhead ? actualEventPresentationTime - event.presentationTime : 0
@@ -238,14 +237,14 @@ function AlternativeMpdController() {
     function _getCurrentEvent(currentTime) {
         return scheduledEvents.find(event => {
             if (event.completed) {
-                const hasDuration = !isNaN(event.duration);
+                const hasDuration = !!event.duration;
                 const isPastEnd = hasDuration && currentTime > event.presentationTime + event.duration;
                 const isBeforeStart = currentTime < event.presentationTime;
 
                 event.completed = !(isPastEnd || isBeforeStart);
                 return false;
             }
-            return currentTime >= event.presentationTime && (isNaN(event.duration) ||
+            return currentTime >= event.presentationTime && (!event.duration ||
                 currentTime < event.presentationTime + event.duration);
         });
     }
