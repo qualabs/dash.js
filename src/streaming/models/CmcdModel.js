@@ -141,7 +141,7 @@ function CmcdModel() {
             sid: `${Utils.generateUuid()}`,
             cid: null,
             sta: null,
-            int: null
+            bg: null
         };
         _msdSent = [false, false, false];
         _bufferLevelStarved = {};
@@ -186,18 +186,19 @@ function CmcdModel() {
     function _onAlternativeStarted (data) {
         _updateStreamProcessors()
         console.log('CMCD: Alternative content started', data)
-        internalData.int = true
+        // When interstitial starts, the player goes in background.
+        internalData.bg = true
         _sendCmcdEventData(_getCmcdEventData(),'i')
-        // We will not trigger two events, 'c' is not sent
+        // This player is not changing content.
         //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
     function _onAlternativeEnded (data) {
         _updateStreamProcessors()
         console.log('CMCD: Alternative content ended', data)
-        internalData.int = null
+        internalData.bg = null
         _sendCmcdEventData(_getCmcdEventData(),'i')
-        // We will not trigger two events, 'c' is not sent
+        // This player is not changing content.
         //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
@@ -687,6 +688,11 @@ function CmcdModel() {
             data.cid = `${cid}`;
         }
 
+        let int = settings.get().streaming.cmcd.int ? settings.get().streaming.cmcd.int : null;
+        if (int) {
+            data.int = int
+        }
+
         // Add new ltc and msd cmcd v2 keys
         let ltc = playbackController.getCurrentLiveLatency() * 1000;
         if (!isNaN(ltc)) {
@@ -717,7 +723,7 @@ function CmcdModel() {
             data.ts = Date.now();
         }
         if (internalData.int){
-            data.int = internalData.int
+            data.bg = internalData.bg
         }
 
         return data;
@@ -892,11 +898,14 @@ function CmcdModel() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('pl'), instance)
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('p'), instance)
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.off(MediaPlayerEvents.ERROR, _onPlayerError, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
+        eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
 
         _resetInitialSettings();
     }

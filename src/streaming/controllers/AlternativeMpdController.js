@@ -236,10 +236,11 @@ function AlternativeMpdController() {
         // Initialize alternative player
         altPlayer = MediaPlayer().create();
 
-        // Apply same CMCD settings as Main Player
+        // Apply same CMCD settings as Main Player, set int as true and a diffrent cid.
         const cmcdSettings = {...settings.get().streaming.cmcd};
         const cmcdSubIncdex = event.id ? event.id : 'ad';
         cmcdSettings.cid = `${cmcdSettings.cid}#${cmcdSubIncdex}`;
+        cmcdSettings.int = true;
         altPlayer.updateSettings({streaming: {cmcd: cmcdSettings}});
         
         // TODO: Remove hack: I can not disable CMCD in any starnard way, so I created this custom attribute to have contrl with CMCD Request Mode

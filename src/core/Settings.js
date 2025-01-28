@@ -1334,6 +1334,7 @@ function Settings() {
                 sid: null,
                 cid: null,
                 rtp: null,
+                int: false,
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
                 enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
