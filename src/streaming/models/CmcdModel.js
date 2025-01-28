@@ -85,15 +85,15 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('p'), instance)
-        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_INITIALIZED, _onPlaybackInitialized, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, _onPlaybackPaused, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_PLAYING, _onPlaybackPlaying, instance)
+        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, _onPlaybackSeeking, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_STALLED, _onPlaybackStalled, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ERROR, _onPlaybackError, instance);
         eventBus.on(MediaPlayerEvents.ERROR, _onPlayerError, instance);
-        eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
 
@@ -154,6 +154,38 @@ function CmcdModel() {
 
     function _onPeriodSwitchComplete() {
         _updateStreamProcessors();
+    }
+
+    function _onPlaybackInitialized() {
+        _onStateChange('s');
+    }
+
+    function _onPlaybackStarted() {
+        _onStateChange('p');
+    }
+
+    function _onPlaybackPaused() {
+        _onStateChange('a');
+    }
+
+    function _onPlaybackPlaying() {
+        _onStateChange('p');
+    }
+
+    function _onPlaybackSeeking() {
+        _onStateChange('k');
+    }
+
+    function _onPlaybackStalled() {
+        _onStateChange('r');
+    }
+
+    function _onPlaybackError() {
+        _onStateChange('f');
+    }
+
+    function _onPlaybackEnded() {
+        _onStateChange('e');
     }
 
     function _onStateChange(state) {
@@ -895,17 +927,17 @@ function CmcdModel() {
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.off(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_INITIALIZED, () => _onStateChange('s'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, () => _onStateChange('p'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, () => _onStateChange('a'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING,() => _onStateChange('p'), instance)
-        eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, () => _onStateChange('k'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_STALLED, () => _onStateChange('r'), instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_ERROR, () => _onStateChange('f'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_INITIALIZED, _onPlaybackInitialized, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, _onPlaybackPaused, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_PLAYING, _onPlaybackPlaying, instance)
+        eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, _onPlaybackSeeking, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_STALLED, _onPlaybackStalled, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ERROR, _onPlaybackError, instance);
         eventBus.off(MediaPlayerEvents.ERROR, _onPlayerError, instance);
-        eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, () => _onStateChange('e'), instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
-        eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
+        eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);  
 
         _resetInitialSettings();
     }
