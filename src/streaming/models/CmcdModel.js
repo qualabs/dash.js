@@ -61,6 +61,7 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        _eventTimeoutId,
         _msdSent,
         _lastMediaTypeRequest,
         _isStartup,
@@ -143,6 +144,7 @@ function CmcdModel() {
             sta: null,
             bg: null
         };
+        _eventTimeoutId = null;
         _msdSent = [false, false, false];
         _bufferLevelStarved = {};
         _isStartup = {};
@@ -266,7 +268,7 @@ function CmcdModel() {
     }
 
     function _startCmcdEventTimer(interval, eventMode) {
-        setTimeout(() => {
+        _eventTimeoutId = setTimeout(() => {
             _sendCmcdEventData(eventMode, 't')
             // Restart the timer
             _startCmcdEventTimer(interval, eventMode);
@@ -754,7 +756,7 @@ function CmcdModel() {
         if (internalData.v === 2) {
             data.ts = Date.now();
         }
-        if (internalData.int){
+        if (internalData.bg){
             data.bg = internalData.bg
         }
 
@@ -922,6 +924,7 @@ function CmcdModel() {
     }
 
     function reset() {
+        clearTimeout(_eventTimeoutId);
         eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
         eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, instance);
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
