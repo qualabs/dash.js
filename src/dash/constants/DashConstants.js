@@ -59,6 +59,7 @@ export default {
     CODECS: 'codecs',
     CODEC_PRIVATE_DATA: 'codecPrivateData',
     CODING_DEPENDENCY: 'codingDependency',
+    CALLBACK: 'callback',
     CONTENT_COMPONENT: 'ContentComponent',
     CONTENT_PROTECTION: 'ContentProtection',
     CONTENT_STEERING: 'ContentSteering',
