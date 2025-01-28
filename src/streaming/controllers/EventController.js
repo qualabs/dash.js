@@ -487,7 +487,7 @@ function EventController() {
                     }
                 } else if (event.eventStream.schemeIdUri === MPD_CALLBACK_SCHEME && event.eventStream.value == MPD_CALLBACK_VALUE) {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
-                    _sendCallbackRequest(event.messageData);
+                    _sendCallbackRequest(event.value);
                 } else {
                     logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
                     eventBus.trigger(event.eventStream.schemeIdUri, { event: event }, { mode });
@@ -551,7 +551,7 @@ function EventController() {
                 request: {
                     responseType: 'arraybuffer'
                 }
-            });
+            }, {});
         } catch (e) {
             logger.error(e);
         }

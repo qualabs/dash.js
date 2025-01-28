@@ -1060,6 +1060,9 @@ function DashManifestModel() {
                     } else {
                         event.id = null;
                     }
+                    if (currentMpdEvent.hasOwnProperty(DashConstants.VALUE)) {
+                        event.value = currentMpdEvent.value;
+                    }
 
                     if (currentMpdEvent.Signal && currentMpdEvent.Signal.Binary) {
                         // toString is used to manage both regular and namespaced tags
