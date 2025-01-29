@@ -543,7 +543,7 @@ function EventController() {
      * @private
      */
     function _sendCallbackRequest(event) {
-        const url = event.value;
+        const url = event.messageData ?? event.value;
         const periodIndex = event.eventStream.period.index; 
         try {
             let loader = XHRLoader(context).create({});
