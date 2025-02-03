@@ -543,9 +543,12 @@ function EventController() {
      * @private
      */
     function _sendCallbackRequest(event) {
-        const url = event.messageData ?? event.value;
-        const periodIndex = event.eventStream.period.index; 
         try {
+            const url = event.parsedMessageData ?? event.value;
+            if (!url) {
+                throw new Error('callback request URL is missing or invalid.');
+            }
+            const periodIndex = event.eventStream.period.index; 
             let loader = XHRLoader(context).create({});
             loader.load({
                 method: 'get',
