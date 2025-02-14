@@ -487,7 +487,7 @@ function EventController() {
                     }
                 } else if (event.eventStream.schemeIdUri === MPD_CALLBACK_SCHEME && event.eventStream.value == MPD_CALLBACK_VALUE) {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
-                    _sendCallbackRequest(event.messageData);
+                    _sendCallbackRequest(event);
                 } else {
                     logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
                     eventBus.trigger(event.eventStream.schemeIdUri, { event: event }, { mode });
@@ -542,16 +542,25 @@ function EventController() {
      * @param {String} url
      * @private
      */
-    function _sendCallbackRequest(url) {
+    function _sendCallbackRequest(event) {
         try {
+            const url = event.parsedMessageData ?? event.value;
+            if (!url) {
+                throw new Error('callback request URL is missing or invalid.');
+            }
+            const periodIndex = event.eventStream.period.index; 
             let loader = XHRLoader(context).create({});
             loader.load({
                 method: 'get',
                 url: url,
                 request: {
                     responseType: 'arraybuffer'
+                },
+                type: 'callback',
+                customData: {
+                    periodIndex: periodIndex
                 }
-            });
+            }, {});
         } catch (e) {
             logger.error(e);
         }

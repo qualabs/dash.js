@@ -180,6 +180,12 @@ function ExtUrlQueryInfoController() {
                 if (inRequest) {
                     return mpdQueryStringInformation.queryParams;
                 }
+            } else if (request.type === HTTPRequest.CALLBACK) {
+                const queryInfo = mpdQueryStringInformation.period[request.customData.periodIndex];
+                const inRequest = queryInfo.includeInRequests.includes(DashConstants.CALLBACK);
+                if (inRequest) {
+                    return queryInfo.queryParams;
+                }
             }
         } catch (e) {
             logger.error(e);

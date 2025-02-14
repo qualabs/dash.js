@@ -30,6 +30,8 @@
  */
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Utils from '../../core/Utils.js';
+import ExtUrlQueryInfoController from '../controllers/ExtUrlQueryInfoController.js';
+import CustomParametersModel from '../models/CustomParametersModel.js';
 
 /**
  * @module XHRLoader
@@ -38,8 +40,17 @@ import Utils from '../../core/Utils.js';
  */
 function XHRLoader() {
 
-    let instance;
-    let xhr;
+    let instance,
+        extUrlQueryInfoController,
+        xhr,
+        customParametersModel
+
+    let context = this.context;
+
+    function setup() {
+        extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
+        customParametersModel = CustomParametersModel(context).getInstance();
+    }
 
     /**
      * Load request
@@ -49,6 +60,7 @@ function XHRLoader() {
     function load(httpRequest, httpResponse) {
         xhr = null;
         xhr = new XMLHttpRequest();
+        _addExtUrlQueryParameters(httpRequest);
         xhr.open(httpRequest.method, httpRequest.url, true);
 
         if (httpRequest.responseType) {
@@ -74,10 +86,15 @@ function XHRLoader() {
             httpResponse.headers = Utils.parseHttpHeaders(this.getAllResponseHeaders());
             httpResponse.data = this.response;
         }
-        xhr.onloadend = httpRequest.customData.onloadend;
-        xhr.onprogress = httpRequest.customData.onprogress;
-        xhr.onabort = httpRequest.customData.onabort;
-        xhr.ontimeout = httpRequest.customData.ontimeout;
+
+        if (httpRequest.customData) {
+            xhr.onloadend = httpRequest.customData.onloadend;
+            xhr.onprogress = httpRequest.customData.onprogress;
+            xhr.onabort = httpRequest.customData.onabort;
+            xhr.ontimeout = httpRequest.customData.ontimeout;
+        } else {
+            httpRequest.customData = {}
+        }
 
         xhr.send();
 
@@ -91,6 +108,27 @@ function XHRLoader() {
             xhr.abort();
             xhr = null;
         }
+    }
+
+    function _addExtUrlQueryParameters(request) {
+        let finalQueryString = extUrlQueryInfoController.getFinalQueryString(request);
+        if (finalQueryString) {
+            request.url = Utils.addAdditionalQueryParameterToUrl(request.url, finalQueryString);
+        }
+    }
+
+    function applyRequestInterceptors(httpRequest) {
+        const interceptors = customParametersModel.getRequestInterceptors();
+        console.log(interceptors);
+        if (!interceptors) {
+            return Promise.resolve(httpRequest);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then((request) => {
+                return next(request);
+            });
+        }, Promise.resolve(httpRequest));
     }
 
     function getXhr() {
@@ -110,9 +148,12 @@ function XHRLoader() {
         load,
         abort,
         getXhr,
+        applyRequestInterceptors,
         reset,
         resetInitialSettings
     };
+
+    setup();
 
     return instance;
 }
