@@ -31,6 +31,7 @@
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Utils from '../../core/Utils.js';
 import ExtUrlQueryInfoController from '../controllers/ExtUrlQueryInfoController.js';
+import CustomParametersModel from '../models/CustomParametersModel.js';
 
 /**
  * @module XHRLoader
@@ -39,13 +40,16 @@ import ExtUrlQueryInfoController from '../controllers/ExtUrlQueryInfoController.
  */
 function XHRLoader() {
 
-    let instance;
-    let extUrlQueryInfoController;
-    let xhr;
+    let instance,
+        extUrlQueryInfoController,
+        xhr,
+        customParametersModel
+
     let context = this.context;
 
     function setup() {
         extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
+        customParametersModel = CustomParametersModel(context).getInstance();
     }
 
     /**
@@ -113,6 +117,20 @@ function XHRLoader() {
         }
     }
 
+    function applyRequestInterceptors(httpRequest) {
+        const interceptors = customParametersModel.getRequestInterceptors();
+        console.log(interceptors);
+        if (!interceptors) {
+            return Promise.resolve(httpRequest);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then((request) => {
+                return next(request);
+            });
+        }, Promise.resolve(httpRequest));
+    }
+
     function getXhr() {
         return xhr
     }
@@ -130,6 +148,7 @@ function XHRLoader() {
         load,
         abort,
         getXhr,
+        applyRequestInterceptors,
         reset,
         resetInitialSettings
     };
