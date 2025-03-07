@@ -345,7 +345,7 @@ function DashAdapter() {
             // Update duration
             if (importedPeriod.duration && importedPeriod.duration < linkedPeriod.duration) {
                 newPeriod.duration = importedPeriod.duration;
-                if (mpdHasDuration) {
+                if (!mpdHasDuration) {
                     manifest.mediaPresentationDuration += importedPeriod.duration - linkedPeriod.duration;
                 }
             }
