@@ -330,6 +330,14 @@ function DashAdapter() {
                 manifest.ProgramInformation = importedManifest.ProgramInformation;
             }
 
+            if (importedManifest.EssentialProperty) {
+                importedPeriod.EssentialProperty = importedPeriod.EssentialProperty.concat(importedManifest.EssentialProperty);
+            }
+
+            if (importedManifest.SupplementalProperty) {
+                importedPeriod.SupplementalProperty = importedPeriod.SupplementalProperty.concat(importedManifest.SupplementalProperty);
+            }
+
             newPeriod = {
                 baseUri: importedManifest.baseUri,
                 minBufferTime: importedManifest.minBufferTime,
