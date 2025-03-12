@@ -327,10 +327,6 @@ function DashAdapter() {
                 importedPeriod.profiles = importedManifest.profiles;
             }
 
-            if (importedManifest.hasOwnProperty(DashConstants.PROGRAM_INFORMATION)) {
-                manifest.ProgramInformation = importedManifest.ProgramInformation;
-            }
-
             if (importedManifest.EssentialProperty) {
                 importedPeriod.EssentialProperty = importedPeriod.EssentialProperty ? importedManifest.EssentialProperty.concat(importedPeriod.EssentialProperty) : importedManifest.EssentialProperty;
             }
