@@ -332,7 +332,7 @@ function DashAdapter() {
             }
 
             if (importedManifest.SupplementalProperty) {
-                importedPeriod.SupplementalProperty = importedPeriod.SupplementalProperty.concat(importedManifest.SupplementalProperty);
+                importedPeriod.SupplementalProperty = importedPeriod.SupplementalProperty ? importedManifest.SupplementalProperty.concat(importedPeriod.SupplementalProperty) : importedManifest.SupplementalProperty;
             }
 
             newPeriod = {
