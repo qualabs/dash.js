@@ -391,7 +391,6 @@ function DashAdapter() {
         }
     }
 
-
     function _mergeEquivalentProperties(targetArray, sourceArray, keyProp, valueProp) {
         if (!sourceArray || !targetArray) {
             return;
