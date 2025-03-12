@@ -341,10 +341,10 @@ function DashAdapter() {
                 start: linkedPeriod.start ?? importedPeriod.start,
                 id: linkedPeriod.id ?? importedPeriod.id,
                 duration: linkedPeriod.duration,
-                ServiceDescription: _mergeEquivalentProperties(importedPeriod.ServiceDescription, period.ServiceDescription, ['id']),
-                SupplementalProperty: _mergeEquivalentProperties(importedPeriod.SupplementalProperty, period.SupplementalProperty, ['value', 'schemeIdUri']),
-                EssentialProperty: _mergeEquivalentProperties(importedPeriod.EssentialProperty, period.EssentialProperty, ['value', 'schemeIdUri']),
-                EventStream: _mergeEquivalentProperties(importedPeriod.EventStream, period.EventStream, ['value', 'schemeIdUri']),
+                ServiceDescription: period.ServiceDescription || [],
+                SupplementalProperty: period.SupplementalProperty || [],
+                EssentialProperty: period.EssentialProperty || [],
+                EventStream: period.EventStream || [],
             };
     
             // Update duration
@@ -360,10 +360,10 @@ function DashAdapter() {
                 .filter(name => name.includes(':'))
                 .forEach(name => newPeriod[name] = linkedPeriod[name]);
 
-            _mergeUniqueProperties(newPeriod.ServiceDescription, importedPeriod.ServiceDescription, DashConstants.ID);
-            _mergeUniqueProperties(newPeriod.SupplementalProperty, importedPeriod.SupplementalProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
-            _mergeUniqueProperties(newPeriod.EssentialProperty, importedPeriod.EssentialProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
-            _mergeUniqueProperties(newPeriod.EventStream, importedPeriod.EventStream, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+            _mergeEquivalentProperties(newPeriod.ServiceDescription, importedPeriod.ServiceDescription, DashConstants.ID);
+            _mergeEquivalentProperties(newPeriod.SupplementalProperty, importedPeriod.SupplementalProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+            _mergeEquivalentProperties(newPeriod.EssentialProperty, importedPeriod.EssentialProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+            _mergeEquivalentProperties(newPeriod.EventStream, importedPeriod.EventStream, Constants.SCHEME_ID_URI, DashConstants.VALUE);
     
             removeEmptyProperties(newPeriod, [
                 DashConstants.SERVICE_DESCRIPTION,
@@ -391,26 +391,8 @@ function DashAdapter() {
         }
     }
 
-    function _mergeEquivalentProperties(importedPeriodProperty, linkedPeriodProperty, propertiesToCompare) {
-        if (!linkedPeriodProperty) {
-            return importedPeriodProperty || [];
-        }
-        if (!importedPeriodProperty) {
-            return linkedPeriodProperty;
-        }
 
-        const keyGenerator = (obj) => propertiesToCompare.map(prop => obj[prop]).join('|');
-        const linkedMap = new Map(linkedPeriodProperty.map(el => [keyGenerator(el), el]));
-    
-        importedPeriodProperty.forEach(importedElement => {
-            const key = keyGenerator(importedElement);
-            linkedMap.set(key, importedElement);
-        });
-    
-        return Array.from(linkedMap.values());
-    }
-
-    function _mergeUniqueProperties(targetArray, sourceArray, keyProp, valueProp) {
+    function _mergeEquivalentProperties(targetArray, sourceArray, keyProp, valueProp) {
         if (!sourceArray || !targetArray) {
             return;
         }
