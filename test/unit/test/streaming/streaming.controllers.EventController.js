@@ -6,12 +6,13 @@ import ManifestUpdaterMock from '../../mocks/ManifestUpdaterMock.js';
 import Settings from '../../../../src/core/Settings.js';
 
 import {expect} from 'chai';
+import sinon from 'sinon';
 const context = {};
 const eventBus = EventBus(context).getInstance();
 
 describe('EventController', function () {
     let eventController;
-
+    
     let manifestUpdaterMock = new ManifestUpdaterMock();
     let playbackControllerMock = new PlaybackControllerMock();
     const settings = Settings(context).getInstance();
@@ -575,5 +576,52 @@ describe('EventController', function () {
 
             eventBus.off(MediaPlayerEvents.MANIFEST_VALIDITY_CHANGED, manifestValidityExpiredHandler, this);
         });
+
+        it('should fire callback event', async function () {
+            const periodId = 'periodId';
+            let events = [{
+                eventStream: {
+                    timescale: 3,
+                    schemeIdUri: 'urn:mpeg:dash:event:callback:2015',
+                    period: {
+                        id: periodId
+                    },
+                    value: 1,
+                },
+                id: 'event0',
+                calculatedPresentationTime: 0,
+                duration: 5,
+                value: 'https://example.com/api',
+                triggeredReceivedEvent: true
+            }];
+        
+            const xhrStub = sinon.useFakeXMLHttpRequest();
+            let requests = [];
+        
+            xhrStub.onCreate = function (xhr) {
+                requests.push(xhr);
+                setTimeout(() => {
+                    xhr.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify({ success: true }));
+                });
+            };
+        
+            eventController.addInbandEvents(events, periodId);
+        
+            await new Promise(resolve => {
+                const checkRequest = () => {
+                    if (requests.some(req => req.url === events[0].value)) {
+                        resolve();
+                    } else {
+                        setImmediate(checkRequest);
+                    }
+                };
+                checkRequest();
+            });
+        
+            expect(requests.some(req => req.url === events[0].value)).to.be.true;
+        
+            xhrStub.restore();
+        });
+              
     });
 });
