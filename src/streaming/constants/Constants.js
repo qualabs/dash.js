@@ -343,5 +343,7 @@ export default {
         DTSC: 'dtsc',
         AVC: 'avc',
         HEVC: 'hevc'
-    }
+    },
+    MPD_CALLBACK_SCHEME: 'urn:mpeg:dash:event:callback:2015',
+    MPD_CALLBACK_VALUE: 1,
 }
