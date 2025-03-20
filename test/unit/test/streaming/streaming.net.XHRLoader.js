@@ -1,13 +1,19 @@
 import XHRLoader from '../../../../src/streaming/net/XHRLoader.js';
-
+import ExtUrlQueryInfoController from '../../../../src/streaming/controllers/ExtUrlQueryInfoController.js';
 import {expect} from 'chai';
 import sinon from 'sinon';
 
 const context = {};
 
 let xhrLoader;
+let extUrlQueryInfoController;
+
 
 describe('XHRLoader', function () {
+
+    before(() => {
+        extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
+    });
 
     beforeEach(function () {
         window.XMLHttpRequest = sinon.useFakeXMLHttpRequest();
@@ -110,5 +116,62 @@ describe('XHRLoader', function () {
         };
         xhrLoader.load(request, {});
         expect(xhrLoader.getXhr().timeout).to.be.equal(100);
+    });
+
+    it('should add query parameters to callback request', function () {
+        const manifest = {
+            url: 'http://manifesturl.com/Manifest.mpd?urlParam1=urlValue1',
+            Period : [{
+                AdaptationSet:  [
+                    {
+                        Representation: [{},{}]
+                    },
+                    {
+                        Representation: [{},{}]
+                    },
+                ],
+            }],
+            SupplementalProperty: [{
+                schemeIdUri: 'urn:mpeg:dash:urlparam:2016',
+                ExtUrlQueryInfo: {
+                    tagName: 'UrlQueryInfo',
+                    queryTemplate: '$querypart$',
+                    useMPDUrlQuery: 'true',
+                    queryString: 'callbackParam=callbackParamValue',
+                    includeInRequests: 'callback',
+                }
+            }],
+        };
+        extUrlQueryInfoController.createFinalQueryStrings(manifest);
+
+        const httpRequest = {
+            url: 'https://example.com/api',
+            type: 'callback',
+            representation: {
+                index: 0,
+                adaptation: {
+                    index: 0,
+                    period: {
+                        index: 0
+                    }
+                }
+            },
+            customData: {
+                periodIndex: 0
+            }
+        }; 
+
+        const xhrStub = sinon.useFakeXMLHttpRequest();
+        xhrStub.onCreate = function (xhr) {
+            setTimeout(() => {
+                xhr.respond(200, { 'Content-Type': 'application/json' }, JSON.stringify({ success: true }));
+            });
+        };
+
+        xhrLoader = XHRLoader(context).create({});
+        xhrLoader.load(httpRequest, {});
+
+        expect(httpRequest.url).to.include('?'); 
+        expect(httpRequest.url).to.match(/callbackParam=callbackParamValue&urlParam1=urlValue1/);
     });
 });
