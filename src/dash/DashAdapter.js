@@ -324,7 +324,13 @@ function DashAdapter() {
             const importedPeriod = importedManifest.Period[0];
 
             if (importedManifest.hasOwnProperty(DashConstants.PROFILES)) {
-                manifest.profiles = manifest.profiles ? `${manifest.profiles},${importedManifest.profiles}` : importedManifest.profiles;
+                importedPeriod.profiles = importedManifest.profiles;
+                
+                const existingProfiles = manifest.profiles ? manifest.profiles.split('.') : [];
+                const importedProfiles = importedManifest.profiles ? importedManifest.profiles.split(',') : [];
+                const uniqueProfiles = new Set([...existingProfiles, ...importedProfiles]);
+            
+                manifest.profiles = Array.from(uniqueProfiles).join(',');
             }
 
             if (importedManifest.EssentialProperty) {
