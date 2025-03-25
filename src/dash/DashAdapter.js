@@ -496,7 +496,7 @@ function DashAdapter() {
 
             const duration = eventBox.event_duration / timescale;
             const id = eventBox.id;
-            const messageData = schemeIdUri === constants.MPD_CALLBACK_SCHEME & eventBox.value ? eventBox.value : eventBox.message_data;
+            const messageData = schemeIdUri === constants.MPD_CALLBACK.SCHEME & eventBox.value ? eventBox.value : eventBox.message_data;
 
             event.eventStream = eventStream;
             event.eventStream.value = value;
