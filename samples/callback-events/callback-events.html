@@ -240,7 +240,6 @@
 					super();
 					this.addEventListener("readystatechange", function () {
 						if (this.readyState === 4) {
-								// Verifica que el responseType sea válido para leer responseText
 								if (this.responseType === "" || this.responseType === "text") {
 												logRequest(this.responseURL, this.responseText);
 										
