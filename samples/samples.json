@@ -886,5 +886,23 @@
                 ]
             }
         ]
+    },
+    {
+        "section": "Callback events",
+        "samples": [
+            {
+                "title": "Callback events implementation",
+                "description": "A sample showing Callback events implementation",
+                "href": "callback-events/callback-events.html",
+                "image": "lib/img/bbb-1.jpg",
+                "labels": [
+                    "VoD",
+                    "Video",
+                    "Audio",
+                    "Callback events"
+                ]
+            }
+        ]
     }
+
 ]
