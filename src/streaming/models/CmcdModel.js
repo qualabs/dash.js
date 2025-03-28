@@ -242,35 +242,54 @@ function CmcdModel() {
     function _sendCmcdEventData(cmcdEventMode, eventKeyValue = null) {
         const cmcdData = _getGenericCmcdData(null);
 
+        var requestUrl = cmcdEventMode.requestUrl;
+        var headers = {}
+
         // Add the event key data.
         cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
 
-        var requestUrl = cmcdEventMode.requestUrl;
-        var headers = {}
-
-        if (cmcdEventMode.mode === Constants.CMCD_MODE_QUERY) {
-            const additionalQueryParameter = [];
-            const cmcdQueryParams = encodeCmcd(filteredCmcdData);
-            if (cmcdQueryParams) {
-                additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
-            }
-            requestUrl = Utils.addAdditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
-        } else if (cmcdEventMode.mode === Constants.CMCD_MODE_HEADER) {
-            headers = toCmcdHeaders(filteredCmcdData)
-        }
-        
-        fetch(requestUrl, {
+        _applyRequestInterceptors({
+            url: requestUrl,
             method: cmcdEventMode.requestMethod,
-            headers: headers
+            headers,
+            filteredCmcdData
+        }).then(request => {
+            if (cmcdEventMode.mode === Constants.CMCD_MODE_QUERY) {
+                const cmcdQueryParams = encodeCmcd(filteredCmcdData);
+                if (cmcdQueryParams) {
+                    request.url = Utils.addAdditionalQueryParameterToUrl(request.url, [
+                        { key: CMCD_PARAM, value: cmcdQueryParams }
+                    ]);
+                }
+            } else if (cmcdEventMode.mode === Constants.CMCD_MODE_HEADER) {
+                request.headers = toCmcdHeaders(filteredCmcdData);
+            }
+        
+            return fetch(request.url, {
+                method: request.method,
+                headers: request.headers
+            });
         }).then(response => {
             response.cmcdMode = 'event';
-            _applyResponseInterceptors(response).then(()=> {
-                // console.log('Event CMCD data sent successfully:', response);
-            })
+            return _applyResponseInterceptors(response);
         }).catch(error => {
             console.error('Error sending event CMCD data:', error);
         });
+        
+    }
+
+    function _applyRequestInterceptors(httpRequest) {
+        const interceptors = customParametersModel.getRequestInterceptors();
+        if (!interceptors) {
+            return Promise.resolve(httpRequest);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then((request) => {
+                return next(request);
+            });
+        }, Promise.resolve(httpRequest));
     }
 
     function _applyResponseInterceptors(response) {

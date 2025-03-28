@@ -91,9 +91,18 @@
                     }
                 }
             });
+              player.addRequestInterceptor((request) => {
+                const { filteredCmcdData } = request;
+                if (filteredCmcdData) {
+                    filteredCmcdData['custom-sample'] = 'testKey';
+                    console.log('request interceptor', request);
+                }
+                return Promise.resolve(request);
+              });
+              
               player.addResponseInterceptor((response) => {
                 if (response.cmcdMode === 'event') {
-                    console.log('interceptor', response);
+                    console.log('response interceptor', response);
                 }
                 return Promise.resolve(response);
               })
