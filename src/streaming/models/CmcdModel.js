@@ -44,6 +44,7 @@ import {CmcdStreamType} from '@svta/common-media-library/cmcd/CmcdStreamType';
 import {CmcdStreamingFormat} from '@svta/common-media-library/cmcd/CmcdStreamingFormat';
 import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
+import CustomParametersModel from '../models/CustomParametersModel.js';
 
 const CMCD_VERSION = 1;
 const DEFAULT_INCLUDE_IN_REQUESTS = 'segment';
@@ -61,6 +62,7 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        customParametersModel,
         _eventTimeoutId,
         _msdSent,
         _lastMediaTypeRequest,
@@ -77,6 +79,7 @@ function CmcdModel() {
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         logger = debug.getLogger(instance);
+        customParametersModel = CustomParametersModel(context).getInstance();
         _resetInitialSettings();
     }
 
@@ -261,10 +264,26 @@ function CmcdModel() {
             method: cmcdEventMode.requestMethod,
             headers: headers
         }).then(response => {
-            console.log('Event CMCD data sent successfully:', response);
+            response.cmcdMode = 'event';
+            _applyResponseInterceptors(response).then(()=> {
+                // console.log('Event CMCD data sent successfully:', response);
+            })
         }).catch(error => {
             console.error('Error sending event CMCD data:', error);
         });
+    }
+
+    function _applyResponseInterceptors(response) {
+        const interceptors = customParametersModel.getResponseInterceptors();
+        if (!interceptors) {
+            return Promise.resolve(response);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then(resp => {
+                return next(resp);
+            });
+        }, Promise.resolve(response));
     }
 
     function _startCmcdEventTimer(interval, eventMode) {
