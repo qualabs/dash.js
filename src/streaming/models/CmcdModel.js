@@ -100,6 +100,7 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
+        eventBus.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
 
         const cmcdEventMode = _getCmcdEventData();
         if (cmcdEventMode){
@@ -239,16 +240,20 @@ function CmcdModel() {
         //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
+    function _onPlaybackTimeUpdated(data) {
+        internalData.pt = data.time;
+    }
+
     function _sendCmcdEventData(cmcdEventMode, eventKeyValue = null) {
         const cmcdData = _getGenericCmcdData(null);
 
         var requestUrl = cmcdEventMode.requestUrl;
         var headers = {}
-
+        console.log(cmcdData)
         // Add the event key data.
         cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
-
+        console.log(filteredCmcdData);
         _applyRequestInterceptors({
             url: requestUrl,
             method: cmcdEventMode.requestMethod,
@@ -787,6 +792,8 @@ function CmcdModel() {
             data.sf = internalData.sf;
         }
 
+        data.pt = internalData.pt ?? 0;
+
         // Add v2 mandatory keys
         if (request && internalData.v === 2) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
@@ -979,6 +986,7 @@ function CmcdModel() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);  
+        eventBus.off(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
 
         _resetInitialSettings();
     }

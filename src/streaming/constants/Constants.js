@@ -229,7 +229,7 @@ export default {
      *  TODO: Confirm keys and create CMCD AVAILABLE KEYS arrays for CMCD v2 and Response Mode
      *  TODO: Add support for more keys
      */
-    CMCD_AVAILABLE_KEYS_EVENT: ['bg', 'br', 'bs', 'bl', 'mtp', 'sf', 'e', 'int', 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr', 'ltc', 'msd'],
+    CMCD_AVAILABLE_KEYS_EVENT: ['bg', 'br', 'bs', 'bl', 'mtp', 'sf', 'e', 'int', 'sta', 'ts', 'sid', 'cid', 'sf', 'v', 'lb', 'pr', 'ltc', 'msd', 'pt'],
 
     /**
      *  @constant {string} CMCD_AVAILABLE_REQUESTS specifies all the availables requests type for CMCD metrics.
