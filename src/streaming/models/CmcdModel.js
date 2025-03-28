@@ -249,11 +249,9 @@ function CmcdModel() {
 
         var requestUrl = cmcdEventMode.requestUrl;
         var headers = {}
-        console.log(cmcdData)
         // Add the event key data.
         cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
-        console.log(filteredCmcdData);
         _applyRequestInterceptors({
             url: requestUrl,
             method: cmcdEventMode.requestMethod,

@@ -77,14 +77,33 @@
                 const { filteredCmcdData } = request;
                 if (filteredCmcdData) {
                     // Set lead sid
-                    filteredCmcdData['synchronization-leaderSid'] = 'leader-sid';
+                    filteredCmcdData['synchronization-leader-sid'] = 'leader-sid';
                 }
                 return Promise.resolve(request);
               });
               
               player.addResponseInterceptor((response) => {
                 if (response.cmcdMode === 'event') {
-                    //TODO: Add synchronization logic
+                    if (!response.body || !response.body.data) {
+                        return Promise.resolve(response);
+                    }
+                    
+                    const { ts, pt, pr } = response.body.data;
+                    if (!ts || !pt) {
+                        return Promise.resolve(response);
+                    }
+
+                    const leaderTimestamp = response.body.data.ts;
+                    const currentTimestamp = Date.now();
+                    
+                    const timeElapsed = (currentTimestamp - leaderTimestamp);
+                    
+                    const leaderPlayhead = response.body.data.pt;
+                    const playbackRate = response.body.data.pr ?? 1;
+
+                    const timeToSeek = (leaderPlayhead + timeElapsed) * playbackRate;
+
+                    player.seek(timeToSeek)
                 }
                 return Promise.resolve(response);
               })
