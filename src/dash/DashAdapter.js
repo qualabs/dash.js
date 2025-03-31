@@ -511,7 +511,6 @@ function DashAdapter() {
             } else {
                 event.parsedMessageData = (messageData instanceof Uint8Array) ? utf8ArrayToStr(messageData) : null;
             }
-            
             return event;
         } catch (e) {
             return null;
