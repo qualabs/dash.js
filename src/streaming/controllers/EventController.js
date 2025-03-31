@@ -34,14 +34,12 @@ import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
 import XHRLoader from '../net/XHRLoader.js';
+import Constants from '../constants/Constants.js';
 
 function EventController() {
 
     const MPD_RELOAD_SCHEME = 'urn:mpeg:dash:event:2012';
     const MPD_RELOAD_VALUE = 1;
-
-    const MPD_CALLBACK_SCHEME = 'urn:mpeg:dash:event:callback:2015';
-    const MPD_CALLBACK_VALUE = 1;
 
     const REMAINING_EVENTS_THRESHOLD = 300;
 
@@ -154,7 +152,6 @@ function EventController() {
             logger.error(e);
         }
     }
-
     /**
      * Iterate over a list of events and trigger the ones for which the presentation time is within the current timing interval
      * @param {object} events
@@ -485,7 +482,7 @@ function EventController() {
                         logger.debug(`Starting manifest refresh event ${eventId} at ${currentVideoTime}`);
                         _refreshManifest();
                     }
-                } else if (event.eventStream.schemeIdUri === MPD_CALLBACK_SCHEME && event.eventStream.value == MPD_CALLBACK_VALUE) {
+                } else if (event.eventStream.schemeIdUri === Constants.MPD_CALLBACK.SCHEME && event.eventStream.value == Constants.MPD_CALLBACK.VALUE) {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
                     _sendCallbackRequest(event);
                 } else {
@@ -544,7 +541,7 @@ function EventController() {
      */
     function _sendCallbackRequest(event) {
         try {
-            const url = event.parsedMessageData ?? event.value;
+            const url = event.parsedMessageData;
             if (!url) {
                 throw new Error('callback request URL is missing or invalid.');
             }

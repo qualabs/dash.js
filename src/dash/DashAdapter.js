@@ -496,7 +496,7 @@ function DashAdapter() {
 
             const duration = eventBox.event_duration / timescale;
             const id = eventBox.id;
-            const messageData = eventBox.message_data;
+            const messageData = schemeIdUri === constants.MPD_CALLBACK.SCHEME & eventBox.value ? eventBox.value : eventBox.message_data;
 
             event.eventStream = eventStream;
             event.eventStream.value = value;
@@ -511,7 +511,6 @@ function DashAdapter() {
             } else {
                 event.parsedMessageData = (messageData instanceof Uint8Array) ? utf8ArrayToStr(messageData) : null;
             }
-
             return event;
         } catch (e) {
             return null;
