@@ -152,7 +152,6 @@ function EventController() {
             logger.error(e);
         }
     }
- 
     /**
      * Iterate over a list of events and trigger the ones for which the presentation time is within the current timing interval
      * @param {object} events
