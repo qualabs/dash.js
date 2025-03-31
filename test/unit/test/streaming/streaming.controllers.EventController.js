@@ -12,7 +12,6 @@ const eventBus = EventBus(context).getInstance();
 
 describe('EventController', function () {
     let eventController;
-    
     let manifestUpdaterMock = new ManifestUpdaterMock();
     let playbackControllerMock = new PlaybackControllerMock();
     const settings = Settings(context).getInstance();
