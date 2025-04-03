@@ -22,6 +22,10 @@
             <div class="container py-4">
                     <div class="col-md-8">
                         <video controls="true"></video>
+                        <div>
+                            <p>Leader Time: <span id="leader-time">0</span></p>
+                            <p>Player Time: <span id="player-time">0</span></p>
+                        </div>
                     </div>
                 </div>
                 <footer class="pt-3 mt-4 text-muted border-top">
@@ -50,6 +54,7 @@
               var video,
                 player,
                 url = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd"
+                // url = "https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd"
       
               video = document.querySelector("video");
               player = dashjs.MediaPlayer().create();
@@ -63,7 +68,7 @@
                                 enabled: true,
                                 mode: CMCD_MODE_QUERY,
                                 interval: 10000,
-                                requestUrl: 'http://localhost:3000/cmcd/event-mode',
+                                requestUrl: 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode',
                                 requestMethod: 'POST',
                             }
                         },
@@ -73,40 +78,68 @@
                     }
                 }
             });
-              player.addRequestInterceptor((request) => {
-                const { filteredCmcdData } = request;
-                if (filteredCmcdData) {
-                    // Set lead sid
-                    filteredCmcdData['synchronization-leader-sid'] = 'leader-sid';
-                }
-                return Promise.resolve(request);
-              });
-              
-              player.addResponseInterceptor((response) => {
+            let leaderTime = 0;
+            let intervalTime = 0;
+            player.addRequestInterceptor((request) => {
+            const { filteredCmcdData } = request;
+            if (filteredCmcdData) {
+                // Set lead sid
+                filteredCmcdData['synchronization-leader-sid'] = 'leader-sid';
+            }
+            return Promise.resolve(request);
+            });
+            player.addResponseInterceptor((response) => {
                 if (response.cmcdMode === 'event') {
-                    if (!response.body || !response.body.data) {
+                    response.json().then((data) => {
+                        // If there is no body or it's empty, just return the response
+                        if (!data) {
+                            return Promise.resolve(response);
+                        }
+
+                        // Check if the required properties are present
+                        if (!data || !data.ts || !data.pt) {
+                            return Promise.resolve(response);
+                        }
+                        const { ts, pt, pr } = data;
+                        const leaderTimestamp = Number(ts);
+                        const currentTimestamp = Date.now();
+
+                        const timeElapsed = (currentTimestamp - leaderTimestamp) / 1000;
+                        const leaderPlayhead = Number(pt);
+                        const playbackRate = Number(pr ?? 1);
+
+                        const timeToSeek = (leaderPlayhead + timeElapsed) * playbackRate;
+
+                        leaderTime = timeToSeek;
+                        const SEEK_TRESHOLD = 0.4;
+                        
+                        if (Math.abs(timeToSeek - player.time()) > SEEK_TRESHOLD) {
+                            // Seek to the calculated time
+                            player.seekToPresentationTime(timeToSeek)
+                        }
+                        // Agregar playbackrate
+
+                        // Return the response once the interception is done
                         return Promise.resolve(response);
-                    }
-                    
-                    const { ts, pt, pr } = response.body.data;
-                    if (!ts || !pt) {
-                        return Promise.resolve(response);
-                    }
-
-                    const leaderTimestamp = response.body.data.ts;
-                    const currentTimestamp = Date.now();
-                    
-                    const timeElapsed = (currentTimestamp - leaderTimestamp);
-                    
-                    const leaderPlayhead = response.body.data.pt;
-                    const playbackRate = response.body.data.pr ?? 1;
-
-                    const timeToSeek = (leaderPlayhead + timeElapsed) * playbackRate;
-
-                    player.seek(timeToSeek)
+                    });
                 }
                 return Promise.resolve(response);
-              })
+            });
+
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                const milliseconds = Math.floor((seconds % 1) * 100);
+                return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(2, '0')}`;
+            }
+
+            setInterval(() => {
+                leaderTime = leaderTime + 0.01;
+
+                // Update the displayed times in mm:ss:mm format
+                document.getElementById('leader-time').textContent = formatTime(leaderTime);
+                document.getElementById('player-time').textContent = formatTime(player.time());
+            }, 10);
               player.initialize(video, url, true);
             });
           </script>

@@ -241,7 +241,9 @@ function CmcdModel() {
     }
 
     function _onPlaybackTimeUpdated(data) {
+        // Revisar pt
         internalData.pt = data.time;
+        internalData.ts = Date.now();
     }
 
     function _sendCmcdEventData(cmcdEventMode, eventKeyValue = null) {
@@ -309,11 +311,14 @@ function CmcdModel() {
     }
 
     function _startCmcdEventTimer(interval, eventMode) {
-        _eventTimeoutId = setTimeout(() => {
+        setInterval(() => {
             _sendCmcdEventData(eventMode, 't')
-            // Restart the timer
-            _startCmcdEventTimer(interval, eventMode);
-        }, interval); 
+        }, interval);
+        // _eventTimeoutId = setTimeout(() => {
+        //     _sendCmcdEventData(eventMode, 't')
+        //     // Restart the timer
+        //     _startCmcdEventTimer(interval, eventMode);
+        // }, interval); 
     }
 
     function _getCmcdEventData() {
@@ -797,7 +802,7 @@ function CmcdModel() {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
         }
         if (internalData.v === 2) {
-            data.ts = Date.now();
+            data.ts = internalData.ts;
         }
         if (internalData.bg){
             data.bg = internalData.bg

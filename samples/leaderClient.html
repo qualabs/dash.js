@@ -53,6 +53,8 @@
             var video,
                 player,
                 url = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd"
+                // url = "https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd"
+
 
             video = document.querySelector("video");
             player = dashjs.MediaPlayer().create();
@@ -67,7 +69,7 @@
                                 mode: CMCD_MODE_QUERY,
                                 interval: 10000,
                                 enabledKeys: ['sid', 'cid', 'pr', 'pt', 'ts'],
-                                requestUrl: 'http://localhost:3000/cmcd/event-mode',
+                                requestUrl: 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode',
                                 requestMethod: 'POST',
                             }
                         },
