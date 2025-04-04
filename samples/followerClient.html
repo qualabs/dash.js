@@ -112,12 +112,20 @@
 
                         leaderTime = timeToSeek;
                         const SEEK_TRESHOLD = 0.4;
+                        const SYNC_TRESHOLD = 0.01;
                         
                         if (Math.abs(timeToSeek - player.time()) > SEEK_TRESHOLD) {
                             // Seek to the calculated time
-                            player.seekToPresentationTime(timeToSeek)
+                            player.seekToPresentationTime(timeToSeek);
+                        } else if (timeToSeek - player.time() < SEEK_TRESHOLD && timeToSeek - player.time() > SYNC_TRESHOLD) {
+                            player.setPlaybackRate(2 * playbackRate);
+                            const interval = setInterval(() => {
+                                if (Math.abs(timeToSeek - player.time()) <= SYNC_TRESHOLD) {
+                                    player.setPlaybackRate(playbackRate);
+                                    clearInterval(interval);
+                                }
+                            }, 10);
                         }
-                        // Agregar playbackrate
 
                         // Return the response once the interception is done
                         return Promise.resolve(response);
@@ -136,7 +144,6 @@
             setInterval(() => {
                 leaderTime = leaderTime + 0.01;
 
-                // Update the displayed times in mm:ss:mm format
                 document.getElementById('leader-time').textContent = formatTime(leaderTime);
                 document.getElementById('player-time').textContent = formatTime(player.time());
             }, 10);
