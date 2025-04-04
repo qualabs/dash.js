@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Buffer target</title>
+
+    <script src="../../dist/dash.all.debug.js"></script>
+    <script src="./playerSynchronizationPlugin.js"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="../lib/main.css" rel="stylesheet" />
+
+    <style>
+        video {
+            width: 640px;
+            height: 360px;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="container py-4">
+            <div class="col-md-8">
+                <video controls="true"></video>
+                <div>
+                    <label for="url-select">Select URL:</label>
+                    <select id="url-select">
+                        <option value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd">Big Buck Bunny
+                        </option>
+                        <option
+                            value="https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd">
+                            Live Sim</option>
+                        <option value="https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd">CMAF Live
+                        </option>
+                    </select>
+                    <button id="load-button">Load</button>
+                </div>
+            </div>
+        </div>
+        <footer class="pt-3 mt-4 text-muted border-top">
+            &copy; DASH-IF
+        </footer>
+        </div>
+    </main>
+    <style>
+        .hide-controls::-webkit-media-controls {
+            display: none !important;
+        }
+
+        .hide-controls::-moz-media-controls {
+            display: none !important;
+        }
+
+        .hide-controls::-ms-media-controls {
+            display: none !important;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var video,
+                player
+
+            video = document.querySelector("video");
+            player = dashjs.MediaPlayer().create();
+
+            player.initialize(video, '', true);
+            const synchronizationUrl = 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode';
+            playerSynchronization.addLeader(player, synchronizationUrl);
+
+            const loadButton = document.getElementById('load-button');
+            const urlSelect = document.getElementById('url-select');
+
+            loadButton.addEventListener('click', () => {
+                const selectedUrl = urlSelect.value;
+                player.attachSource(selectedUrl);
+            });
+        });
+    </script>
+</body>
+
+</html>
