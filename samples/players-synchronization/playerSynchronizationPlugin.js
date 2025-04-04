@@ -113,7 +113,6 @@ let lastInterval;
             player.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKED, () => {
                 syncPlayer(player);
             });
-        },
-        syncPlayer
+        }
     };
 })();
