@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Buffer target</title>
+    <title>Leader client</title>
 
     <script src="../../dist/dash.all.debug.js"></script>
     <script src="./playerSynchronizationPlugin.js"></script>
@@ -23,26 +23,29 @@
 <body>
     <main>
         <div class="container py-4">
-            <div class="col-md-8">
-                <video controls="true"></video>
+            <header class="pb-3 mb-4 border-bottom">
+                <h1>Leader client</h1>
+            </header>
+            <div class="row">
                 <div>
-                    <label for="url-select">Select URL:</label>
-                    <select id="url-select">
-                        <option value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd">Big Buck Bunny
-                        </option>
-                        <option
-                            value="https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd">
-                            Live Sim</option>
-                        <option value="https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd">CMAF Live
-                        </option>
-                    </select>
-                    <button id="load-button">Load</button>
+                    <div class="input-group mb-2">
+                        <button id="load-button" type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Load</button>
+                        <select id="url-select" class="dropdown-toggle">
+                            <option value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd">Big Buck Bunny
+                            </option>
+                            <option
+                                value="https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd">
+                                Live Sim</option>
+                            <option value="https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd">CMAF Live
+                            </option>
+                        </select>
+                    </div>
+                    <video controls="true"></video>
                 </div>
             </div>
-        </div>
-        <footer class="pt-3 mt-4 text-muted border-top">
-            &copy; DASH-IF
-        </footer>
+            <footer class="pt-3 mt-4 text-muted border-top">
+                &copy; DASH-IF
+            </footer>
         </div>
     </main>
     <style>
