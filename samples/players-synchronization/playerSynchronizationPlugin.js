@@ -6,7 +6,7 @@ let playbackRate;
 let lastInterval;
 
 (() => {
-    const syncPlayer = (player) => {
+    const syncPlayer = (player, config) => {
         if (!leaderTimestamp || !leaderPlayhead || !playbackRate) {
             return;
         }
@@ -15,23 +15,32 @@ let lastInterval;
         const timeElapsed = (currentTimestamp - leaderTimestamp) / 1000;
         const timeToSeek = leaderPlayhead + timeElapsed * playbackRate;
 
-        const SEEK_THRESHOLD = 0.4;
-        const SYNC_THRESHOLD = 0.04;
+        const currentRepresentation = player.getCurrentRepresentationForType('video');
+        const currentFrameRate = currentRepresentation.frameRate;
+        const frameDelay = Math.min(config.frameDelay, currentFrameRate);
+
+        const SEEK_THRESHOLD = config.seekThreshold ?? (currentFrameRate / 100);
+        const SYNC_THRESHOLD = (currentFrameRate / 1000) * frameDelay;
 
         const getPlayersTimeDifference = () => Math.abs(timeToSeek - player.time());
 
         const playersDifference = getPlayersTimeDifference();
-        if (getPlayersTimeDifference() > SEEK_THRESHOLD) {
+        if (playersDifference > SEEK_THRESHOLD) {
             player.seekToPresentationTime(timeToSeek);
+            player.setPlaybackRate(playbackRate);
             if (lastInterval) {
                 clearInterval(lastInterval);
+                lastInterval = null;
             }
         } else if (playersDifference > SYNC_THRESHOLD) {
             if (lastInterval) {
-                return
+                return;
             }
+
             const isAheadOfTheLeader = player.time() > timeToSeek;
-            const speedModification = isAheadOfTheLeader ? 0.5 : 2;
+            const catchUpRate = Math.max(config.catchUpRate, 1);
+            const speedModification = isAheadOfTheLeader ? 1 / catchUpRate : catchUpRate;
+
             player.setPlaybackRate(speedModification * playbackRate);
             const interval = setInterval(() => {
                 lastInterval = interval;
@@ -40,12 +49,17 @@ let lastInterval;
                     player.setPlaybackRate(playbackRate);
                     lastInterval = null;
                     clearInterval(interval);
+                } else if (currentDifference > SEEK_THRESHOLD) {
+                    player.seekToPresentationTime(timeToSeek);
+                    player.setPlaybackRate(playbackRate);
+                    lastInterval = null;
+                    clearInterval(interval);
                 }
             }, 10);
         }
     };
 
-    const setupCMCD = (player, isLeader, url) => {
+    const setupCMCD = (player, config) => {
         player.updateSettings({
             streaming: {
                 cmcd: {
@@ -57,61 +71,68 @@ let lastInterval;
                             mode: CMCD_MODE_QUERY,
                             interval: 10000,
                             enabledKeys: ['sid', 'cid', 'pr', 'pt', 'ts'],
-                            requestUrl: url,
+                            requestUrl: config.url,
                             requestMethod: 'POST',
                         }
                     },
-                    sid: isLeader ? 'leader-sid' : 'follower-sid',
-                    cid: isLeader ? 'leader-cid' : 'follower-cid',
+                    sid: config.id,
                     mode: CMCD_MODE_QUERY,
                 }
             }
         });
-
-        if (!isLeader) {
-            let firstRun = true;
-
-            player.addRequestInterceptor((request) => {
-                const { filteredCmcdData } = request;
-                if (filteredCmcdData) {
-                    filteredCmcdData['synchronization-leader-sid'] = 'leader-sid';
-                }
-                return Promise.resolve(request);
-            });
-
-            player.addResponseInterceptor((response) => {
-                if (response.cmcdMode === 'event') {
-                    response.json().then((data) => {
-                        if (!data || !data.ts || !data.pt) {
-                            return Promise.resolve(response);
-                        }
-                        const { ts, pt, pr } = data;
-                        leaderTimestamp = Number(ts);
-                        leaderPlayhead = Number(pt);
-                        playbackRate = Number(pr ?? 1);
-
-                        if (firstRun) {
-                            syncPlayer(player);
-                            firstRun = false;
-                        }
-
-                        return Promise.resolve(response);
-                    });
-                }
-                return Promise.resolve(response);
-            });
-        }
     };
 
+    const configInterceptors = (player, config) => {
+        player.addRequestInterceptor((request) => {
+            const { filteredCmcdData } = request;
+            if (filteredCmcdData) {
+                filteredCmcdData['synchronization-leader-sid'] = config.leaderId;
+            }
+            return Promise.resolve(request);
+        });
+        
+        let firstRun = true;
+        player.addResponseInterceptor((response) => {
+            if (response.cmcdMode === 'event') {
+                response.json().then((data) => {
+                    if (!data || !data.ts || !data.pt) {
+                        return Promise.resolve(response);
+                    }
+                    const { ts, pt, pr } = data;
+                    leaderTimestamp = Number(ts);
+                    leaderPlayhead = Number(pt);
+                    playbackRate = Number(pr ?? 1);
+
+                    if (firstRun) {
+                        syncPlayer(player, config);
+                        firstRun = false;
+                    }
+
+                    return Promise.resolve(response);
+                });
+            }
+            return Promise.resolve(response);
+        });
+    }
+
     window.playerSynchronization = {
-        addLeader(player, url) {
-            setupCMCD(player, true, url);
+        addLeader(player, config) {
+            setupCMCD(player, config);
         },
-        addFollower(player, url) {
-            setupCMCD(player, false, url);
-            setInterval(() => syncPlayer(player), 5000);
+        addFollower(player, config) {
+            setupCMCD(player, config);
+            configInterceptors(player, config); 
+
+            setInterval(() => {
+                syncPlayer(player, config);
+            }, config.syncInterval ?? 5000);
+
+            let seeking = false;
             player.on(dashjs.MediaPlayer.events.PLAYBACK_SEEKED, () => {
-                syncPlayer(player);
+                if (!seeking) {
+                    syncPlayer(player, config);
+                    seeking = true;
+                }
             });
         }
     };

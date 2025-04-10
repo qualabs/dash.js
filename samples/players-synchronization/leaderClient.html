@@ -70,8 +70,10 @@
             player = dashjs.MediaPlayer().create();
 
             player.initialize(video, '', true);
-            const synchronizationUrl = 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode';
-            playerSynchronization.addLeader(player, synchronizationUrl);
+            playerSynchronization.addLeader(player, {
+                url: 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode',
+                id: 'leader-sid'
+            });
 
             const loadButton = document.getElementById('load-button');
             const urlSelect = document.getElementById('url-select');

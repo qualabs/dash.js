@@ -70,8 +70,15 @@
             player = dashjs.MediaPlayer().create();
 
             player.initialize(video, '', true);
-            const synchronizationUrl = 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode';
-            playerSynchronization.addFollower(player, synchronizationUrl);
+            playerSynchronization.addFollower(player, {
+                leaderId: 'leader-sid',
+                url: 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode',
+                id: 'follower-sid',
+                frameDelay: 1,
+                seekTreshold: 0.4,
+                catchUpRate: 2,
+                syncInterval: 2000
+            });
 
             const loadButton = document.getElementById('load-button');
             const urlSelect = document.getElementById('url-select');
