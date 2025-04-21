@@ -53,6 +53,7 @@ class HTTPRequest {
          * - Index Fragment
          * - Media Fragment
          * - Bitstream Switching Fragment
+         * - CMCD Response
          * - other
          * @public
          */

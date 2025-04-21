@@ -47,7 +47,6 @@ import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {CmcdHeaderField} from '@svta/common-media-library/cmcd/CmcdHeaderField';
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
-
 import URLLoader from '../net/URLLoader.js';
 import Errors from '../../core/errors/Errors.js';
 
@@ -846,7 +845,7 @@ function CmcdController() {
             ...commonMediaRequest,
             url: request.url,
             headers: request.headers,
-            customData: request,
+            customData: {request},
             cmcd: getCmcdData(request)
         }
 
@@ -903,8 +902,7 @@ function CmcdController() {
     }
 
     function _cmcdResponseModeInterceptor(response){
-        const requestType = response.request.customData.type;
-
+        const requestType = response.request.customData.request.type;
         let cmcdData = response.request.cmcd;
         
         const targets = settings.get().streaming.cmcd.targets
