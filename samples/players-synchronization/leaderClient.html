@@ -29,7 +29,7 @@
             <div class="row">
                 <div>
                     <div class="input-group mb-2">
-                        <button id="load-button" type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Load</button>
+                        <button id="load-button" type="button" class="btn btn-primary" aria-haspopup="true" aria-expanded="false">Load</button>
                         <select id="url-select" class="dropdown-toggle">
                             <option value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd">Big Buck Bunny
                             </option>
@@ -39,6 +39,7 @@
                             <option value="https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd">CMAF Live
                             </option>
                         </select>
+                        <input id="custom-url" type="text" class="form-control" placeholder="Paste your own DASH manifest URL here" style="max-width: 350px; margin-left: 8px;">
                     </div>
                     <video controls="true"></video>
                 </div>
@@ -77,10 +78,12 @@
 
             const loadButton = document.getElementById('load-button');
             const urlSelect = document.getElementById('url-select');
+            const customUrl = document.getElementById('custom-url');
 
             loadButton.addEventListener('click', () => {
+                const enteredUrl = customUrl.value.trim();
                 const selectedUrl = urlSelect.value;
-                player.attachSource(selectedUrl);
+                player.attachSource(enteredUrl !== '' ? enteredUrl : selectedUrl);
             });
         });
     </script>
