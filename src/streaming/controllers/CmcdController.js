@@ -139,6 +139,11 @@ function CmcdController() {
     function _onStateChange(state) {
         const targets = settings.get().streaming.cmcd.targets;
         const eventModeTargets = targets.filter((target) => target.mode === Constants.CMCD_MODE.EVENT);
+        
+        if (eventModeTargets.length === 0) {
+            return;
+        }
+        
         const cmcdData = _getGenericCmcdData();
         cmcdData.e = state;
 
