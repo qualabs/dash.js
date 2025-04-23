@@ -271,6 +271,7 @@ function CmcdController() {
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
                     url: request.url,
                     mediaType: request.mediaType,
+                    requestType: request.type,
                     cmcdData,
                     cmcdString: finalPayloadString
                 });
