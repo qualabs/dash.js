@@ -109,14 +109,14 @@ function CmcdController() {
 
     function _initializeEventModeListeners() {
         const eventStateMap = {
-            [MediaPlayerEvents.PLAYBACK_INITIALIZED]: 's',
-            [MediaPlayerEvents.PLAYBACK_STARTED]: 'p',
-            [MediaPlayerEvents.PLAYBACK_PAUSED]: 'a',
-            [MediaPlayerEvents.PLAYBACK_PLAYING]: 'p',
-            [MediaPlayerEvents.PLAYBACK_SEEKING]: 'k',
-            [MediaPlayerEvents.PLAYBACK_STALLED]: 'r',
-            [MediaPlayerEvents.PLAYBACK_ERROR]: 'f',
-            [MediaPlayerEvents.PLAYBACK_ENDED]: 'e'
+            [MediaPlayerEvents.PLAYBACK_INITIALIZED]: Constants.CMCD_EVENTS.START,
+            [MediaPlayerEvents.PLAYBACK_STARTED]: Constants.CMCD_EVENTS.PLAYING,
+            [MediaPlayerEvents.PLAYBACK_PAUSED]: Constants.CMCD_EVENTS.PAUSED,
+            [MediaPlayerEvents.PLAYBACK_PLAYING]: Constants.CMCD_EVENTS.PLAYING,
+            [MediaPlayerEvents.PLAYBACK_SEEKING]: Constants.CMCD_EVENTS.SEEKING,
+            [MediaPlayerEvents.PLAYBACK_STALLED]: Constants.CMCD_EVENTS.REBUFFERING,
+            [MediaPlayerEvents.PLAYBACK_ERROR]: Constants.CMCD_EVENTS.FATAL_ERROR,
+            [MediaPlayerEvents.PLAYBACK_ENDED]: Constants.CMCD_EVENTS.ENDED
         };
     
         Object.entries(eventStateMap).forEach(([event, state]) => {
@@ -129,7 +129,7 @@ function CmcdController() {
         const eventModeTargets = targets.filter((target) => target.mode === Constants.CMCD_MODE.EVENT);
         eventModeTargets.forEach(({ timeInterval }) => {
             const triggerEventModeInterval = () => {
-                _onStateChange('t');
+                _onStateChange(Constants.CMCD_EVENTS.TIME_INTERVAL);
                 setTimeout(triggerEventModeInterval, (timeInterval * 1000));
             }
             triggerEventModeInterval();
@@ -868,7 +868,7 @@ function CmcdController() {
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
-            
+
         if (isIncludedFilters && (targetSettings ? targetSettings.enabled : isCmcdEnabled())) {
             const cmcdParameters = getCmcdParametersFromManifest();
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;

@@ -246,6 +246,22 @@ export default {
         EVENT: 'event'
     },
 
+    /**
+     *  @constant {string} CMCD_EVENTS specifies all the available events for CMCD.
+     *  @memberof Constants#
+     *  @static
+     */
+    CMCD_EVENTS: {
+        START: 's',
+        PLAYING: 'p',
+        PAUSED : 'a',
+        SEEKING: 'k',
+        REBUFFERING: 'r',
+        FATAL_ERROR: 'f',
+        ENDED: 'e',
+        TIME_INTERVAL: 't'
+    },
+
     INITIALIZE: 'initialize',
     TEXT_SHOWING: 'showing',
     TEXT_HIDDEN: 'hidden',
