@@ -310,7 +310,7 @@ function CmcdController() {
                 let customKeys;
 
                 if (targetSettings){
-                    enabledKeys = targetSettings.enabledKeys;
+                    enabledKeys = targetSettings.keys;
                     customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
                 }
 
