@@ -226,7 +226,7 @@ export default {
      *  @memberof Constants#
      *  @static
      */
-    CMCD_V2_AVAILABLE_KEYS: ['msd', 'ltc'],
+    CMCD_V2_AVAILABLE_KEYS: ['e', 'msd', 'ltc'],
 
     /**
      *  @constant {string} CMCD_AVAILABLE_REQUESTS specifies all the available requests type for CMCD metrics.

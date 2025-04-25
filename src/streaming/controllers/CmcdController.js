@@ -256,13 +256,7 @@ function CmcdController() {
             if ((targetSettings ? targetSettings.enabled : isCmcdEnabled())) {
 
                 cmcdData = cmcdData || getCmcdData(request);
-                let enabledKeys;
-                let customKeys;
-
-                if (targetSettings){
-                    enabledKeys = targetSettings.enabledKeys;
-                    customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
-                }
+                let [enabledKeys, customKeys] = _getTargetSettingsEnabledKeys(targetSettings, cmcdData);
 
                 let filteredCmcdData = _applyWhitelist(cmcdData, enabledKeys);
                 filteredCmcdData = {...filteredCmcdData, ...customKeys};              
@@ -306,20 +300,15 @@ function CmcdController() {
         try {
             if (isCmcdEnabled()) {
                 cmcdData = cmcdData || getCmcdData(request);
-                let enabledKeys;
-                let customKeys;
 
-                if (targetSettings){
-                    enabledKeys = targetSettings.enabledKeys;
-                    customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
-                }
+                let [enabledKeys, customKeys] = _getTargetSettingsEnabledKeys(targetSettings, cmcdData);
 
                 let filteredCmcdData = _applyWhitelist(cmcdData, enabledKeys);
                 filteredCmcdData = {...filteredCmcdData, ...customKeys};
 
                 const options = _createCmcdV2HeadersCustomMap();
                 const headers = toCmcdHeaders(filteredCmcdData, options);
-    
+
                 eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, {
                     url: request.url,
                     mediaType: request.mediaType,
@@ -328,7 +317,7 @@ function CmcdController() {
                 });
                 return headers;
             }
-    
+
             return null;
         } catch (e) {
             return null;
@@ -382,6 +371,7 @@ function CmcdController() {
         const defaultAvailableKeys = Constants.CMCD_AVAILABLE_KEYS;
         const defaultV2AvailableKeys = Constants.CMCD_V2_AVAILABLE_KEYS;
         const enabledCMCDKeys = cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys;
+
         const cmcdVersion = settings.get().streaming.cmcd.version;
         const invalidKeys = enabledCMCDKeys.filter(k => !defaultAvailableKeys.includes(k) && !(cmcdVersion === 2 && defaultV2AvailableKeys.includes(k)));
 
@@ -949,6 +939,23 @@ function CmcdController() {
             }
         }
         return result;
+    }
+
+    function _getTargetSettingsEnabledKeys(targetSettings, cmcdData) {
+        let enabledKeys;
+        let customKeys
+
+        if (targetSettings) {
+            enabledKeys = targetSettings.enabledKeys;
+        
+            if (enabledKeys == null) {
+                enabledKeys = Constants.CMCD_AVAILABLE_KEYS.concat(Constants.CMCD_V2_AVAILABLE_KEYS);
+            }
+        
+            customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
+        }
+
+        return [enabledKeys, customKeys];
     }
 
     function reset() {
