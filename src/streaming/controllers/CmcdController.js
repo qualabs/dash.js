@@ -149,6 +149,12 @@ function CmcdController() {
 
         eventModeTargets.forEach(targetSettings => {
             if (targetSettings.enabled) {
+                let events = targetSettings.events ? targetSettings.events : Object.values(Constants.CMCD_EVENTS);
+
+                if (!events.includes(state)) {
+                    return;
+                }
+
                 let httpRequest = new CmcdReportRequest();
 
                 httpRequest.url = targetSettings.url;
