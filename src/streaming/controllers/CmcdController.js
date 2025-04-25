@@ -835,6 +835,7 @@ function CmcdController() {
         const requestType = commonMediaRequest.customData.request.type;
 
         if (!_isIncludedInRequestFilter(requestType)) {
+            commonMediaRequest.cmcd = commonMediaRequest.customData.request.cmcd;
             return commonMediaRequest;
         }
 
