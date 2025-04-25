@@ -126,7 +126,7 @@ function CmcdController() {
     
     function _initializeEventModeTimeInterval() {
         const targets = settings.get().streaming.cmcd.targets;
-        const eventModeTargets = targets.filter((target) => target.mode === Constants.CMCD_MODE.EVENT);
+        const eventModeTargets = targets.filter((target) => target.cmcdMode === Constants.CMCD_MODE.EVENT);
         eventModeTargets.forEach(({ timeInterval }) => {
             const triggerEventModeInterval = () => {
                 _onStateChange(Constants.CMCD_EVENTS.TIME_INTERVAL);
@@ -138,7 +138,7 @@ function CmcdController() {
     
     function _onStateChange(state) {
         const targets = settings.get().streaming.cmcd.targets;
-        const eventModeTargets = targets.filter((target) => target.mode === Constants.CMCD_MODE.EVENT);
+        const eventModeTargets = targets.filter((target) => target.cmcdMode === Constants.CMCD_MODE.EVENT);
         
         if (eventModeTargets.length === 0) {
             return;
@@ -260,7 +260,7 @@ function CmcdController() {
                 let customKeys;
 
                 if (targetSettings){
-                    enabledKeys = targetSettings.keys;
+                    enabledKeys = targetSettings.enabledKeys;
                     customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
                 }
 
@@ -310,7 +310,7 @@ function CmcdController() {
                 let customKeys;
 
                 if (targetSettings){
-                    enabledKeys = targetSettings.keys;
+                    enabledKeys = targetSettings.enabledKeys;
                     customKeys = _getCustomKeysValues(targetSettings.customKeys, cmcdData);
                 }
 
@@ -657,8 +657,6 @@ function CmcdController() {
             }
         }
 
-        
-
         return data;
     }
 
@@ -912,7 +910,7 @@ function CmcdController() {
         let cmcdData = response.request.cmcd;
         
         const targets = settings.get().streaming.cmcd.targets
-        const responseModeTargets = targets.filter((target) => target.mode === Constants.CMCD_MODE.RESPONSE);
+        const responseModeTargets = targets.filter((target) => target.cmcdMode === Constants.CMCD_MODE.RESPONSE);
         responseModeTargets.forEach(targetSettings => {
             if (targetSettings.enabled && _isIncludedInRequestFilter(requestType, targetSettings.includeOnRequests)){
                 let httpRequest = new CmcdReportRequest();
