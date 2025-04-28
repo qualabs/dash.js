@@ -109,14 +109,14 @@ function CmcdController() {
 
     function _initializeEventModeListeners() {
         const eventStateMap = {
-            [MediaPlayerEvents.PLAYBACK_INITIALIZED]: Constants.CMCD_EVENTS.START,
-            [MediaPlayerEvents.PLAYBACK_STARTED]: Constants.CMCD_EVENTS.PLAYING,
-            [MediaPlayerEvents.PLAYBACK_PAUSED]: Constants.CMCD_EVENTS.PAUSED,
-            [MediaPlayerEvents.PLAYBACK_PLAYING]: Constants.CMCD_EVENTS.PLAYING,
-            [MediaPlayerEvents.PLAYBACK_SEEKING]: Constants.CMCD_EVENTS.SEEKING,
-            [MediaPlayerEvents.PLAYBACK_STALLED]: Constants.CMCD_EVENTS.REBUFFERING,
-            [MediaPlayerEvents.PLAYBACK_ERROR]: Constants.CMCD_EVENTS.FATAL_ERROR,
-            [MediaPlayerEvents.PLAYBACK_ENDED]: Constants.CMCD_EVENTS.ENDED
+            [MediaPlayerEvents.PLAYBACK_INITIALIZED]: Constants.CMCD_REPORTING_EVENTS.START,
+            [MediaPlayerEvents.PLAYBACK_STARTED]: Constants.CMCD_REPORTING_EVENTS.PLAYING,
+            [MediaPlayerEvents.PLAYBACK_PAUSED]: Constants.CMCD_REPORTING_EVENTS.PAUSED,
+            [MediaPlayerEvents.PLAYBACK_PLAYING]: Constants.CMCD_REPORTING_EVENTS.PLAYING,
+            [MediaPlayerEvents.PLAYBACK_SEEKING]: Constants.CMCD_REPORTING_EVENTS.SEEKING,
+            [MediaPlayerEvents.PLAYBACK_STALLED]: Constants.CMCD_REPORTING_EVENTS.REBUFFERING,
+            [MediaPlayerEvents.PLAYBACK_ERROR]: Constants.CMCD_REPORTING_EVENTS.FATAL_ERROR,
+            [MediaPlayerEvents.PLAYBACK_ENDED]: Constants.CMCD_REPORTING_EVENTS.ENDED
         };
     
         Object.entries(eventStateMap).forEach(([event, state]) => {
@@ -129,7 +129,7 @@ function CmcdController() {
         const eventModeTargets = targets.filter((target) => target.cmcdMode === Constants.CMCD_MODE.EVENT);
         eventModeTargets.forEach(({ timeInterval }) => {
             const triggerEventModeInterval = () => {
-                _onStateChange(Constants.CMCD_EVENTS.TIME_INTERVAL);
+                _onStateChange(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL);
                 setTimeout(triggerEventModeInterval, (timeInterval * 1000));
             }
             triggerEventModeInterval();
@@ -149,7 +149,7 @@ function CmcdController() {
 
         eventModeTargets.forEach(targetSettings => {
             if (targetSettings.enabled) {
-                let events = targetSettings.events ? targetSettings.events : Object.values(Constants.CMCD_EVENTS);
+                let events = targetSettings.events ? targetSettings.events : Object.values(Constants.CMCD_REPORTING_EVENTS);
 
                 if (!events.includes(state)) {
                     return;

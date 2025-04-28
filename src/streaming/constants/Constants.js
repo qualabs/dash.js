@@ -247,11 +247,11 @@ export default {
     },
 
     /**
-     *  @constant {string} CMCD_EVENTS specifies all the available events for CMCD.
+     *  @constant {string} CMCD_REPORTING_EVENTS specifies all the available events for CMCD event mode.
      *  @memberof Constants#
      *  @static
      */
-    CMCD_EVENTS: {
+    CMCD_REPORTING_EVENTS: {
         START: 's',
         PLAYING: 'p',
         PAUSED : 'a',
