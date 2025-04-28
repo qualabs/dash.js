@@ -259,7 +259,7 @@ function CmcdController() {
 
     function getQueryParameter(request, cmcdData, targetSettings) {
         try {
-            if ((targetSettings ? targetSettings.enabled : isCmcdEnabled())) {
+            if (targetSettings ? targetSettings.enabled : isCmcdEnabled()) {
 
                 cmcdData = cmcdData || getCmcdData(request);
                 let [enabledKeys, customKeys] = _getTargetSettingsEnabledKeys(targetSettings, cmcdData);
