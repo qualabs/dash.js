@@ -118,7 +118,6 @@ function CmcdController() {
             [MediaPlayerEvents.PLAYBACK_ENDED]: Constants.CMCD_REPORTING_EVENTS.ENDED
         };
 
-        eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, _onPlaybackSeeking, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_WAITING, _onPlaybackWaiting, instance);
     
