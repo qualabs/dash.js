@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Follower client</title>
+
+    <script src="../../dist/dash.all.debug.js"></script>
+    <script src="./playerSynchronizationPlugin.js"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="../lib/main.css" rel="stylesheet" />
+
+    <style>
+        video {
+            width: 640px;
+            height: 360px;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="container py-4">
+            <header class="pb-3 mb-4 border-bottom">
+                <h1>Follower client</h1>
+            </header>
+            <div class="row">
+                <div>
+                    <div class="input-group mb-2">
+                        <button id="load-button" type="button" class="btn btn-primary" aria-haspopup="true" aria-expanded="false">Load</button>
+                        <select id="url-select" class="dropdown-toggle">
+                            <option value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd">Big Buck Bunny
+                            </option>
+                            <option
+                                value="https://livesim.dashif.org/livesim2/WAVE/vectors/cfhd_sets/12.5_25_50/t1/2022-10-17/stream.mpd">
+                                Live Sim</option>
+                            <option value="https://cmafref.akamaized.net/cmaf/live-ull/2006350/akambr/out.mpd">CMAF Live
+                            </option>
+                        </select>
+                        <input id="custom-url" type="text" class="form-control" placeholder="Paste your own DASH manifest URL here" style="max-width: 350px; margin-left: 8px;">
+                    </div>
+                    <video controls="true"></video>
+                </div>
+            </div>
+            <footer class="pt-3 mt-4 text-muted border-top">
+                &copy; DASH-IF
+            </footer>
+        </div>
+    </main>
+    <style>
+        .hide-controls::-webkit-media-controls {
+            display: none !important;
+        }
+
+        .hide-controls::-moz-media-controls {
+            display: none !important;
+        }
+
+        .hide-controls::-ms-media-controls {
+            display: none !important;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var video,
+                player
+
+            video = document.querySelector("video");
+            player = dashjs.MediaPlayer().create();
+
+            player.initialize(video, '', true);
+            playerSynchronization.addFollower(player, {
+                leaderId: 'leader-sid',
+                url: 'https://phsqtxt809.execute-api.us-east-2.amazonaws.com/event-mode',
+                id: 'follower-sid',
+                frameDelay: 1,
+                seekTreshold: 0.4,
+                catchUpRate: 2,
+                syncInterval: 5000
+            });
+
+            const loadButton = document.getElementById('load-button');
+            const urlSelect = document.getElementById('url-select');
+            const customUrl = document.getElementById('custom-url');
+
+            loadButton.addEventListener('click', () => {
+                const enteredUrl = customUrl.value.trim();
+                const selectedUrl = urlSelect.value;
+                player.attachSource(enteredUrl !== '' ? enteredUrl : selectedUrl);
+            });
+        });
+    </script>
+</body>
+
+</html>

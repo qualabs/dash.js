@@ -44,6 +44,7 @@ import {CmcdStreamType} from '@svta/common-media-library/cmcd/CmcdStreamType';
 import {CmcdStreamingFormat} from '@svta/common-media-library/cmcd/CmcdStreamingFormat';
 import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
+import CustomParametersModel from '../models/CustomParametersModel.js';
 
 const CMCD_VERSION = 1;
 const DEFAULT_INCLUDE_IN_REQUESTS = 'segment';
@@ -61,6 +62,7 @@ function CmcdModel() {
         serviceDescriptionController,
         throughputController,
         streamProcessors,
+        customParametersModel,
         _eventTimeoutId,
         _msdSent,
         _lastMediaTypeRequest,
@@ -77,6 +79,7 @@ function CmcdModel() {
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         logger = debug.getLogger(instance);
+        customParametersModel = CustomParametersModel(context).getInstance();
         _resetInitialSettings();
     }
 
@@ -97,6 +100,7 @@ function CmcdModel() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.on(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);    
+        eventBus.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
 
         const cmcdEventMode = _getCmcdEventData();
         if (cmcdEventMode){
@@ -236,43 +240,85 @@ function CmcdModel() {
         //_sendCmcdEventData(_getCmcdEventData(),'c')
     }
 
+    function _onPlaybackTimeUpdated(data) {
+        // Revisar pt
+        internalData.pt = data.time;
+        internalData.ts = Date.now();
+    }
+
     function _sendCmcdEventData(cmcdEventMode, eventKeyValue = null) {
         const cmcdData = _getGenericCmcdData(null);
 
+        var requestUrl = cmcdEventMode.requestUrl;
+        var headers = {}
         // Add the event key data.
         cmcdData.e = eventKeyValue
         const filteredCmcdData = _applyWhitelist(cmcdData, 3);
-
-        var requestUrl = cmcdEventMode.requestUrl;
-        var headers = {}
-
-        if (cmcdEventMode.mode === Constants.CMCD_MODE_QUERY) {
-            const additionalQueryParameter = [];
-            const cmcdQueryParams = encodeCmcd(filteredCmcdData);
-            if (cmcdQueryParams) {
-                additionalQueryParameter.push({key: CMCD_PARAM, value: cmcdQueryParams});
-            }
-            requestUrl = Utils.addAdditionalQueryParameterToUrl(requestUrl, additionalQueryParameter);
-        } else if (cmcdEventMode.mode === Constants.CMCD_MODE_HEADER) {
-            headers = toCmcdHeaders(filteredCmcdData)
-        }
-        
-        fetch(requestUrl, {
+        _applyRequestInterceptors({
+            url: requestUrl,
             method: cmcdEventMode.requestMethod,
-            headers: headers
+            headers,
+            filteredCmcdData
+        }).then(request => {
+            if (cmcdEventMode.mode === Constants.CMCD_MODE_QUERY) {
+                const cmcdQueryParams = encodeCmcd(filteredCmcdData);
+                if (cmcdQueryParams) {
+                    request.url = Utils.addAdditionalQueryParameterToUrl(request.url, [
+                        { key: CMCD_PARAM, value: cmcdQueryParams }
+                    ]);
+                }
+            } else if (cmcdEventMode.mode === Constants.CMCD_MODE_HEADER) {
+                request.headers = toCmcdHeaders(filteredCmcdData);
+            }
+        
+            return fetch(request.url, {
+                method: request.method,
+                headers: request.headers
+            });
         }).then(response => {
-            console.log('Event CMCD data sent successfully:', response);
+            response.cmcdMode = 'event';
+            return _applyResponseInterceptors(response);
         }).catch(error => {
             console.error('Error sending event CMCD data:', error);
         });
+        
+    }
+
+    function _applyRequestInterceptors(httpRequest) {
+        const interceptors = customParametersModel.getRequestInterceptors();
+        if (!interceptors) {
+            return Promise.resolve(httpRequest);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then((request) => {
+                return next(request);
+            });
+        }, Promise.resolve(httpRequest));
+    }
+
+    function _applyResponseInterceptors(response) {
+        const interceptors = customParametersModel.getResponseInterceptors();
+        if (!interceptors) {
+            return Promise.resolve(response);
+        }
+
+        return interceptors.reduce((prev, next) => {
+            return prev.then(resp => {
+                return next(resp);
+            });
+        }, Promise.resolve(response));
     }
 
     function _startCmcdEventTimer(interval, eventMode) {
-        _eventTimeoutId = setTimeout(() => {
+        setInterval(() => {
             _sendCmcdEventData(eventMode, 't')
-            // Restart the timer
-            _startCmcdEventTimer(interval, eventMode);
-        }, interval); 
+        }, interval);
+        // _eventTimeoutId = setTimeout(() => {
+        //     _sendCmcdEventData(eventMode, 't')
+        //     // Restart the timer
+        //     _startCmcdEventTimer(interval, eventMode);
+        // }, interval); 
     }
 
     function _getCmcdEventData() {
@@ -749,12 +795,14 @@ function CmcdModel() {
             data.sf = internalData.sf;
         }
 
+        data.pt = internalData.pt ?? 0;
+
         // Add v2 mandatory keys
         if (request && internalData.v === 2) {
             data.url = request.url.split('?')[0]; // remove potential cmcd query params 
         }
         if (internalData.v === 2) {
-            data.ts = Date.now();
+            data.ts = internalData.ts;
         }
         if (internalData.bg){
             data.bg = internalData.bg
@@ -941,6 +989,7 @@ function CmcdModel() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_ENDED, _onPlaybackEnded, instance);
         eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_PLAYING, _onAlternativeStarted, instance);
         eventBus.off(MediaPlayerEvents.ALTERNATIVE_PLAYBACK_ENDED, _onAlternativeEnded, instance);  
+        eventBus.off(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
 
         _resetInitialSettings();
     }

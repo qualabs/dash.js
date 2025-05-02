@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Alternative Config</title>
+        <link href="./bootstrap.min.css" rel="stylesheet" />
+        <link href="./main.css" rel="stylesheet" />
+        <style>
+            video {
+                width: 640px;
+                height: 360px;
+            }
+
+            #manifestViewer {
+                font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+                background: #1e1e1e;
+                color: #dcdcdc;
+                padding: 1em;
+                white-space: pre;
+                overflow: auto;
+                border: 1px solid #444;
+                font-size: 10px;
+                border-radius: 4px;
+              }
+              #manifestViewer .token\.tag { color: #569CD6; }
+              #manifestViewer .token\.attr-name { color: #9CDCFE; }
+              #manifestViewer .token\.attr-value { color: #CE9178; }
+              #manifestViewer .token\.text { color: #D4D4D4; }
+              #manifestViewer .token\.altmpd { color: #06ff06; }
+              #manifestViewer .token\.altmpd-bg { background-color: rgb(36, 179, 36);
+            }
+
+            .highlight {
+                background-color: yellow;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="container py-4">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label>Manifest URL:</label>
+                        <input type="text" id="manifestUrl" class="form-control" value="https://comcast-dash-6-assets.s3.us-east-2.amazonaws.com/AlternativeMPDSignaling/stream.mpd" />
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12 mb-2">
+                        <button id="addInsert" class="btn btn-primary">Add Insert</button>
+                        <button id="addReplace" class="btn btn-primary">Add Replace</button>
+                        <!-- <button id="addRecommended" class="btn btn-secondary">Add Recommended</button> -->
+                    </div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-md-1 text-center"><strong>Type</strong></div>
+                  <div class="col-md-2 text-center"><strong>Alternative Url</strong></div>
+                  <div class="col-md-1 text-center"><strong>Presentation Time (ms)</strong></div>
+                  <div class="col-md-1 text-center"><strong>Duration (ms)</strong></div>
+                  <div class="col-md-2 text-center"><strong>Earliest Resolution Time Offset (ms)</strong></div>
+                  <div class="col-md-1 text-center"><strong>Max Duration (ms)</strong></div>
+                  <div class="col-md-1 text-center"><strong>Return Offset (ms)</strong></div>
+                  <div class="col-md-1 text-center"><strong>Clip</strong></div>
+                  <div class="col-md-1 text-center"><strong>Start At Playhead</strong></div>
+              </div>              
+                <div id="eventStreamsContainer"></div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <button id="loadPlayer" class="btn btn-success">Load Player</button>
+                    </div>
+                </div>
+                <div class="row mb-0">
+                    <div class="col-md-6">
+                        <video controls="true" autoplay muted></video>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="manifestViewer" class="manifest-container">Manifest will appear here...</div>
+                    </div>
+                </div>
+                <footer class="pt-3 mt-4 text-muted border-top">
+                    &copy; DASH-IF
+                </footer>
+            </div>
+        </main>
+        <style>
+            .hide-controls::-webkit-media-controls {
+                display: none !important;
+            }
+            .hide-controls::-moz-media-controls {
+                display: none !important;
+            }
+            .hide-controls::-ms-media-controls {
+                display: none !important;
+            }
+        </style>
+        <script src="../../dist/dash.all.debug.js"></script>
+        <script>
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.bottom = '10px';
+            overlay.style.right = '10px';
+            overlay.style.zIndex = '9999';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+
+            const logoImg1 = document.createElement('img');
+            logoImg1.src = 'https://www.qualabs.com/packages/website/images/logos/qualabs.svg';
+            logoImg1.style.width = '250px';
+            logoImg1.style.height = 'auto';
+
+            const plusSign = document.createElement('span');
+            plusSign.textContent = '+';
+            plusSign.style.margin = '0 10px';
+            plusSign.style.fontSize = '60px';
+            plusSign.style.paddingBottom = '10px';
+            plusSign.style.fontWeight = 'bold';
+            plusSign.style.display = 'flex';
+            plusSign.style.alignItems = 'center';
+            plusSign.style.justifyContent = 'center';
+
+            const logoImg2 = document.createElement('img');
+            logoImg2.src = 'https://reference.dashif.org/dash.js/nightly/samples/dash-if-reference-player/app/img/if.png';
+            logoImg2.style.width = '250px';
+            logoImg2.style.height = 'auto';
+
+            overlay.appendChild(logoImg1);
+            overlay.appendChild(plusSign);
+            overlay.appendChild(logoImg2);
+
+            document.body.appendChild(overlay);
+
+            document.addEventListener("DOMContentLoaded", function () {
+              var video = document.querySelector("video");
+              var manifestUrlInput = document.getElementById('manifestUrl');
+              var container = document.getElementById('eventStreamsContainer');
+              var addInsertBtn = document.getElementById('addInsert');
+              var addReplaceBtn = document.getElementById('addReplace');
+              // var addRecommendedBtn = document.getElementById('addRecommended');
+              var loadPlayerBtn = document.getElementById('loadPlayer');
+              var manifestViewer = document.getElementById('manifestViewer');
+
+              var recommendedUrl = 'https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch2/real/b/ad-insertion-testcase1.mpd'
+
+              var recommendedCount = 0; 
+
+              var insertEvents = [];
+              var replaceEvents = [];
+
+              function appendAlternative(mode, url, pt, dur, ero, ro, maxDuration, clip, startAtPlayhead) {
+                var row = document.createElement('div');
+                row.className = 'row mb-2';
+
+                var colMode = document.createElement('div');
+                colMode.className = 'col-md-1';
+                var modeInput = document.createElement('input');
+                modeInput.type = 'text';
+                modeInput.placeholder = 'Type';
+                modeInput.className = 'form-control alt-mode';
+                modeInput.value = mode;
+                modeInput.disabled = true;
+                colMode.appendChild(modeInput);
+
+                var colUri = document.createElement('div');
+                colUri.className = 'col-md-2';
+                var urlInput = document.createElement('input');
+                urlInput.type = 'text';
+                urlInput.placeholder = 'URL';
+                urlInput.className = 'form-control alt-url';
+                urlInput.value = url || '';
+                colUri.appendChild(urlInput);
+
+                var colPT = document.createElement('div');
+                colPT.className = 'col-md-1';
+                var ptInput = document.createElement('input');
+                ptInput.type = 'number';
+                ptInput.placeholder = 'presentationTime(ms)';
+                ptInput.className = 'form-control alt-presentationTime';
+                ptInput.value = pt || '';
+                colPT.appendChild(ptInput);
+
+                var colDur = document.createElement('div');
+                colDur.className = 'col-md-1';
+                var durInput = document.createElement('input');
+                durInput.type = 'number';
+                durInput.placeholder = 'duration(ms)';
+                durInput.className = 'form-control alt-duration';
+                durInput.value = dur || '';
+                colDur.appendChild(durInput);
+
+                var colERO = document.createElement('div');
+                colERO.className = 'col-md-2';
+                var eroInput = document.createElement('input');
+                eroInput.type = 'number';
+                eroInput.placeholder = 'eRTO(ms)';
+                eroInput.className = 'form-control alt-earliestResolutionTimeOffset';
+                eroInput.value = ero || '';
+                colERO.appendChild(eroInput);
+
+                var colMaxDuration = document.createElement('div');
+                colMaxDuration.className = 'col-md-1';
+                var maxDurationInput = document.createElement('input');
+                maxDurationInput.type = 'number';
+                maxDurationInput.placeholder = 'maxDuration';
+                maxDurationInput.className = 'form-control alt-maxDuration';
+                maxDurationInput.value = maxDuration || '';
+                colMaxDuration.appendChild(maxDurationInput);
+              
+                
+                var colRO = document.createElement('div');
+                colRO.className = 'col-md-1';
+                if (mode === 'replace') {
+                  var roInput = document.createElement('input');
+                  roInput.type = 'number';
+                  roInput.placeholder = 'returnOffset(ms)';
+                  roInput.className = 'form-control alt-returnOffset';
+                  roInput.value = ro || '';
+                  colRO.appendChild(roInput);
+                }
+
+                var colClip = document.createElement('div');
+                colClip.className = 'col-md-1 d-flex justify-content-center align-items-center';
+                if (mode === 'replace') {
+                  var clipInput = document.createElement('input');
+                  clipInput.type = 'checkbox';
+                  clipInput.className = 'form-check-input alt-clip';
+                  clipInput.checked = !!clip;
+                  clipInput.disabled = !!(mode === 'insert');
+                  colClip.appendChild(clipInput);
+                }
+
+                var colStartAtPlayhead = document.createElement('div');
+                colStartAtPlayhead.className = 'col-md-1 d-flex justify-content-center align-items-center';
+                if (mode === 'replace') {
+                  var startAtPlayheadInput = document.createElement('input');
+                  startAtPlayheadInput.type = 'checkbox';
+                  startAtPlayheadInput.className = 'form-check-input alt-startAtPlayhead';
+                  startAtPlayheadInput.checked = !!startAtPlayhead;
+                  startAtPlayheadInput.disabled = !!(mode === 'insert');
+                  colStartAtPlayhead.appendChild(startAtPlayheadInput);
+                }
+
+                var colRemove = document.createElement('div');
+                colRemove.className = 'col-md-1';
+                var removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-danger';
+                removeBtn.textContent = 'X';
+                var index = replaceEvents.length;
+                removeBtn.addEventListener('click', function () {
+                    container.removeChild(row);
+                    replaceEvents.splice(index, 1);
+                });
+                colRemove.appendChild(removeBtn);
+
+                row.appendChild(colMode);
+                row.appendChild(colUri);
+                row.appendChild(colPT);
+                row.appendChild(colDur);
+                row.appendChild(colERO);
+                row.appendChild(colMaxDuration);
+                row.appendChild(colRO);
+                row.appendChild(colClip);
+                row.appendChild(colStartAtPlayhead);
+                row.appendChild(colRemove);
+
+                container.appendChild(row);
+            }
+
+
+              addInsertBtn.addEventListener('click', function() {
+                appendAlternative('insert', recommendedUrl, '5000', '9000', '5000', '10000', '10000', false, false);
+              });
+
+              addReplaceBtn.addEventListener('click', function() {
+                appendAlternative('replace', recommendedUrl, '5000', '9000', '5000', '9000', '9000', false, false);
+              });
+
+              loadPlayerBtn.addEventListener('click', function() {
+                var baseUrl = manifestUrlInput.value;
+                insertEvents = [];
+                replaceEvents = [];
+
+                var rows = container.querySelectorAll('.row');
+                let rowIndex = 0
+                rows.forEach(function(row) {
+                  var mode = row.querySelector('.alt-mode').value || 'replace';
+                  var url = row.querySelector('.alt-url').value || '';
+                  var pt = row.querySelector('.alt-presentationTime').value || '5000';
+                  var dur = row.querySelector('.alt-duration').value || '';
+                  var ero = row.querySelector('.alt-earliestResolutionTimeOffset').value || '5000';
+                  var ro = row.querySelector('.alt-returnOffset')?.value || undefined;
+                  var md = row.querySelector('.alt-maxDuration')?.value || undefined; 
+                  var cp = row.querySelector('.alt-clip')?.checked || false; 
+                  var stp = row.querySelector('.alt-startAtPlayhead')?.checked || false; 
+                  if (url && mode) {
+                    cp = cp ? "true" : "false";
+                    stp = stp ? "true" : "false";
+                    const alternativeObject =  {
+                          url: url,
+                          earliestResolutionTimeOffset: ero,
+                          returnOffset: ro,
+                          maxDuration: md,
+                          clip: cp,
+                          startAtPlayhead: stp
+                        }
+                    if (mode === 'insert') {
+                      insertEvents.push({
+                        schemeIdUri: 'urn:mpeg:dash:event:alternativeMPD:insert:2025', 
+                        timescale: 1000, 
+                        Event: [{ 
+                          id: rowIndex,
+                          presentationTime: pt, 
+                          duration: dur,
+                          InsertPresentation: alternativeObject
+                        }]
+                      });
+                    } else if (mode === 'replace') {
+                    replaceEvents.push({
+                      schemeIdUri: 'urn:mpeg:dash:event:alternativeMPD:replace:2025',
+                      timescale: 1000,
+                      Event: [{
+                        id: rowIndex,
+                        presentationTime: pt, 
+                        duration: dur,
+                        ReplacePresentation: alternativeObject
+                      }]
+                    });
+                   }
+                  }
+                  rowIndex++
+                });
+                var finalUrl = manifestUrlInput.value;
+
+                // Remove the old player if any
+                var oldVideo = document.querySelector('video');
+                var newVideo = document.createElement('video');
+                newVideo.setAttribute('controls', 'true');
+                newVideo.setAttribute('autoplay', '');
+                newVideo.setAttribute('muted', '');
+                oldVideo.parentNode.replaceChild(newVideo, oldVideo);
+
+                var player = dashjs.MediaPlayer().create();
+                player.initialize();
+                player.attachView(newVideo);
+                player.retrieveManifest(finalUrl, (manifest) => {
+                  manifest.Period[0].EventStream = [];
+                  if (insertEvents.length > 0) {
+                    insertEvents.forEach((ev) => {
+                      manifest.Period[0].EventStream.push(ev);
+                    });
+                  }
+                  if (replaceEvents.length > 0) {
+                    replaceEvents.forEach((ev) => {
+                      manifest.Period[0].EventStream.push(ev);
+                    });
+                  }
+                  player.attachSource(manifest);
+
+                fetch(finalUrl)
+                    .then(response => response.text())
+                    .then(rawText => {
+                        let xmlString = rawText.trim();
+
+                        let parser = new DOMParser();
+                        let xmlDoc = parser.parseFromString(xmlString, "application/xml");
+                        manifest.Period[0].EventStream.forEach((eventStream) => {
+                          var xmlEventStream = xmlDoc.createElement('EventStream');
+                          xmlEventStream.setAttribute('schemeIdUri', eventStream.schemeIdUri);
+                          xmlEventStream.setAttribute('timescale', eventStream.timescale);
+                          eventStream.Event.forEach((ev) => {
+                            var xmlEvent = xmlDoc.createElement('Event');
+                            xmlEvent.setAttribute('presentationTime', ev.presentationTime);
+                            if (ev.duration) {
+                              xmlEvent.setAttribute('duration', ev.duration);
+                            }
+                            var xmlAlternative;
+                            if (eventStream.schemeIdUri === "urn:mpeg:dash:event:alternativeMPD:insert:2025") {
+                              xmlAlternative = xmlDoc.createElement('InsertPresentation');
+                              xmlAlternative.setAttribute('url', ev.InsertPresentation.url);
+                              xmlAlternative.setAttribute('earliestResolutionTimeOffset', ev.InsertPresentation.earliestResolutionTimeOffset);
+                              if (ev.InsertPresentation.maxDuration) {
+                                xmlAlternative.setAttribute('maxDuration', ev.InsertPresentation.maxDuration);
+                              }
+                              xmlEvent.appendChild(xmlAlternative);
+                            } else if (eventStream.schemeIdUri === "urn:mpeg:dash:event:alternativeMPD:replace:2025") {
+                              xmlAlternative = xmlDoc.createElement('ReplacePresentation');
+                              xmlAlternative.setAttribute('url', ev.ReplacePresentation.url);
+                              xmlAlternative.setAttribute('earliestResolutionTimeOffset', ev.ReplacePresentation.earliestResolutionTimeOffset);
+                              if (ev.ReplacePresentation.returnOffset) {
+                                xmlAlternative.setAttribute('returnOffset', ev.ReplacePresentation.returnOffset);
+                              }
+                              if (ev.ReplacePresentation.maxDuration) {
+                                xmlAlternative.setAttribute('maxDuration', ev.ReplacePresentation.maxDuration);
+                              }
+                              xmlAlternative.setAttribute('clip', ev.ReplacePresentation.clip);
+                              xmlAlternative.setAttribute('startAtPlayhead', ev.ReplacePresentation.startAtPlayhead);
+                              xmlEvent.appendChild(xmlAlternative);
+                            }
+                            xmlEventStream.appendChild(xmlEvent);
+                          });
+                          const xmlPeriod = xmlDoc.getElementsByTagName('Period')[0];
+                          xmlPeriod.insertBefore(xmlEventStream, xmlPeriod.children[0]);
+                        });
+
+                        let serializer = new XMLSerializer();
+                        let serialized = serializer.serializeToString(xmlDoc);
+
+                        let PADDING = '  ';
+                        let reg = /(>)(<)(\/*)/g;
+                        let xmlFormatted = serialized.replace(reg, '$1\r\n$2$3');
+                        let formatted = '';
+                        let pad = 0;
+                        xmlFormatted.split('\r\n').forEach((node) => {
+                            let indent = 0;
+                            if (node.match(/.+<\/\w[^>]*>$/)) {
+                            // a complete tag in one line
+                            indent = 0;
+                            } else if (node.match(/^<\/\w/)) {
+                            // closing tag
+                            if (pad > 0) pad -= 1;
+                            } else if (node.match(/^<\w([^>]*[^/])?>.*$/)) {
+                            // opening tag
+                            indent = 1;
+                            } else {
+                            // text node or something else
+                            indent = 0;
+                            }
+                            formatted += PADDING.repeat(pad) + node + '\n';
+                            pad += indent;
+                        });
+                        formatted = formatted.trim();
+
+                        let escaped = formatted
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+
+                        let highlighted = escaped
+                            .replace(/(&lt;\/?)(\??)(\w+)(.*?)(\/?&gt;)/g, (match, open, question, tagName, attrs, close) => {
+                                let isAltMpd = (tagName === "InsertPresentation" || tagName === "ReplacePresentation");
+                                let coloredTag = `<span class="token.tag${isAltMpd ? ' token.altmpd' : ''}">${open}${question}${tagName}</span>`;
+                                if (attrs.trim().length > 0) {
+                                    attrs = attrs.replace(/(\w+)="(.*?)"/g, `<span class="token.attr-name">$1</span>="<span class="token.attr-value">$2</span>"`);
+                                    coloredTag += attrs;
+                                }
+                                coloredTag += `<span class="token.tag${isAltMpd ? ' token.altmpd' : ''}">${close}</span>`;
+                                return coloredTag;
+                            })
+                            .replace(/(&gt;)([^<]*)(?=&lt;)/g, (match, close, text) => {
+                                if (text.trim()) {
+                                    return `${close}<span class="token.text">${text}</span>`;
+                                }
+                                return match;
+                            });
+
+                        highlighted = highlighted.replace(/(&lt;AlternativeMPD[\s\S]*?&lt;\/AlternativeMPD&gt;)/, '<span class="token.altmpd-bg">$1</span>');
+
+                        document.getElementById('manifestViewer').innerHTML = highlighted;
+                        
+                    })
+                    .catch(err => {
+                        document.getElementById('manifestViewer').textContent = 'Error loading manifest: ' + err;
+                    });
+                });
+              });
+            });
+        </script>
+    </body>
+</html>
