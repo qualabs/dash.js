@@ -69,7 +69,7 @@ let lastInterval;
                         eventMode: {
                             enabled: true,
                             mode: CMCD_MODE_QUERY,
-                            interval: 10000,
+                            interval: 5000,
                             enabledKeys: ['sid', 'cid', 'pr', 'pt', 'ts'],
                             requestUrl: config.url,
                             requestMethod: 'POST',
@@ -82,7 +82,46 @@ let lastInterval;
         });
     };
 
+    const parseCMSDHeader = (response) => {
+        console.log('CMSD Header:', response);
+        // const cmsdHeader = response.headers('CMSD-Dynamic');
+        // if (!cmsdHeader) {
+        //     return null;
+        // }
+
+        // const match = cmsdHeader.match(/com\.svta-syncinfo="([^"]+)"/);
+        // if (!match || !match[1]) {
+        //     return null;
+        // }
+
+        // const [latencyTarget, referencePlayhead, referenceTimestamp] = match[1].split(',').map(Number);
+        // return { latencyTarget, referencePlayhead, referenceTimestamp };
+    };
+
     const configInterceptors = (player, config) => {
+        if (config.globalSync) {
+            globalSyncInterceptor(player, config);
+        } else if (config.leaderId) {
+            leaderSyncInterceptor(player, config);
+        }
+            
+    }
+
+    const globalSyncInterceptor = (player) => {
+        player.addResponseInterceptor((response) => {
+            if (response.cmcdMode !== 'event') {
+                return Promise.resolve(response);
+            }
+            
+            const cmsdData = parseCMSDHeader(response);
+            if (cmsdData) {
+                console.log('CMSD Data:', cmsdData)
+            }
+            return Promise.resolve(response);
+        });
+    }
+
+    const leaderSyncInterceptor = (player, config) => {
         player.addRequestInterceptor((request) => {
             const { filteredCmcdData } = request;
             if (filteredCmcdData) {
@@ -90,7 +129,7 @@ let lastInterval;
             }
             return Promise.resolve(request);
         });
-        
+
         let firstRun = true;
         player.addResponseInterceptor((response) => {
             if (response.cmcdMode === 'event') {
@@ -114,6 +153,7 @@ let lastInterval;
             return Promise.resolve(response);
         });
     }
+
 
     window.playerSynchronization = {
         addLeader(player, config) {
