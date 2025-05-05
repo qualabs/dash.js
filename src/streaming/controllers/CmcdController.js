@@ -977,6 +977,10 @@ function CmcdController() {
             responseModeData.ttfb = request.firstByteDate - request.startDate;
         }
 
+        if (request.endDate && request.startDate){
+            responseModeData.ttlb = request.endDate - request.startDate
+        }
+
         return {...cmcdData, ...responseModeData};
     }
 
