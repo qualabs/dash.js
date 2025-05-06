@@ -945,7 +945,7 @@ function CmcdController() {
                 httpRequest.url = targetSettings.url;
                 httpRequest.type = HTTPRequest.CMCD_RESPONSE;
                 httpRequest.method = HTTPRequest.GET;
-                
+                httpRequest.cmcd = cmcdData;
                 _updateRequestUrlAndHeadersWithCmcd(httpRequest, cmcdData, targetSettings)
                 _sendCmcdDataReport(httpRequest);
             }
