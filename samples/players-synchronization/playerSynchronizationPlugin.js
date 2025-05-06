@@ -116,11 +116,18 @@ let lastInterval;
             const cmsdData = parseCMSDHeader(response);
 
             if (cmsdData) {
-                const { latency, latencyTargets } = cmsdData;
+                const { latency } = cmsdData;
                 if (latency) {
-                    leaderPlayhead = player.time() + player.getCurrentLiveLatency(latency) - latency;   
-                    leaderTimestamp = Date.now();
-                    playbackRate = 1;
+                    player.updateSettings({
+                        streaming: {
+                            delay: {
+                                liveDelay: latency
+                            },
+                            liveCatchup: {
+                                enabled: true, 
+                            }
+                        }
+                    });
                 }
             }
             return Promise.resolve(response);
@@ -168,7 +175,9 @@ let lastInterval;
         addFollower(player, config) {
             setupCMCD(player, config);
             configInterceptors(player, config); 
-
+            if (config.globalSync) {
+                return;
+            }
             setInterval(() => {
                 syncPlayer(player, config);
             }, config.syncInterval ?? 5000);

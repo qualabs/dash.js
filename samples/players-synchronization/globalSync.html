@@ -67,7 +67,8 @@
 
             video = document.querySelector("video");
             player = dashjs.MediaPlayer().create();
-
+            window.player = player;
+            
             player.initialize(video, '', true);
             playerSynchronization.addFollower(player, {
                 globalSync: true,
