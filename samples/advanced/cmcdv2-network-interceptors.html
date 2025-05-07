@@ -113,7 +113,7 @@
             /* Callback after server response */
             player.addResponseInterceptor((response) => {
                 request = response.request.customData.request;
-                if (request.type == 'CMCD_Response' && request.url.includes('http://example.com/report1')) {
+                if (request.type == 'CmcdResponse' && request.url.includes('http://example.com/report1')) {
                     console.log(request.cmcd);
                 }
                 return Promise.resolve(response);
