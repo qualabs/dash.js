@@ -807,7 +807,6 @@ function CmcdController() {
 
             if (typeof document !== 'undefined' && document.hidden) {
                 data.bg = true;
-                console.log('DOCUMENT HIDDEN')
             }
         }
 
