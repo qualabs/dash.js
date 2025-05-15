@@ -170,7 +170,7 @@ function CmcdController() {
             ..._updateMsdData(Constants.CMCD_MODE.EVENT),
             e: event
         };
-        
+
         if (event == 'e') {
             cmcdData.ec = internalData.ec;
         }
