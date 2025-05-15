@@ -46,6 +46,7 @@ import {CmcdStreamingFormat} from '@svta/common-media-library/cmcd/CmcdStreaming
 import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {CmcdHeaderField} from '@svta/common-media-library/cmcd/CmcdHeaderField';
+import {convertToCmcdV1} from '@svta/common-media-library/cmcd/CmcdV2ToCmcdV1';
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
 
 import URLLoader from '../net/URLLoader.js';
@@ -1011,11 +1012,16 @@ function CmcdController() {
         }
 
         const request = commonMediaRequest.customData.request;
-    
-        const cmcdRequestData = {
+
+        var cmcdRequestData = {
             ...getCmcdData(request),
             ..._updateMsdData(Constants.CMCD_MODE.REQUEST)
         };
+
+        const cmcdVersion = settings.get().streaming.cmcd.version ?? DEFAULT_CMCD_VERSION;
+        if (cmcdVersion === 1) {
+            cmcdRequestData = convertToCmcdV1(cmcdRequestData);
+        }
 
         request.cmcd = cmcdRequestData;
     
