@@ -178,7 +178,7 @@ function CmcdController() {
         eventModeTargets.forEach(targetSettings => {
             if (targetSettings.enabled) {
 
-                if (targetSettings.events.length === 0) {
+                if (targetSettings.events?.length === 0) {
                     logger.warn('CMCD Event Mode is enabled, but the "events" setting is empty. No event-specific CMCD data will be sent.');
                 }
 
