@@ -652,6 +652,7 @@ function CmcdController() {
         getCmcdResponseInterceptors,
         initialize,
         isCmcdEnabled,
+        reset,
         setConfig
     };
 
