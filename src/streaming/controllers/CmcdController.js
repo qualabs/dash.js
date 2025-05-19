@@ -1017,7 +1017,7 @@ function CmcdController() {
 
         const request = commonMediaRequest.customData.request;
 
-        var cmcdRequestData = {
+        let cmcdRequestData = {
             ...getCmcdData(request),
             ..._updateMsdData(Constants.CMCD_MODE.REQUEST)
         };
