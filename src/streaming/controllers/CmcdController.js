@@ -46,11 +46,15 @@ import {CmcdStreamingFormat} from '@svta/common-media-library/cmcd/CmcdStreaming
 import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {CmcdHeaderField} from '@svta/common-media-library/cmcd/CmcdHeaderField';
-import {convertToCmcdV1} from '@svta/common-media-library/cmcd/CmcdV2ToCmcdV1';
+
+
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
 
 import URLLoader from '../net/URLLoader.js';
 import Errors from '../../core/errors/Errors.js';
+
+// TODO: Re-Add this import once common-media-library pr is merged: https://github.com/qualabs/common-media-library/pull/48
+// import {convertToCmcdV1} from '@svta/common-media-library/cmcd/CmcdV2ToCmcdV1';
 
 const DEFAULT_CMCD_VERSION = 1;
 const DEFAULT_INCLUDE_IN_REQUESTS = 'segment';
@@ -1020,7 +1024,10 @@ function CmcdController() {
 
         const cmcdVersion = settings.get().streaming.cmcd.version ?? DEFAULT_CMCD_VERSION;
         if (cmcdVersion === 1) {
-            cmcdRequestData = convertToCmcdV1(cmcdRequestData);
+            // TODO: Re-Add this import once common-media-library pr is merged: https://github.com/qualabs/common-media-library/pull/48
+            // Also remove the temporaryConvertToCmcdV1 line
+            // cmcdRequestData = convertToCmcdV1(cmcdRequestData);
+            cmcdRequestData = temporaryConvertToCmcdV1(cmcdRequestData);
         }
 
         request.cmcd = cmcdRequestData;
@@ -1036,6 +1043,19 @@ function CmcdController() {
         };
 
         return commonMediaRequest;
+    }
+
+    // TODO: delete this once common-media-library pr is merged: https://github.com/qualabs/common-media-library/pull/48
+    function temporaryConvertToCmcdV1(cmcdData) {
+        const result = {};
+        
+        for (const key in cmcdData) {
+            if (Constants.CMCD_AVAILABLE_KEYS.includes(key)) {
+                result[key] = cmcdData[key];
+            }
+        }
+
+        return result;
     }
 
     function _updateMsdData(mode) {
