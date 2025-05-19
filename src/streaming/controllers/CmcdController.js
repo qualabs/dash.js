@@ -65,7 +65,7 @@ function CmcdController() {
     function setup() {
         logger = debug.getLogger(instance);
         clientDataReportingController = ClientDataReportingController(context).getInstance();
-        cmcdModel.resetInitialSettings();
+
         reset();
     }
 
@@ -73,6 +73,8 @@ function CmcdController() {
         if (!config) {
             return;
         }
+
+        cmcdModel.setConfig(config);
     }
 
     function initialize(autoPlay) {

@@ -19,6 +19,7 @@ function CmcdModel() {
         instance,
         dashMetrics,
         serviceDescriptionController,
+        playbackController,
         mediaPlayerModel,
         internalData,
         urlLoader,
@@ -30,7 +31,6 @@ function CmcdModel() {
         _initialMediaRequestsDone,
         _playbackStartedTime,
         _isSeeking,
-        playbackController,
         streamProcessors,
         errHandler,
         _msdSent = {
@@ -59,12 +59,12 @@ function CmcdModel() {
             dashMetrics = config.dashMetrics;
         }
 
-        if (config.throughputController) {
-            throughputController = config.throughputController;
-        }
-
         if (config.playbackController) {
             playbackController = config.playbackController;
+        }
+
+        if (config.throughputController) {
+            throughputController = config.throughputController;
         }
 
         if (config.serviceDescriptionController) {
@@ -386,7 +386,7 @@ function CmcdModel() {
     function onPlayerError(errorData) {
         const errorCode = errorData.error.code ? errorData.error.code : 0
         internalData.ec = errorCode;
-        _onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
+        onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
     }
 
     function getGenericCmcdData() {
@@ -459,10 +459,10 @@ function CmcdModel() {
 
     function onStateChange(state) {
         internalData.sta = state;
-        _onEventChange(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
+        onEventChange(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
     }
 
-    function _onEventChange(state){
+    function onEventChange(state){
         internalData.e = state;
     }
 
@@ -680,7 +680,8 @@ function CmcdModel() {
         sendCmcdDataReport,
         triggerCmcdEventMode,
         getGenericCmcdData,
-        isIncludedInRequestFilter
+        isIncludedInRequestFilter,
+        onEventChange
     };
 
     setup();
