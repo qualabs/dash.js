@@ -270,12 +270,12 @@ function CmcdController() {
                 httpRequest.method = HTTPRequest.GET;
 
                 _updateRequestUrlAndHeadersWithCmcd(httpRequest, cmcdData, targetSettings)
-                sendCmcdDataReport(httpRequest);
+                _sendCmcdDataReport(httpRequest);
             }
         });
     }
 
-    function sendCmcdDataReport(request){
+    function _sendCmcdDataReport(request){
         urlLoader = URLLoader(context).create({
             errHandler: errHandler,
             mediaPlayerModel: mediaPlayerModel,
@@ -620,7 +620,7 @@ function CmcdController() {
                 httpRequest.cmcd = cmcdData;
                 
                 _updateRequestUrlAndHeadersWithCmcd(httpRequest, cmcdData, targetSettings)
-                sendCmcdDataReport(httpRequest);
+                _sendCmcdDataReport(httpRequest);
             }
         });
         
