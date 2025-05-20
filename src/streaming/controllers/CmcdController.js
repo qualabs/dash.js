@@ -365,7 +365,7 @@ function CmcdController() {
         let enabledRequests = settings.get().streaming.cmcd.includeInRequests;
 
         if (cmcdParametersFromManifest.version) {
-            enabledRequests = cmcdParametersFromManifest.includeInRequests ?? [Constants.DEFAULT_INCLUDE_IN_REQUESTS];
+            enabledRequests = cmcdParametersFromManifest.includeInRequests ?? [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
         }
 
         const defaultAvailableRequests = Constants.CMCD_AVAILABLE_REQUESTS;

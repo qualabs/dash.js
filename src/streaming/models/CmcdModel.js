@@ -606,7 +606,7 @@ function CmcdModel() {
         let includeInRequestsArray = includeInRequests || settings.get().streaming.cmcd.includeInRequests;
 
         if (cmcdParametersFromManifest.version) {
-            includeInRequestsArray = cmcdParametersFromManifest.includeInRequests ? cmcdParametersFromManifest.includeInRequests : [Constants.DEFAULT_INCLUDE_IN_REQUESTS];
+            includeInRequestsArray = cmcdParametersFromManifest.includeInRequests ? cmcdParametersFromManifest.includeInRequests : [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
         }
 
         const filtersTypes = {
