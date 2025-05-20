@@ -41,9 +41,10 @@ import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {CmcdHeaderField} from '@svta/common-media-library/cmcd/CmcdHeaderField';
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
 import Utils from '../../core/Utils.js';
+import URLLoader from '../net/URLLoader.js';
 import ClientDataReportingController from '../controllers/ClientDataReportingController.js';
 import CmcdModel from '../models/CmcdModel.js'
-
+import Errors from '../../core/errors/Errors.js';
 import Settings from '../../core/Settings.js';
 
 
@@ -51,7 +52,11 @@ function CmcdController() {
     let instance,
         logger,
         cmcdModel,
-        clientDataReportingController;
+        clientDataReportingController,
+        urlLoader,
+        mediaPlayerModel,
+        dashMetrics,
+        errHandler;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -72,6 +77,18 @@ function CmcdController() {
     function setConfig(config) {
         if (!config) {
             return;
+        }
+        
+        if (config.dashMetrics) {
+            dashMetrics = config.dashMetrics;
+        }
+        
+        if (config.mediaPlayerModel) {
+            mediaPlayerModel = config.mediaPlayerModel;
+        }
+        
+        if (config.errHandler) {
+            errHandler = config.errHandler;
         }
 
         cmcdModel.setConfig(config);
@@ -252,9 +269,20 @@ function CmcdController() {
                 httpRequest.method = HTTPRequest.GET;
 
                 _updateRequestUrlAndHeadersWithCmcd(httpRequest, cmcdData, targetSettings)
-                cmcdModel.sendCmcdDataReport(httpRequest);
+                sendCmcdDataReport(httpRequest);
             }
         });
+    }
+
+    function sendCmcdDataReport(request){
+        urlLoader = URLLoader(context).create({
+            errHandler: errHandler,
+            mediaPlayerModel: mediaPlayerModel,
+            errors: Errors,
+            dashMetrics: dashMetrics,
+        });
+
+        urlLoader.load({request})
     }
 
     /**
@@ -570,7 +598,7 @@ function CmcdController() {
                 httpRequest.cmcd = cmcdData;
                 
                 _updateRequestUrlAndHeadersWithCmcd(httpRequest, cmcdData, targetSettings)
-                cmcdModel.sendCmcdDataReport(httpRequest);
+                sendCmcdDataReport(httpRequest);
             }
         });
         

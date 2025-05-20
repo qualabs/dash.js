@@ -9,9 +9,6 @@ import DashManifestModel from '../../dash/models/DashManifestModel.js';
 import Settings from '../../core/Settings.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 
-import URLLoader from '../net/URLLoader.js';
-import Errors from '../../core/errors/Errors.js';
-
 const RTP_SAFETY_FACTOR = 5;
 
 function CmcdModel() {
@@ -20,9 +17,7 @@ function CmcdModel() {
         dashMetrics,
         serviceDescriptionController,
         playbackController,
-        mediaPlayerModel,
         internalData,
-        urlLoader,
         abrController,
         throughputController,
         _lastMediaTypeRequest,
@@ -32,7 +27,6 @@ function CmcdModel() {
         _playbackStartedTime,
         _isSeeking,
         streamProcessors,
-        errHandler,
         _msdSent = {
             [Constants.CMCD_MODE.EVENT]: false,
             [Constants.CMCD_MODE.REQUEST]: false
@@ -70,15 +64,6 @@ function CmcdModel() {
         if (config.serviceDescriptionController) {
             serviceDescriptionController = config.serviceDescriptionController;
         }
-
-        if (config.mediaPlayerModel) {
-            mediaPlayerModel = config.mediaPlayerModel;
-        }
-
-        if (config.mediaPlayerModel) {
-            errHandler = config.errHandler;
-        }
-        
     }
 
     function _getCmcdDataForMediaSegment(request, mediaType) {
@@ -347,17 +332,6 @@ function CmcdModel() {
                 return streamProcessor.probeNextRequest();
             }
         }
-    }
-
-    function sendCmcdDataReport(request){
-        urlLoader = URLLoader(context).create({
-            errHandler: errHandler,
-            dashMetrics: dashMetrics,
-            mediaPlayerModel: mediaPlayerModel,
-            errors: Errors,
-        });
-
-        urlLoader.load({request})
     }
 
     function onPeriodSwitchComplete() {
@@ -677,7 +651,6 @@ function CmcdModel() {
         updateMsdData,
         resetInitialSettings,
         getCmcdParametersFromManifest,
-        sendCmcdDataReport,
         triggerCmcdEventMode,
         getGenericCmcdData,
         isIncludedInRequestFilter,
