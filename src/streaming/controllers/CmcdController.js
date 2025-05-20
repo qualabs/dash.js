@@ -39,6 +39,8 @@ import Debug from '../../core/Debug.js';
 import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {CmcdHeaderField} from '@svta/common-media-library/cmcd/CmcdHeaderField';
+
+
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
 import Utils from '../../core/Utils.js';
 import URLLoader from '../net/URLLoader.js';
@@ -46,7 +48,6 @@ import ClientDataReportingController from '../controllers/ClientDataReportingCon
 import CmcdModel from '../models/CmcdModel.js'
 import Errors from '../../core/errors/Errors.js';
 import Settings from '../../core/Settings.js';
-
 
 function CmcdController() {
     let instance,
@@ -555,10 +556,18 @@ function CmcdController() {
 
         const request = commonMediaRequest.customData.request;
     
-        const cmcdRequestData = {
+        let cmcdRequestData = {
             ...cmcdModel.getCmcdData(request),
             ...cmcdModel.updateMsdData(Constants.CMCD_MODE.REQUEST)
         };
+
+        const cmcdVersion = settings.get().streaming.cmcd.version ?? Constants.CMCD_DEFAULT_VERSION;
+        if (cmcdVersion === 1) {
+            // TODO: Re-Add this import once common-media-library pr is merged: https://github.com/qualabs/common-media-library/pull/48
+            // Also remove the temporaryConvertToCmcdV1 line
+            // cmcdRequestData = convertToCmcdV1(cmcdRequestData);
+            cmcdRequestData = temporaryConvertToCmcdV1(cmcdRequestData);
+        }
 
         request.cmcd = cmcdRequestData;
     
@@ -573,6 +582,19 @@ function CmcdController() {
         };
 
         return commonMediaRequest;
+    }
+
+    // TODO: delete this once common-media-library pr is merged: https://github.com/qualabs/common-media-library/pull/48
+    function temporaryConvertToCmcdV1(cmcdData) {
+        const result = {};
+        
+        for (const key in cmcdData) {
+            if (Constants.CMCD_AVAILABLE_KEYS.includes(key)) {
+                result[key] = cmcdData[key];
+            }
+        }
+
+        return result;
     }
 
     function getCmcdResponseInterceptors(){
