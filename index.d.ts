@@ -1915,7 +1915,7 @@ declare namespace dashjs {
                 accessibility?: string
             },
             listMpdSettings?: {
-                minEarliestResolutionTimeOffset?: 0
+                minEarliestResolutionTimeOffset?: number
             }
         };
         errors?: {
