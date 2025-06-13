@@ -227,6 +227,10 @@ function AlternativeMpdController() {
                 return;
             }
 
+            if (currentEvent.skipAfter && currentEvent.skipAfter > 0){
+                altPlayer.setDisableSeek(_isSeekingRestricted(e.time));
+            }
+
             if (currentEvent.type == DashConstants.DYNAMIC) {
                 return;
             }
@@ -247,6 +251,11 @@ function AlternativeMpdController() {
         } catch (err) {
             logger.error(`Error at ${actualEventPresentationTime} in _onAlternativePlaybackTimeUpdated:`, err);
         }
+    }
+
+    function _isSeekingRestricted(currentTime) {
+        console.log(currentTime)
+        return currentTime < currentEvent.skipAfter;
     }
 
     function _getCurrentEvent(currentTime, streamId) {
@@ -337,6 +346,7 @@ function AlternativeMpdController() {
                 triggered: false,
                 completed: false,
                 type: DashConstants.STATIC,
+                ...(alternativeMpdNode.skipAfter && { skipAfter: parseInt(alternativeMpdNode.skipAfter || '0', 10) / 1000 }),
                 ...(alternativeMpdNode.returnOffset && { returnOffset: parseInt(alternativeMpdNode.returnOffset || '0', 10) / 1000 }),
                 ...(alternativeMpdNode.maxDuration && { clip: alternativeMpdNode.clip }),
                 ...(alternativeMpdNode.clip && { startWithOffset: alternativeMpdNode.startWithOffset }),
@@ -442,7 +452,7 @@ function AlternativeMpdController() {
         if (time) {
             logger.debug(`Seeking alternative content to time: ${time}`);
             altPlayer.seek(time);
-        }
+        } 
 
         altPlayer.play();
         logger.info('Alternative content playback started');
