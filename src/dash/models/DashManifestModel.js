@@ -1205,6 +1205,7 @@ function DashManifestModel() {
         alternativeMpd.serviceDescriptionId = event.serviceDescriptionId;
         alternativeMpd.maxDuration = event.maxDuration;
         alternativeMpd.noJump = event.noJump;
+        alternativeMpd.skipAfter = event.skipAfter;
     }
 
     function getEventStreams(inbandStreams, representation, period) {

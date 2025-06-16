@@ -67,6 +67,7 @@ function AlternativeMpdController() {
         isMainDynamic = false,
         actualEventPresentationTime = 0,
         timeToSwitch = 0,
+        maxReachedAltTime = -1,
         manifestInfo = {},
         DashConstants,
         logger;
@@ -236,6 +237,13 @@ function AlternativeMpdController() {
                 return;
             }
 
+            if (_handleSkipAfterRestriction(e.time)) {
+                // If a seek correction happened, the player will emit another timeupdate.
+                // We return here to avoid processing with the uncorrected time.
+                return;
+            }
+            _updateMaxReachedAltTime(e.time);
+
             const shouldSwitchBack =
                 (Math.round(altPlayer.duration() - e.time) === 0) ||
                 (clip && actualEventPresentationTime + (e.time - timeToSwitch) >= presentationTime + maxDuration) ||
@@ -246,6 +254,44 @@ function AlternativeMpdController() {
             }
         } catch (err) {
             logger.error(`Error at ${actualEventPresentationTime} in _onAlternativePlaybackTimeUpdated:`, err);
+        }
+    }
+
+    function _handleSkipAfterRestriction(altPlayerTime) {
+        if (currentEvent && currentEvent.hasOwnProperty('skipAfter')) {
+            const skipAfterDuration = currentEvent.skipAfter;
+
+            // If skipAfter is 0, skipping is allowed everywhere.
+            if (skipAfterDuration === 0) {
+                return false;
+            }
+
+            if (typeof skipAfterDuration === 'number' && skipAfterDuration !== Infinity && skipAfterDuration > 0) {
+                // altPlayerTime: reflects the new time
+                // maxReachedAltTime: maximum reached playback time
+
+                if (maxReachedAltTime < skipAfterDuration && altPlayerTime > skipAfterDuration) {
+                    const isSeekingActive = altVideoElement && altVideoElement.seeking;
+                    const attemptedForwardJump = altPlayerTime > maxReachedAltTime;
+
+                    const jumpThreshold = 0.5;
+                    const isSignificantJump = altPlayerTime > (maxReachedAltTime + jumpThreshold);
+
+                    if (attemptedForwardJump && (isSeekingActive || isSignificantJump)) {
+                        altPlayer.seek(maxReachedAltTime);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function _updateMaxReachedAltTime(altPlayerTime) {
+        if (currentEvent && altPlayer && altVideoElement && !altVideoElement.seeking) {
+            if (altPlayerTime > maxReachedAltTime) {
+                maxReachedAltTime = altPlayerTime;
+            }
         }
     }
 
@@ -338,6 +384,7 @@ function AlternativeMpdController() {
                 completed: false,
                 type: DashConstants.STATIC,
                 ...(alternativeMpdNode.returnOffset && { returnOffset: parseInt(alternativeMpdNode.returnOffset || '0', 10) / 1000 }),
+                ...(alternativeMpdNode.skipAfter && { skipAfter: parseInt(alternativeMpdNode.skipAfter || '0', 10) / 1000 }),
                 ...(alternativeMpdNode.maxDuration && { clip: alternativeMpdNode.clip }),
                 ...(alternativeMpdNode.clip && { startWithOffset: alternativeMpdNode.startWithOffset }),
             };
@@ -439,10 +486,12 @@ function AlternativeMpdController() {
         videoModel.getElement().style.display = 'none';
         altVideoElement.style.display = 'block';
 
+        maxReachedAltTime = time;
+
         if (time) {
             logger.debug(`Seeking alternative content to time: ${time}`);
             altPlayer.seek(time);
-        }
+        } 
 
         altPlayer.play();
         logger.info('Alternative content playback started');
@@ -511,6 +560,7 @@ function AlternativeMpdController() {
 
         isSwitching = false;
         currentEvent = null;
+        maxReachedAltTime = -1;
 
         logger.debug('Alternative player resources cleaned up');
         _prebufferNextAlternative();
@@ -544,9 +594,7 @@ function AlternativeMpdController() {
 
         isSwitching = false;
         currentEvent = null;
-
-        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
-        eventBus.off(Events.ALTERNATIVE_EVENT_RECEIVED, _onAlternativeEventeReceived, this);
+        maxReachedAltTime = -1;
     }
 
     instance = {
