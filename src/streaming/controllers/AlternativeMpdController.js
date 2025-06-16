@@ -270,19 +270,35 @@ function AlternativeMpdController() {
             if (typeof skipAfterDuration === 'number' && skipAfterDuration !== Infinity && skipAfterDuration > 0) {
                 // altPlayerTime: reflects the new time
                 // maxReachedAltTime: maximum reached playback time
-                
+
                 // altPlayerTime > skipAfterDuration && maxReachedAltTime < skipAfterDuration
                 // PROBAR altPlayerTime > maxReachedAltTime && maxReachedAltTime < skipAfterDuration
-                console.log(altPlayerTime, maxReachedAltTime)
-                if (maxReachedAltTime < skipAfterDuration && altPlayerTime > maxReachedAltTime) {
-                    console.log(`skipAfter restriction`);
-                    altPlayer.seek(maxReachedAltTime);
-                    // maxReachedAltTime = altPlayerTime;
-                    return true; // Indicates a correction was made
+                console.log(altPlayerTime, maxReachedAltTime);
+
+                // Verificamos si el tiempo máximo alcanzado está antes del punto donde se permite saltar.
+                if (maxReachedAltTime < skipAfterDuration) {
+                    // Determinamos si esto es un intento de adelanto real.
+                    const isSeekingActive = altVideoElement && altVideoElement.seeking;
+                    const attemptedForwardJump = altPlayerTime > maxReachedAltTime;
+
+                    // Umbral para diferenciar un timeupdate normal de un salto.
+                    // Puedes ajustar este valor si es necesario.
+                    const jumpThreshold = 0.5; // segundos
+                    const isSignificantJump = altPlayerTime > (maxReachedAltTime + jumpThreshold);
+
+                    // Aplicamos la restricción si:
+                    // 1. Se intentó un salto hacia adelante (attemptedForwardJump es true)
+                    // Y
+                    // 2. O bien el elemento de video está activamente en modo 'seeking' (isSeekingActive es true)
+                    //    O el salto es "significativo" (isSignificantJump es true)
+                    if (attemptedForwardJump && (isSeekingActive || isSignificantJump)) {
+                        altPlayer.seek(maxReachedAltTime);
+                        return true; // Indica que se hizo una corrección
+                    }
                 }
             }
         }
-        return false; // No correction made or no restriction applies
+        return false; // No se hizo corrección o no aplica la restricción
     }
 
     function _updateMaxReachedAltTime(altPlayerTime) {
