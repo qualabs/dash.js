@@ -67,6 +67,7 @@ function AlternativeMpdController() {
         isMainDynamic = false,
         actualEventPresentationTime = 0,
         timeToSwitch = 0,
+        maxReachedAltTime = -1,
         manifestInfo = {},
         DashConstants,
         logger;
@@ -227,10 +228,6 @@ function AlternativeMpdController() {
                 return;
             }
 
-            if (currentEvent.skipAfter && currentEvent.skipAfter > 0){
-                altPlayer.setDisableSeek(_isSeekingRestricted(e.time));
-            }
-
             if (currentEvent.type == DashConstants.DYNAMIC) {
                 return;
             }
@@ -239,6 +236,13 @@ function AlternativeMpdController() {
             if (Math.round(e.time - actualEventPresentationTime) === 0) {
                 return;
             }
+
+            if (_handleSkipAfterRestriction(e.time)) {
+                // If a seek correction happened, the player will emit another timeupdate.
+                // We return here to avoid processing with the uncorrected time.
+                return;
+            }
+            _updateMaxReachedAltTime(e.time);
 
             const shouldSwitchBack =
                 (Math.round(altPlayer.duration() - e.time) === 0) ||
@@ -253,9 +257,40 @@ function AlternativeMpdController() {
         }
     }
 
-    function _isSeekingRestricted(currentTime) {
-        console.log(currentTime)
-        return currentTime < currentEvent.skipAfter;
+    function _handleSkipAfterRestriction(altPlayerTime) {
+        if (currentEvent && currentEvent.hasOwnProperty('skipAfter')) {
+            const skipAfterDuration = currentEvent.skipAfter;
+
+            // If skipAfter is 0, skipping is allowed everywhere.
+            if (skipAfterDuration === 0) {
+                return false;
+            }
+
+            // If skipAfter is a positive number and not Infinity.
+            if (typeof skipAfterDuration === 'number' && skipAfterDuration !== Infinity && skipAfterDuration > 0) {
+                // altPlayerTime: reflects the new time
+                // maxReachedAltTime: maximum reached playback time
+                
+                // altPlayerTime > skipAfterDuration && maxReachedAltTime < skipAfterDuration
+                // PROBAR altPlayerTime > maxReachedAltTime && maxReachedAltTime < skipAfterDuration
+                console.log(altPlayerTime, maxReachedAltTime)
+                if (maxReachedAltTime < skipAfterDuration && altPlayerTime > maxReachedAltTime) {
+                    console.log(`skipAfter restriction`);
+                    altPlayer.seek(maxReachedAltTime);
+                    // maxReachedAltTime = altPlayerTime;
+                    return true; // Indicates a correction was made
+                }
+            }
+        }
+        return false; // No correction made or no restriction applies
+    }
+
+    function _updateMaxReachedAltTime(altPlayerTime) {
+        if (currentEvent && altPlayer && altVideoElement && !altVideoElement.seeking) {
+            if (altPlayerTime > maxReachedAltTime) {
+                maxReachedAltTime = altPlayerTime;
+            }
+        }
     }
 
     function _getCurrentEvent(currentTime, streamId) {
@@ -346,8 +381,8 @@ function AlternativeMpdController() {
                 triggered: false,
                 completed: false,
                 type: DashConstants.STATIC,
-                ...(alternativeMpdNode.skipAfter && { skipAfter: parseInt(alternativeMpdNode.skipAfter || '0', 10) / 1000 }),
                 ...(alternativeMpdNode.returnOffset && { returnOffset: parseInt(alternativeMpdNode.returnOffset || '0', 10) / 1000 }),
+                ...(alternativeMpdNode.skipAfter && { skipAfter: parseInt(alternativeMpdNode.skipAfter || '0', 10) / 1000 }),
                 ...(alternativeMpdNode.maxDuration && { clip: alternativeMpdNode.clip }),
                 ...(alternativeMpdNode.clip && { startWithOffset: alternativeMpdNode.startWithOffset }),
             };
@@ -449,6 +484,8 @@ function AlternativeMpdController() {
         videoModel.getElement().style.display = 'none';
         altVideoElement.style.display = 'block';
 
+        maxReachedAltTime = time;
+
         if (time) {
             logger.debug(`Seeking alternative content to time: ${time}`);
             altPlayer.seek(time);
@@ -521,6 +558,7 @@ function AlternativeMpdController() {
 
         isSwitching = false;
         currentEvent = null;
+        maxReachedAltTime = -1;
 
         logger.debug('Alternative player resources cleaned up');
         _prebufferNextAlternative();
@@ -554,9 +592,7 @@ function AlternativeMpdController() {
 
         isSwitching = false;
         currentEvent = null;
-
-        eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
-        eventBus.off(Events.ALTERNATIVE_EVENT_RECEIVED, _onAlternativeEventeReceived, this);
+        maxReachedAltTime = -1;
     }
 
     instance = {
