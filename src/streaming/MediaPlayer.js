@@ -2544,6 +2544,8 @@ function MediaPlayer() {
             settings
         });
 
+        console.log('getting source', getSource());
+
         cmcdController.setConfig({
             abrController,
             dashMetrics,

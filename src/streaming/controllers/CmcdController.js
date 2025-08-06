@@ -114,6 +114,9 @@ function CmcdController() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, instance);
+
+       
         
         if (autoPlay) {
             eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
@@ -482,6 +485,10 @@ function CmcdController() {
 
     function _onManifestLoaded(data) {
         cmcdModel.onManifestLoaded(data);
+    }
+
+    function _onManifestLoadingStarted(data) {
+        cmcdModel.onManifestLoadingStarted(data);
     }
 
     function _onBufferLevelStateChanged(data) {

@@ -61,7 +61,9 @@ function CmcdModel() {
         _msdSent = {
             [Constants.CMCD_MODE.EVENT]: false,
             [Constants.CMCD_MODE.REQUEST]: false
-        };
+        },
+        _muSentEventMode = false,
+        _cmcdData = {};
 
     let context = this.context;
     let settings = Settings(context).getInstance();
@@ -304,6 +306,15 @@ function CmcdModel() {
         }
     }
 
+    function onManifestLoadingStarted(data) {
+        console.log('manifest loading started', data.request.url);
+
+        if (data.request.url) {
+            _cmcdData.mu = data.request.url;
+        }
+
+    }
+
     function onBufferLevelStateChanged(data) {
         try {
             if (data.state && data.mediaType) {
@@ -455,12 +466,21 @@ function CmcdModel() {
             ...getGenericCmcdData(),
             ...updateMsdData(Constants.CMCD_MODE.EVENT),
             ..._getAggregatedBitrateData(),
+            ..._getEventModeStructuredBitrateData(),
             e: event
         };
 
         if (event == 'e') {
             cmcdData.ec = internalData.ec;
         }
+
+        // checking media url
+        if (!_muSentEventMode && _cmcdData.mu) {
+            cmcdData.mu = _cmcdData.mu;
+            _muSentEventMode = true;
+        }
+
+        console.log('event mode', cmcdData);
         
         return cmcdData;
     }
@@ -707,6 +727,60 @@ function CmcdModel() {
         return data;
     }
 
+    /**
+     * Returns event mode structured bitrate fields as described in the event mode spec.
+     * Each key (epb, etb, elb, etpb) contains a string with per-object-type breakdown: v, a, tt.
+     * Example: epb="v=4750;a=250;tt=100"
+     */
+    function _getEventModeStructuredBitrateData() {
+        const data = {};
+        const activeStream = playbackController.getStreamController()?.getActiveStream();
+        if (!activeStream) {
+            return data;
+        }
+
+        // Helper to format the structured value
+        function formatStructured(v, a, tt) {
+            const parts = [];
+            if (v > 0) { parts.push(`v=${Math.round(v)}`); }
+            if (a > 0) { parts.push(`a=${Math.round(a)}`); }
+            if (tt > 0) { parts.push(`tt=${Math.round(tt)}`); }
+            return parts.join(';');
+        }
+
+        // Get current representations
+        const videoRep = activeStream.getCurrentRepresentationForType(Constants.VIDEO);
+        const audioRep = activeStream.getCurrentRepresentationForType(Constants.AUDIO);
+        const textRep = activeStream.getCurrentRepresentationForType(Constants.TEXT);
+
+        // Playhead (current) bitrates
+        const currentVideoBitrate = videoRep ? videoRep.bitrateInKbit : 0;
+        const currentAudioBitrate = audioRep ? audioRep.bitrateInKbit : 0;
+        const currentTextBitrate = textRep ? textRep.bitrateInKbit : 0;
+        data.epb = formatStructured(currentVideoBitrate, currentAudioBitrate, currentTextBitrate);
+
+        // Top (max) bitrates
+        const allVideoReps = activeStream.getRepresentationsByType(Constants.VIDEO) || [];
+        const allAudioReps = activeStream.getRepresentationsByType(Constants.AUDIO) || [];
+        const allTextReps = activeStream.getRepresentationsByType(Constants.TEXT) || [];
+        const topVideoBitrate = allVideoReps.reduce((max, rep) => Math.max(max, rep.bitrateInKbit), 0);
+        const topAudioBitrate = allAudioReps.reduce((max, rep) => Math.max(max, rep.bitrateInKbit), 0);
+        const topTextBitrate = allTextReps.reduce((max, rep) => Math.max(max, rep.bitrateInKbit), 0);
+        data.etb = formatStructured(topVideoBitrate, topAudioBitrate, topTextBitrate);
+
+        // Lowest (min) bitrates
+        const lowestVideoBitrate = allVideoReps.length > 0 ? allVideoReps.reduce((min, rep) => Math.min(min, rep.bitrateInKbit), allVideoReps[0].bitrateInKbit) : 0;
+        const lowestAudioBitrate = allAudioReps.length > 0 ? allAudioReps.reduce((min, rep) => Math.min(min, rep.bitrateInKbit), allAudioReps[0].bitrateInKbit) : 0;
+        const lowestTextBitrate = allTextReps.length > 0 ? allTextReps.reduce((min, rep) => Math.min(min, rep.bitrateInKbit), allTextReps[0].bitrateInKbit) : 0;
+        data.elb = formatStructured(lowestVideoBitrate, lowestAudioBitrate, lowestTextBitrate);
+
+        // Top playable (current) bitrates (for now, same as playhead, can be adjusted if logic differs)
+        // If you want to use a different logic for etpb, adjust here.
+        data.etpb = formatStructured(currentVideoBitrate, currentAudioBitrate, currentTextBitrate);
+
+        return data;
+    }
+
     instance = {
         setup,
         reset,
@@ -722,6 +796,7 @@ function CmcdModel() {
         onPlaybackRateChanged,
         wasPlaying,
         onManifestLoaded,
+        onManifestLoadingStarted,
         onBufferLevelStateChanged,
         updateMsdData,
         resetInitialSettings,
@@ -729,7 +804,8 @@ function CmcdModel() {
         triggerCmcdEventMode,
         getGenericCmcdData,
         isIncludedInRequestFilter,
-        onEventChange
+        onEventChange,
+        _getEventModeStructuredBitrateData
     };
 
     setup();
