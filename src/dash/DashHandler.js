@@ -55,6 +55,7 @@ function DashHandler(config) {
     let instance,
         logger,
         lastSegment,
+        nextSubNumber,
         isDynamicManifest,
         mediaHasFinished;
 
@@ -158,7 +159,7 @@ function DashHandler(config) {
             segment.media,
             representation.id,
             segment.replacementNumber,
-            undefined,
+            segment.subNumber,
             bandwidth,
             segment.replacementTime
         );
@@ -178,6 +179,7 @@ function DashHandler(config) {
         request.index = segment.index;
         request.adaptationIndex = representation.adaptation.index;
         request.representation = representation;
+        request.subNumber = segment.subNumber;
 
         if (_setRequestUrl(request, url, representation)) {
             return request;
@@ -237,9 +239,29 @@ function DashHandler(config) {
         }
 
         const segment = segmentsController.getSegmentByTime(representation, time);
+        const previousSegment = segmentsController.getSegmentByTime(representation, time - segment.representation.segmentDuration);
         if (segment) {
-            lastSegment = segment;
-            logger.debug('Index for time ' + time + ' is ' + segment.index);
+            if (representation.k > 1) {
+                if (nextSubNumber === undefined) {
+                    // TODO: double check this logic
+                    nextSubNumber = representation.k - Math.ceil((time - segment.mediaStartTime) /
+                                                            (segment.representation.segmentDuration / representation.k));
+                }
+                segment.subNumber = nextSubNumber;
+                if (nextSubNumber === representation.k - 1) {
+                    lastSegment = segment;
+                    nextSubNumber = 0;
+                } else {
+                    nextSubNumber ++;
+                    lastSegment = previousSegment;
+                }
+
+            }
+            else {
+                lastSegment = segment;
+                logger.debug('Index for time ' + time + ' is ' + segment.index);
+
+            }
             request = _getRequestForSegment(mediaInfo, segment);
         }
 
@@ -311,8 +333,20 @@ function DashHandler(config) {
                 mediaHasFinished = true;
             }
         } else {
+            if (representation.k > 1) {
+                segment.subNumber = nextSubNumber;
+                if (nextSubNumber === representation.k - 1) {
+                    lastSegment = segment;
+                    nextSubNumber = 0;
+                } else {
+                    nextSubNumber ++;
+                }
+            }
+            else {
+
+                lastSegment = segment;
+            }
             request = _getRequestForSegment(mediaInfo, segment);
-            lastSegment = segment;
         }
 
         return request;
@@ -329,6 +363,7 @@ function DashHandler(config) {
      */
     function getValidTimeAheadOfTargetTime(time, mediaInfo, representation, targetThreshold) {
         try {
+            console.log('l3d getValidTimeAheadOfTargetTime');
 
             if (isNaN(time) || !mediaInfo || !representation) {
                 return NaN;

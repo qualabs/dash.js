@@ -916,7 +916,27 @@ import Events from './events/Events.js';
  * The version of the CMCD to use.
  *
  * If not specified this value defaults to 1.
+ * @property {Array.<CmcdTarget>} [targets]
+ * List of CMCD reporting targets.
  */
+
+/**
+ * @typedef {Object} CmcdTarget
+ * @property {string} [mode]
+ * Mode of the CMCD reporting.
+ * @property {boolean} [enabled]
+ * Whether the CMCD reporting is enabled for this target.
+ * @property {string} [url]
+ * The reporting endpoint URL.
+ * @property {string} [events]
+ * The events that should trigger the CMCD reporting.
+ * @property {string} [timeInterval]
+ * The time interval for the CMCD reporting in event mode. The 't' event should be setted in the events array to use this parameter.
+ * @property {Array.<string>} [enabledKeys]
+ * CMCD keys to include in the report.
+ * @property {Array.<string>} [includeOnRequests]
+ * Types of requests CMCD should be included on (e.g., 'mpd', 'segment'). 
+*/
 
 /**
  * @typedef {Object} module:Settings~CmsdSettings
@@ -1011,7 +1031,7 @@ import Events from './events/Events.js';
  *
  * @property {} [assumeDefaultRoleAsMain: true]
  * when no Role descriptor is present, assume main per default
- * 
+ *
  * @property {string} [selectionModeForInitialTrack="highestEfficiency"]
  * Sets the selection mode for the initial track. This mode defines how the initial track will be selected if no initial media settings are set. If initial media settings are set this parameter will be ignored. Available options are:
  *
@@ -1118,6 +1138,7 @@ function Settings() {
                     { schemeIdUri: Constants.EXT_URL_QUERY_INFO_SCHEME },
                     { schemeIdUri: Constants.MATRIX_COEFFICIENTS_SCHEME_ID_URI, value: /0|1|5|6/ },
                     { schemeIdUri: Constants.TRANSFER_CHARACTERISTICS_SCHEME_ID_URI, value: /1|6|13|14|15/ },
+                    { schemeIdUri: Constants.SEGMENT_SEQUENCE_REPRESENTATIONS, },
                     ...Constants.THUMBNAILS_SCHEME_ID_URIS.map(ep => {
                         return { 'schemeIdUri': ep };
                     })
@@ -1371,9 +1392,10 @@ function Settings() {
                 rtp: null,
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
-                enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
+                enabledKeys: null,
                 includeInRequests: ['segment', 'mpd'],
-                version: 1
+                version: 1,
+                targets: []
             },
             cmsd: {
                 enabled: false,
