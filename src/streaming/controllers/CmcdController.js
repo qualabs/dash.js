@@ -36,7 +36,7 @@ import Constants from '../../streaming/constants/Constants.js';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import {CMCD_PARAM} from '@svta/common-media-library/cmcd/CMCD_PARAM';
 import Debug from '../../core/Debug.js';
-import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
+// import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
 import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
 import {toCmcdUrl} from '@svta/common-media-library/cmcd/toCmcdUrl';
 
@@ -105,7 +105,7 @@ function CmcdController() {
         });
     }
 
-    function initialize(autoPlay) {
+    function initialize() {
         targetSequenceNumbers = new Map();
         requestModeSequenceNumber = 0;
 
@@ -115,15 +115,16 @@ function CmcdController() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
         eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, instance);
+        eventBus.on(MediaPlayerEvents.CAN_PLAY, _onPlaybackReady, instance);
 
        
         
-        if (autoPlay) {
-            eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
-        }
-        else {
-            eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
-        }
+        // if (autoPlay) {
+        //     eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
+        // }
+        // else {
+        //     eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
+        // }
 
         _initializeEventModeTimeInterval();
         _initializeEvenModeListeners();
@@ -197,9 +198,10 @@ function CmcdController() {
     }
 
     function _onPlayerError(errorData) {
-        if (errorData.error && errorData.error.data.request && errorData.error.data.request.type === HTTPRequest.CMCD_EVENT) {
-            return;
-        }
+        console.log('onPlayerError', errorData);
+        // if (errorData.error && errorData.error.data.request && errorData.error.data.request.type === HTTPRequest.CMCD_EVENT) {
+        //     return;
+        // }
         cmcdModel.onPlayerError(errorData);
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
     }
@@ -208,8 +210,32 @@ function CmcdController() {
         try {
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
-            const encodeOptions = _createCmcdEncodeOptions(targetSettings);
-            const finalPayloadString = encodeCmcd(cmcdData, encodeOptions);
+            //const encodeOptions = _createCmcdEncodeOptions(targetSettings);
+            
+            // Create manual comma-separated string from all cmcdData keys and values
+            const finalPayloadString = Object.entries(cmcdData)
+                .map(([key, value]) => {
+                    let formattedValue;
+                    
+                    if (Array.isArray(value)) {
+                        // Handle arrays - format as space-separated values in parentheses
+                        // If array contains strings, wrap each string in quotes
+                        formattedValue = '(' + value.map(item => {
+                            return typeof item === 'string' ? `"${item}"` : item;
+                        }).join(' ') + ')';
+                    } else if (typeof value === 'string') {
+                        // Wrap string values in quotes
+                        formattedValue = `"${value}"`;
+                    } else {
+                        // Keep other values as-is
+                        formattedValue = value;
+                    }
+                    
+                    return `${key}=${formattedValue}`;
+                })
+                .join(',');
+
+            console.log('final payload string', finalPayloadString);
 
             const eventBusData = {
                 url: request.url,
@@ -261,8 +287,10 @@ function CmcdController() {
 
                 const sequenceNumber = _getNextSequenceNumber(targetSettings);
                 let cmcd = {...cmcdData, sn: sequenceNumber}
-                httpRequest.cmcd = cmcd;
 
+                
+                httpRequest.cmcd = cmcd;
+                
                 if (isCmcdEnabled(targetSettings)) {
                     _updateRequestWithCmcd(httpRequest, cmcd, targetSettings)
                     if ((targetSettings.batchSize || targetSettings.batchTimer) && httpRequest.body){
@@ -476,6 +504,7 @@ function CmcdController() {
             reportingMode: targetSettings?.cmcdMode,
             version: settings.get().streaming.cmcd.version ?? Constants.CMCD_DEFAULT_VERSION,
             filter: enabledKeys ? (key) => enabledKeys.includes(key) : undefined,
+            //filter: enabledKeys ? () => true : undefined,
         }
     }
 
@@ -489,6 +518,10 @@ function CmcdController() {
 
     function _onManifestLoadingStarted(data) {
         cmcdModel.onManifestLoadingStarted(data);
+    }
+
+    function _onPlaybackReady(data) {
+        cmcdModel.onPlaybackReady(data);
     }
 
     function _onBufferLevelStateChanged(data) {

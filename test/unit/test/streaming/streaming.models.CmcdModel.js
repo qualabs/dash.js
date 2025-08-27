@@ -285,4 +285,84 @@ describe('CmcdModel', function () {
             clock.restore();
         });
     });
+
+    describe('_createErrorObject helper function', function () {
+        it('should create error object with correct properties', function () {
+            const errorData = {
+                error: {
+                    code: 404,
+                    message: 'Not Found'
+                }
+            };
+
+            const errorObject = cmcdModel._createErrorObject(errorData);
+            
+            expect(errorObject).to.have.property('sentViaEventMode', false);
+            expect(errorObject).to.have.property('errorString', 'Error 404: Not Found');
+            expect(errorObject).to.have.property('errorCode', 404);
+            expect(errorObject).to.have.property('errorMessage', 'Not Found');
+            expect(errorObject.errorKey).to.match(/^404:Not Found:\d+$/);
+        });
+
+        it('should handle error data without message', function () {
+            const errorData = {
+                error: {
+                    code: 500
+                }
+            };
+
+            const errorObject = cmcdModel._createErrorObject(errorData);
+            
+            expect(errorObject.errorString).to.equal('Error 500');
+            expect(errorObject.errorMessage).to.equal('');
+            expect(errorObject.errorKey).to.match(/^500::\d+$/);
+        });
+
+        it('should handle error data without code', function () {
+            const errorData = {
+                error: {
+                    message: 'Unknown error occurred'
+                }
+            };
+
+            const errorObject = cmcdModel._createErrorObject(errorData);
+            
+            expect(errorObject.errorString).to.equal('Unknown error occurred');
+            expect(errorObject.errorCode).to.equal(0);
+            expect(errorObject.errorKey).to.match(/^0:Unknown error occurred:\d+$/);
+        });
+
+        it('should handle empty error data', function () {
+            const errorData = {};
+
+            const errorObject = cmcdModel._createErrorObject(errorData);
+            
+            expect(errorObject.errorString).to.equal('Unknown error');
+            expect(errorObject.errorCode).to.equal(0);
+            expect(errorObject.errorMessage).to.equal('');
+            expect(errorObject.errorKey).to.match(/^0::\d+$/);
+        });
+
+        it('should allow the same error to be sent multiple times', function () {
+            const errorData = {
+                error: {
+                    code: 404,
+                    message: 'Not Found'
+                }
+            };
+
+            const errorObject1 = cmcdModel._createErrorObject(errorData);
+            expect(errorObject1.sentViaEventMode).to.be.false;
+
+            // Mark error as sent
+            cmcdModel._markErrorAsSent(errorObject1);
+            
+            // Create the same error object again - should be treated as a new occurrence
+            const errorObject2 = cmcdModel._createErrorObject(errorData);
+            expect(errorObject2.sentViaEventMode).to.be.false;
+            
+            // Verify that the error keys are different (due to timestamp)
+            expect(errorObject1.errorKey).to.not.equal(errorObject2.errorKey);
+        });
+    });
 });

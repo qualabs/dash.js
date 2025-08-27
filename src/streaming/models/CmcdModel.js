@@ -63,9 +63,9 @@ function CmcdModel() {
             [Constants.CMCD_MODE.REQUEST]: false
         },
         _mediaUrlSentEventMode = false,
-        _mediaUrl,
         _rebufferingStartTime = {},
-        _rebufferingDuration = {};
+        _rebufferingDuration = {},
+        _errorTracking = new Map(); // Track errors that have been sent via event mode
 
     let context = this.context;
     let settings = Settings(context).getInstance();
@@ -367,8 +367,10 @@ function CmcdModel() {
     function onManifestLoadingStarted(data) {
         console.log('manifest loading started', data.request.url);
 
+        onPlaybackStarted();
+
         if (data.request.url) {
-            _mediaUrl = data.request.url;
+            internalData.mu = data.request.url;
         }
 
     }
@@ -431,18 +433,22 @@ function CmcdModel() {
     }
 
     function onPlaybackStarted() {
+        console.log('cmcd onPlaybackStarted');
         if (!_playbackStartedTime) {
             _playbackStartedTime = Date.now();
         }
     }
 
     function onPlaybackPlaying() {
-        _getMsdData();
         for (const mediaType in _rebufferingStartTime) {
             if (_rebufferingStartTime.hasOwnProperty(mediaType)) {
                 onRebufferingCompleted(mediaType);
             }
         }
+    }
+
+    function onPlaybackReady() {
+        _getMsdData();
     }
 
     function onRebufferingStarted(mediaType) {
@@ -462,13 +468,61 @@ function CmcdModel() {
         if (!_playbackStartedTime || internalData.msd) {
             return;
         }
+        console.log('cmcd _getMsdData');
 
         internalData.msd = Date.now() - _playbackStartedTime;
     }
 
-    function onPlayerError(errorData) {
+    /**
+     * Creates an error object with tracking information and composes an error string
+     * @param {Object} errorData - The error data object
+     * @returns {Object} Error object containing:
+     *   - sentViaEventMode: {boolean} Flag indicating if this error was already sent via event mode
+     *   - errorString: {string} Composed error string containing error code and message
+     *   - errorCode: {number} The error code
+     *   - errorMessage: {string} The error message
+     */
+    function _createErrorObject(errorData) {
         const errorCode = errorData && errorData.error && errorData.error.code ? errorData.error.code : 0;
-        internalData.ec = errorCode;
+        const errorMessage = errorData && errorData.error && errorData.error.message ? errorData.error.message : '';
+        
+        // Create error string combining code and message
+        const errorString = errorCode > 0 ? 
+            `Error ${errorCode}${errorMessage ? ': ' + errorMessage : ''}` : 
+            errorMessage || 'Unknown error';
+        
+        // Use the error string as the key for tracking
+        const errorKey = errorString;
+        
+        return {
+            sentViaEventMode: false,
+            errorString: errorString,
+            errorCode: errorCode,
+            errorMessage: errorMessage,
+            errorKey: errorKey
+        };
+    }
+
+    /**
+     * Marks an error as sent via event mode
+     * @param {Object} errorObject - The error object returned by _createErrorObject
+     */
+    function _markErrorAsSent(errorObject) {
+        if (errorObject && errorObject.errorKey) {
+            _errorTracking.set(errorObject.errorKey, true);
+        }
+    }
+
+    function onPlayerError(errorData) {
+        console.log('cmcd onPlayerError', errorData);
+
+        const errorObject = _createErrorObject(errorData);
+        // Add the error string to the array if it's not already there
+        if (!internalData.ec.includes(errorObject.errorString)) {
+            internalData.ec.push(errorObject.errorString);
+        }
+        console.log('cmcd internalData.ec', internalData.ec);
+        console.log('cmcd error object', errorObject);
     }
 
     function getGenericCmcdData(mediaType) {
@@ -547,12 +601,31 @@ function CmcdModel() {
         };
 
         if (event == 'e') {
-            cmcdData.ec = internalData.ec;
+            console.log('event e', internalData.ec);
+            // Only include errors that haven't been sent yet
+            const unsentErrors = internalData.ec.filter(errorString => {
+                // Check if this error has been sent before
+                return !_errorTracking.has(errorString);
+            });
+            
+            if (unsentErrors.length > 0) {
+                cmcdData.ec = unsentErrors;
+                
+                // Mark the errors as sent via event mode
+                unsentErrors.forEach(errorString => {
+                    const errorObject = {
+                        errorCode: 0, // We don't have the original code here, but we can track by string
+                        errorMessage: errorString,
+                        errorKey: errorString
+                    };
+                    _markErrorAsSent(errorObject);
+                });
+            }
         }
 
         // checking media url
-        if (!_mediaUrlSentEventMode && _mediaUrl) {
-            cmcdData.mu = _mediaUrl;
+        if (!_mediaUrlSentEventMode && internalData.mu) {
+            cmcdData.mu = internalData.mu;
             _mediaUrlSentEventMode = true;
         }
 
@@ -576,7 +649,8 @@ function CmcdModel() {
             st: null,
             sf: null,
             sid: `${Utils.generateUuid()}`,
-            cid: null
+            cid: null,
+            ec: [] // Initialize ec as an array to store error strings
         };
         
         _bufferLevelStarved = {};
@@ -589,7 +663,8 @@ function CmcdModel() {
         _msdSent = {
             [Constants.CMCD_MODE.EVENT]: false,
             [Constants.CMCD_MODE.REQUEST]: false
-        }
+        };
+        _errorTracking.clear(); // Reset error tracking
 
         _updateStreamProcessors();
     }
@@ -871,6 +946,7 @@ function CmcdModel() {
         onStateChange,
         onPeriodSwitchComplete,
         onPlaybackStarted,
+        onPlaybackReady,
         onPlaybackPlaying,
         onRebufferingStarted,
         onRebufferingCompleted,
@@ -891,7 +967,9 @@ function CmcdModel() {
         onEventChange,
         _getEventModeStructuredBitrateData,
         getLastMediaTypeRequest,
-        onEventChange
+        onEventChange,
+        _createErrorObject,
+        _markErrorAsSent
     };
 
     setup();
