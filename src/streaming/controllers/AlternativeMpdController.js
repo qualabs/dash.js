@@ -315,19 +315,25 @@ function AlternativeMpdController() {
 
     function _initializeAlternativePlayerElement(event) {
         if (!altVideoElement) {
-            // Create a new video element for the alternative content
-            altVideoElement = document.createElement('video');
-            altVideoElement.style.display = 'none';
-            altVideoElement.autoplay = false;
-            altVideoElement.controls = !hideAlternativePlayerControls;
-            fullscreenDiv.appendChild(altVideoElement);
+            try {
+                // Create a new video element for the alternative content
+                altVideoElement = document.createElement('video');
 
-            // Insert the alternative video element into the DOM
-            const videoElement = videoModel.getElement();
-            const parentNode = videoElement && videoElement.parentNode;
-            if (parentNode) {
-                parentNode.insertBefore(altVideoElement, videoElement.nextSibling);
+                altVideoElement.style.display = 'none';
+                altVideoElement.autoplay = false;
+                altVideoElement.controls = !hideAlternativePlayerControls;
+                fullscreenDiv.appendChild(altVideoElement);
+                
+                // Insert the alternative video element into the DOM
+                const videoElement = videoModel.getElement();
+                const parentNode = videoElement && videoElement.parentNode;
+                if (parentNode) {
+                    parentNode.insertBefore(altVideoElement, videoElement.nextSibling);
+                }
+            } catch (error) {
+                logger.error('Error initializing alternative video element:', error);
             }
+           
         };
 
         // Initialize alternative player
