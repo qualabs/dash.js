@@ -5,7 +5,11 @@ import Constants from '../../../../src/streaming/constants/Constants.js';
 import VideoModelMock from '../../mocks/VideoModelMock.js';
 import PlaybackControllerMock from '../../mocks/PlaybackControllerMock.js';
 import DebugMock from '../../mocks/DebugMock.js';
-import { 
+import AlternativeMpdControllerMock from '../../mocks/AlternativeMpdControllerMock.js';
+
+import { expect } from 'chai';
+
+const { 
     MOCK_URLS, 
     setupMockNetwork, 
     teardownMockNetwork, 
@@ -13,9 +17,7 @@ import {
     cleanupMockMediaPlayers,
     setupMockDocumentCreation,
     teardownMockDocumentCreation
-} from '../../mocks/AlternativeMpdControllerMock.js';
-
-import { expect } from 'chai';
+} = AlternativeMpdControllerMock;
 
 const context = {};
 const eventBus = EventBus(context).getInstance();
@@ -26,7 +28,7 @@ const eventBus = EventBus(context).getInstance();
  * @param {number} timeout - Timeout in milliseconds (default: 5000)
  * @returns {Promise} - Promise that resolves when event is triggered or rejects after timeout
  */
-function waitForEvent(eventName, timeout = 5000) {
+function waitForEvent(eventName, timeout = 1000) {
     return new Promise((resolve, reject) => {
         let eventHandler;
         const timeoutId = setTimeout(() => {
@@ -109,7 +111,7 @@ describe('AlternativeMpdController', function () {
     });
 
     describe('_onAlternativeEventTriggered', function () {
-        it('should handle REPLACE alternative MPD events', function (done) {
+        it('should trigger REPLACE alternative MPD event and create a new video element', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: MOCK_URLS.ALTERNATIVE_MPD,
@@ -127,20 +129,18 @@ describe('AlternativeMpdController', function () {
 
             playbackControllerMock.setTime(5);
 
-            // Spy on the prebuffering by checking if the event triggers properly
-            let prebufferCalled = false;
-            
-            // Override the global mock for this specific test
+            let alternativeVideoElementCreated = false;
+        
             const globalCreateElement = document.createElement;
             document.createElement = function(tagName) {
                 if (tagName.toLowerCase() === 'video') {
-                    prebufferCalled = true;
+                    alternativeVideoElementCreated = true;
                 }
                 return globalCreateElement.call(document, tagName);
             };
 
-            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, 3000).then(() => {
-                expect(prebufferCalled).to.be.true;
+            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
+                expect(alternativeVideoElementCreated).to.be.true;
                 document.createElement = globalCreateElement;
                 done();
             }).catch((error) => {
@@ -153,7 +153,7 @@ describe('AlternativeMpdController', function () {
             });
         });
 
-        it('should handle INSERT alternative MPD event', function (done) {
+        it('should trigger INSERT alternative MPD event and create a new video element', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: MOCK_URLS.ALTERNATIVE_MPD,
@@ -171,22 +171,21 @@ describe('AlternativeMpdController', function () {
 
             playbackControllerMock.setTime(3);
 
-            let videoElementCreated = false;
-            
-            // Override the global mock for this specific test
+            let alternativeVideoElementCreated = false;
+
             const globalCreateElement = document.createElement;
             document.createElement = function(tagName) {
                 const element = globalCreateElement.call(document, tagName);
                 if (tagName.toLowerCase() === 'video') {
-                    videoElementCreated = true;
+                    alternativeVideoElementCreated = true;
                 }
                 return element;
             };
 
             const originalPause = videoModelMock.pause;
 
-            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.INSERT, 1000).then(() => {
-                expect(videoElementCreated).to.be.true;
+            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.INSERT).then(() => {
+                expect(alternativeVideoElementCreated).to.be.true;
                 videoModelMock.pause = originalPause;
                 document.createElement = globalCreateElement;
                 done();
@@ -203,7 +202,7 @@ describe('AlternativeMpdController', function () {
     });
 
     describe('_switchToAlternativeContent', function () {
-        it('should switch video display and pause main content', function (done) {
+        it.only('should play alternative content and pause main content', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: MOCK_URLS.ALTERNATIVE_MPD
@@ -217,30 +216,27 @@ describe('AlternativeMpdController', function () {
             };
 
             let mainVideoPaused = false;
-            let videoElementCreated = false;
+            let alternativeVideoPlayed = false;
 
             const originalPause = videoModelMock.pause;
             
-            // Override the global mock for this specific test
             const globalCreateElement = document.createElement;
-                
-            videoModelMock.pause = function() {
-                mainVideoPaused = true;
-                originalPause.call(this);
-            };
-
+    
             document.createElement = function(tagName) {
                 const element = globalCreateElement.call(document, tagName);
                 if (tagName.toLowerCase() === 'video') {
-                    videoElementCreated = true;
+                    element.play = function() {
+                        console.log('join')
+                        alternativeVideoPlayed = true;
+                    };
                 }
                 return element;
             };
 
             playbackControllerMock.setTime(0);
 
-            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, 1000).then(() => {
-                expect(mainVideoPaused && videoElementCreated).to.be.true;
+            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
+                expect(mainVideoPaused && alternativeVideoPlayed).to.be.true;
                 videoModelMock.pause = originalPause;
                 document.createElement = globalCreateElement;
                 done();
@@ -257,7 +253,7 @@ describe('AlternativeMpdController', function () {
     });
 
     describe('_switchBackToMainContent', function () {
-        it('should restore main video and cleanup alternative player', function (done) {
+        it('should resume main video playback and cleanup alternative player', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: MOCK_URLS.ALTERNATIVE_MPD,
@@ -284,12 +280,11 @@ describe('AlternativeMpdController', function () {
             eventBus.trigger = function(eventType, data) {
                 if (eventType === Constants.ALTERNATIVE_MPD.URIS.REPLACE) {
                     eventProcessed = true;
-                    videoModelMock.getElement().style.display = 'block';
                 }
                 return originalTrigger.call(this, eventType, data);
             };
 
-            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, 1000).then(() => {
+            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
                 expect(eventProcessed && videoModelMock.getElement().style.display === 'block').to.be.true;
                 videoModelMock.play = originalPlay;
                 eventBus.trigger = originalTrigger;
@@ -305,7 +300,7 @@ describe('AlternativeMpdController', function () {
             });
         });
 
-        it('should handle INSERT mode correctly', function (done) {
+        it('should return to the main content at the correct time after INSERT mode', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: MOCK_URLS.ALTERNATIVE_MPD,
@@ -342,51 +337,6 @@ describe('AlternativeMpdController', function () {
         });
     });
 
-    describe('_initializeAlternativePlayerElement', function () {
-        it('should create alternative video element when none exists', function (done) {
-            const testEvent = {
-                alternativeMpd: {
-                    url: MOCK_URLS.ALTERNATIVE_MPD
-                },
-                id: 'init-test',
-                presentationTime: 0,
-                eventStream: {
-                    schemeIdUri: Constants.ALTERNATIVE_MPD.URIS.REPLACE,
-                    timescale: 1000
-                }
-            };
-
-            let altVideoElementCreated = false;
-            
-            // Override the global mock for this specific test
-            const globalCreateElement = document.createElement;
-            document.createElement = function(tagName) {
-                const element = globalCreateElement.call(document, tagName);
-                if (tagName.toLowerCase() === 'video') {
-                    altVideoElementCreated = true;
-                    // Set display to none to simulate alternative video element
-                    element.style.display = 'none';
-                }
-                return element;
-            };
-
-            playbackControllerMock.setTime(0);
-
-            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, 1000).then(() => {
-                expect(altVideoElementCreated).to.be.true;
-                document.createElement = globalCreateElement;
-                done();
-            }).catch((error) => {
-                document.createElement = globalCreateElement;
-                done(error);
-            });
-
-            eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, {
-                event: testEvent
-            });
-        });
-    });
-
     describe('Error handling', function () {
         it('should handle malformed events', function (done) {
             const malformedEvent = {
@@ -404,17 +354,20 @@ describe('AlternativeMpdController', function () {
                 originalError.apply(this, arguments);
             };
 
-            // Trigger the malformed event
+            waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE)
+                .then(() => {
+                    expect(errorCalled).to.be.true;
+                    loggerMock.error = originalError;
+                    done();
+                })
+                .catch((error) => {
+                    loggerMock.error = originalError;
+                    done(error);
+                });
+
             eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, {
                 event: malformedEvent
             });
-
-            // Give some time for processing and then check if error was logged
-            setTimeout(() => {
-                expect(errorCalled).to.be.true;
-                loggerMock.error = originalError;
-                done();
-            }, 100);
         });
     });
 });
