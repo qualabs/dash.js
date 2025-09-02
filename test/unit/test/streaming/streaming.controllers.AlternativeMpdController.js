@@ -57,6 +57,14 @@ describe('AlternativeMpdController', function () {
     let loggerMock;
     let dashConstantsMock;
     let originalMediaPlayer;
+    
+    // Store original methods for restoration in afterEach
+    let originalPlay;
+    let originalPause;
+    let originalCreateElement;
+    let originalSeek;
+    let originalError;
+    let originalTrigger;
 
     beforeEach(function () {
         setupMockNetwork();
@@ -81,9 +89,37 @@ describe('AlternativeMpdController', function () {
             hideAlternativePlayerControls: false,
             alternativeContext: context
         });
+        
+        // Store original methods
+        originalPlay = videoModelMock.play;
+        originalPause = videoModelMock.pause;
+        originalCreateElement = document.createElement;
+        originalSeek = playbackControllerMock.seek;
+        originalError = loggerMock.error;
+        originalTrigger = eventBus.trigger;
     });
 
     afterEach(function () {
+        // Restore original methods
+        if (originalPlay) {
+            videoModelMock.play = originalPlay;
+        }
+        if (originalPause) {
+            videoModelMock.pause = originalPause;
+        }
+        if (originalCreateElement) {
+            document.createElement = originalCreateElement;
+        }
+        if (originalSeek) {
+            playbackControllerMock.seek = originalSeek;
+        }
+        if (originalError) {
+            loggerMock.error = originalError;
+        }
+        if (originalTrigger) {
+            eventBus.trigger = originalTrigger;
+        }
+        
         // Cleanup mocks
         teardownMockNetwork();
         cleanupMockMediaPlayers();
@@ -131,20 +167,17 @@ describe('AlternativeMpdController', function () {
 
             let alternativeVideoElementCreated = false;
         
-            const globalCreateElement = document.createElement;
             document.createElement = function(tagName) {
                 if (tagName.toLowerCase() === 'video') {
                     alternativeVideoElementCreated = true;
                 }
-                return globalCreateElement.call(document, tagName);
+                return originalCreateElement.call(document, tagName);
             };
 
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
                 expect(alternativeVideoElementCreated).to.be.true;
-                document.createElement = globalCreateElement;
                 done();
             }).catch((error) => {
-                document.createElement = globalCreateElement;
                 done(error);
             });
 
@@ -173,25 +206,18 @@ describe('AlternativeMpdController', function () {
 
             let alternativeVideoElementCreated = false;
 
-            const globalCreateElement = document.createElement;
             document.createElement = function(tagName) {
-                const element = globalCreateElement.call(document, tagName);
+                const element = originalCreateElement.call(document, tagName);
                 if (tagName.toLowerCase() === 'video') {
                     alternativeVideoElementCreated = true;
                 }
                 return element;
             };
 
-            const originalPause = videoModelMock.pause;
-
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.INSERT).then(() => {
                 expect(alternativeVideoElementCreated).to.be.true;
-                videoModelMock.pause = originalPause;
-                document.createElement = globalCreateElement;
                 done();
             }).catch((error) => {
-                videoModelMock.pause = originalPause;
-                document.createElement = globalCreateElement;
                 done(error);
             });
 
@@ -217,16 +243,11 @@ describe('AlternativeMpdController', function () {
 
             let mainVideoPaused = false;
             let alternativeVideoPlayed = false;
-
-            const originalPause = videoModelMock.pause;
-            
-            const globalCreateElement = document.createElement;
     
             document.createElement = function(tagName) {
-                const element = globalCreateElement.call(document, tagName);
+                const element = originalCreateElement.call(document, tagName);
                 if (tagName.toLowerCase() === 'video') {
                     element.play = function() {
-                        console.log('join')
                         alternativeVideoPlayed = true;
                     };
                 }
@@ -237,12 +258,8 @@ describe('AlternativeMpdController', function () {
 
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
                 expect(mainVideoPaused && alternativeVideoPlayed).to.be.true;
-                videoModelMock.pause = originalPause;
-                document.createElement = globalCreateElement;
                 done();
             }).catch((error) => {
-                videoModelMock.pause = originalPause;
-                document.createElement = globalCreateElement;
                 done(error);
             });
 
@@ -269,14 +286,12 @@ describe('AlternativeMpdController', function () {
             };
 
             let eventProcessed = false;
-            const originalPlay = videoModelMock.play;
             videoModelMock.play = function() {
                 originalPlay.call(this);
             };
 
             playbackControllerMock.setTime(5);
 
-            const originalTrigger = eventBus.trigger;
             eventBus.trigger = function(eventType, data) {
                 if (eventType === Constants.ALTERNATIVE_MPD.URIS.REPLACE) {
                     eventProcessed = true;
@@ -286,12 +301,8 @@ describe('AlternativeMpdController', function () {
 
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
                 expect(eventProcessed && videoModelMock.getElement().style.display === 'block').to.be.true;
-                videoModelMock.play = originalPlay;
-                eventBus.trigger = originalTrigger;
                 done();
             }).catch((error) => {
-                videoModelMock.play = originalPlay;
-                eventBus.trigger = originalTrigger;
                 done(error);
             });
 
@@ -314,11 +325,9 @@ describe('AlternativeMpdController', function () {
                 }
             };
 
-            const originalSeek = playbackControllerMock.seek;
             playbackControllerMock.seek = function(time) {
                 expect(time).to.equal(7);
                 originalSeek.call(this, time);
-                // Trigger the seeked event after seek
                 setTimeout(() => {
                     eventBus.trigger(MediaPlayerEvents.PLAYBACK_SEEKED, { time: time });
                 }, 10);
@@ -330,7 +339,6 @@ describe('AlternativeMpdController', function () {
 
             waitForEvent(MediaPlayerEvents.PLAYBACK_SEEKED)
                 .then(() => {
-                    playbackControllerMock.seek = originalSeek;
                     done();
                 })
                 .catch(done);
@@ -348,7 +356,6 @@ describe('AlternativeMpdController', function () {
             };
 
             let errorCalled = false;
-            const originalError = loggerMock.error;
             loggerMock.error = function() {
                 errorCalled = true;
                 originalError.apply(this, arguments);
@@ -357,11 +364,9 @@ describe('AlternativeMpdController', function () {
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE)
                 .then(() => {
                     expect(errorCalled).to.be.true;
-                    loggerMock.error = originalError;
                     done();
                 })
                 .catch((error) => {
-                    loggerMock.error = originalError;
                     done(error);
                 });
 
