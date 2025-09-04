@@ -231,7 +231,7 @@ function AlternativeMpdController() {
             }, this);
 
             prebufferedPlayer.on(Events.ERROR, (e) => {
-                logger.error(`Prebuffering error for event ${event.id}:`, e);
+                logger.error(`Prebuffering error for event ${event.id}:`, JSON.stringify(e.error));
                 _cleanupPrebufferedContent(eventKey);
             }, this);
 
@@ -413,6 +413,7 @@ function AlternativeMpdController() {
 
         altPlayer.play();
         logger.info('Alternative content playback started');
+        eventBus.trigger(Events.ALTERNATIVE_CONTENT_STARTED, { event: event });
         _startAltnerativePlaybackTimeMonitoring();
 
         isSwitching = false;

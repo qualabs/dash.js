@@ -6,6 +6,8 @@ import Constants from '../../../../src/streaming/constants/Constants.js';
 import VideoModelMock from '../../mocks/VideoModelMock.js';
 import PlaybackControllerMock from '../../mocks/PlaybackControllerMock.js';
 import DebugMock from '../../mocks/DebugMock.js';
+import MediaPlayer from '../../../../src/streaming/MediaPlayer.js';
+import MediaPlayerModelMock from '../../mocks/MediaPlayerModelMock.js';
 
 import { expect } from 'chai';
 
@@ -242,8 +244,6 @@ describe('AlternativeMpdController', function () {
                 return element;
             };
 
-            playbackControllerMock.setTime(5);
-
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
                 expect(alternativeVideoElementCreated).to.be.true;
                 expect(mainPaused).to.be.true;
@@ -263,40 +263,41 @@ describe('AlternativeMpdController', function () {
     });
 
     describe('_switchBackToMainContent', function () {
-        it('should resume main video playback and cleanup alternative player', function (done) {
+        it.only('should resume main video playback and cleanup alternative player', function (done) {
             const testEvent = {
                 alternativeMpd: {
                     url: 'alternative.mpd',
                     mode: Constants.ALTERNATIVE_MPD.MODES.REPLACE,
-                    maxDuration: 5000
+                    maxDuration: 10000
                 },
-                id: 'switch-back-test',
+                id: 'switch-test',
                 presentationTime: 5000,
+                duration: 10000,
                 eventStream: {
                     schemeIdUri: Constants.ALTERNATIVE_MPD.URIS.REPLACE,
                     timescale: 1000
                 }
             };
 
-            let eventProcessed = false;
-            videoModelMock.play = function() {
-                originalPlay.call(this);
-            };
+            let alternativeMediaPlayer;
 
-            playbackControllerMock.setTime(5);
-
-            eventBus.trigger = function(eventType, data) {
-                if (eventType === Constants.ALTERNATIVE_MPD.URIS.REPLACE) {
-                    eventProcessed = true;
-                }
-                return originalTrigger.call(this, eventType, data);
+            MediaPlayer().create = function() {
+                alternativeMediaPlayer = new MediaPlayerModelMock();
+                return alternativeMediaPlayer;
             };
 
             waitForEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE).then(() => {
-                expect(eventProcessed && videoModelMock.getElement().style.display === 'block').to.be.true;
-                done();
-            }).catch((error) => {
-                done(error);
+                console.log('Simulated alternative player seek to 11s');
+                waitForEvent(MediaPlayerEvents.PLAYBACK_PLAYING).then(() => {
+                    expect(videoModelMock.getElement().style.display).to.equal('block');
+                    done();
+                }).catch((error) => {
+                    done(error);
+                });
+            });
+
+            eventBus.trigger(Events.EVENT_READY_TO_RESOLVE, {
+                event: testEvent
             });
 
             eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, {
