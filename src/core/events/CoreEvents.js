@@ -41,6 +41,7 @@ class CoreEvents extends EventsBase {
     constructor () {
         super();
         this.ALTERNATIVE_EVENT_RECEIVED = 'alternativeEventReceived';
+        this.ALTERNATIVE_CONTENT_STARTED = 'alternativeContentStarted';
         this.ATTEMPT_BACKGROUND_SYNC = 'attemptBackgroundSync';
         this.EVENT_READY_TO_RESOLVE = 'eventReadyToResolve';
         this.BUFFERING_COMPLETED = 'bufferingCompleted';
