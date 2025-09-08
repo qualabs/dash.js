@@ -41,6 +41,7 @@ import Utils from '../../../core/Utils.js';
 import Constants from '../../constants/Constants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
+import CmcdModel from '../../models/CmcdModel.js';
 
 const NEEDKEY_BEFORE_INITIALIZE_RETRIES = 5;
 const NEEDKEY_BEFORE_INITIALIZE_TIMEOUT = 500;
@@ -68,7 +69,7 @@ function ProtectionController(config) {
 
     config = config || {};
     const BASE64 = config.BASE64;
-    const cmcdModel = config.cmcdModel;
+    const cmcdController = config.cmcdController;
     const constants = config.constants;
     const customParametersModel = config.customParametersModel;
     const debug = config.debug;
@@ -78,6 +79,9 @@ function ProtectionController(config) {
     const settings = config.settings;
     let protectionModel = config.protectionModel;
     let needkeyRetries = [];
+
+    let context = this.context;
+    const cmcdModel = CmcdModel(context).getInstance();
 
     let applicationProvidedProtectionData,
         instance,
@@ -859,10 +863,10 @@ function ProtectionController(config) {
         const xhr = new XMLHttpRequest();
         const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
 
-        if (cmcdModel.isCmcdEnabled()) {
+        if (cmcdController.isCmcdEnabled()) {
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_QUERY) {
-                const cmcdParams = cmcdModel.getQueryParameter({
+                const cmcdParams = cmcdController.getQueryParameter({
                     url: request.url,
                     type: HTTPRequest.LICENSE
                 });
@@ -883,10 +887,10 @@ function ProtectionController(config) {
             xhr.setRequestHeader(key, request.headers[key]);
         }
 
-        if (cmcdModel.isCmcdEnabled()) {
+        if (cmcdController.isCmcdEnabled()) {
             const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
             if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                const cmcdHeaders = cmcdModel.getHeaderParameters({
+                const cmcdHeaders = cmcdController.getHeaderParameters({
                     url: request.url,
                     type: HTTPRequest.LICENSE
                 });
