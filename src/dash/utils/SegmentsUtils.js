@@ -32,27 +32,37 @@
 import {processUriTemplate as cmlProcessUriTemplate} from '@svta/common-media-library/dash/processUriTemplate.js';
 import Segment from './../vo/Segment.js';
 
-function getNumberForSegment(segment, segmentIndex) {
-    return segment.representation.startNumber + segmentIndex;
-}
-
-function getSegment(representation, duration, presentationStartTime, mediaStartTime, timelineConverter, presentationEndTime, isDynamic, index) {
+function _getSegment(data) {
     let seg = new Segment();
+    const {
+        representation,
+        segmentDurationInSeconds,
+        presentationStartTime,
+        presentationEndTime,
+        mediaTimeInSeconds,
+        timelineConverter,
+        isDynamic,
+        indexOfPartialSegment,
+        index
+    } = data;
 
-    seg.representation = representation;
-    seg.duration = duration;
-    seg.presentationStartTime = presentationStartTime;
-    seg.mediaStartTime = mediaStartTime;
+
+    seg.availabilityEndTime = timelineConverter.calcAvailabilityEndTimeFromPresentationTime(presentationEndTime + segmentDurationInSeconds, representation, isDynamic);
     seg.availabilityStartTime = timelineConverter.calcAvailabilityStartTimeFromPresentationTime(presentationEndTime, representation, isDynamic);
-    seg.availabilityEndTime = timelineConverter.calcAvailabilityEndTimeFromPresentationTime(presentationEndTime + duration, representation, isDynamic);
-    seg.wallStartTime = timelineConverter.calcWallTimeForSegment(seg, isDynamic);
-    seg.replacementNumber = getNumberForSegment(seg, index);
+    seg.duration = segmentDurationInSeconds;
     seg.index = index;
+    seg.isPartialSegment = indexOfPartialSegment !== undefined;
+    seg.mediaStartTime = mediaTimeInSeconds;
+    seg.presentationStartTime = presentationStartTime;
+    seg.replacementNumber = representation.startNumber + index;
+    seg.replacementSubNumber = indexOfPartialSegment;
+    seg.representation = representation;
+    seg.wallStartTime = timelineConverter.calcWallTimeForSegment(seg, isDynamic);
 
     return seg;
 }
 
-function isSegmentAvailable(timelineConverter, representation, segment, isDynamic) {
+function _isSegmentAvailable(timelineConverter, representation, segment, isDynamic) {
     const voPeriod = representation.adaptation.period;
 
     // Avoid requesting segments for which the start time overlaps the period boundary
@@ -106,47 +116,75 @@ export function getIndexBasedSegment(timelineConverter, isDynamic, representatio
     presentationStartTime = parseFloat((representation.adaptation.period.start + (index * duration)).toFixed(5));
     presentationEndTime = parseFloat((presentationStartTime + duration).toFixed(5));
 
-    const mediaTime = timelineConverter.calcMediaTimeFromPresentationTime(presentationStartTime, representation);
+    const mediaTimeInSeconds = timelineConverter.calcMediaTimeFromPresentationTime(presentationStartTime, representation);
 
-    const segment = getSegment(representation, duration, presentationStartTime, mediaTime,
-        timelineConverter, presentationEndTime, isDynamic, index);
+    const segment = _getSegment(
+        {
+            representation,
+            duration,
+            presentationStartTime,
+            presentationEndTime,
+            mediaTimeInSeconds,
+            timelineConverter,
+            isDynamic,
+            index
+        });
 
-    if (!isSegmentAvailable(timelineConverter, representation, segment, isDynamic)) {
+    if (!_isSegmentAvailable(timelineConverter, representation, segment, isDynamic)) {
         return null;
     }
 
     return segment;
 }
 
-export function getTimeBasedSegment(timelineConverter, isDynamic, representation, time, duration, fTimescale, url, range, index, tManifest) {
-    const scaledTime = time / fTimescale;
-    const scaledDuration = duration / fTimescale;
+export function getTimeBasedSegment(data) {
+    const {
+        timelineConverter,
+        isDynamic,
+        representation,
+        mediaTime,
+        durationInTimescale,
+        fTimescale,
+        mediaUrl,
+        mediaRange,
+        index,
+        indexOfPartialSegment,
+        replacementSubNumberOfLastPartialSegment,
+        tManifest
+    } = data;
+    const mediaTimeInSeconds = mediaTime / fTimescale;
+    const segmentDurationInSeconds = durationInTimescale / fTimescale;
+    let presentationStartTime = timelineConverter.calcPresentationTimeFromMediaTime(mediaTimeInSeconds, representation);
+    let presentationEndTime = presentationStartTime + segmentDurationInSeconds;
 
-    let presentationStartTime,
+    let seg = _getSegment({
+        representation,
+        segmentDurationInSeconds,
+        presentationStartTime,
         presentationEndTime,
-        seg;
+        mediaTimeInSeconds,
+        timelineConverter,
+        isDynamic,
+        index,
+        indexOfPartialSegment
+    });
 
-    presentationStartTime = timelineConverter.calcPresentationTimeFromMediaTime(scaledTime, representation);
-    presentationEndTime = presentationStartTime + scaledDuration;
-
-    seg = getSegment(representation, scaledDuration, presentationStartTime,
-        scaledTime,
-        timelineConverter, presentationEndTime, isDynamic, index);
-
-    if (!isSegmentAvailable(timelineConverter, representation, seg, isDynamic)) {
+    if (!_isSegmentAvailable(timelineConverter, representation, seg, isDynamic)) {
         return null;
     }
 
-    seg.replacementTime = tManifest ? tManifest : time;
+    seg.replacementTime = tManifest ? tManifest : mediaTime;
     seg.media = processUriTemplate(
-        url,
+        mediaUrl,
         undefined,
         seg.replacementNumber,
-        undefined,
+        seg.replacementSubNumber,
         undefined,
         seg.replacementTime,
     );
-    seg.mediaRange = range;
+    seg.replacementSubNumberOfLastPartialSegment = replacementSubNumberOfLastPartialSegment;
+    seg.mediaRange = mediaRange;
+    seg.mediaUrl = mediaUrl;
 
     return seg;
 }
