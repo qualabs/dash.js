@@ -219,6 +219,12 @@ function AlternativeMediaController() {
         }
     }
 
+    function setAlternativeVideoElement(element) {
+        if (mediaManager) {
+            mediaManager.setAlternativeVideoElement(element);
+        }
+    }
+
     function reset() {
         if (mediaManager) {
             mediaManager.reset();
@@ -237,6 +243,7 @@ function AlternativeMediaController() {
 
     instance = {
         setConfig,
+        setAlternativeVideoElement,
         initialize,
         reset
     };

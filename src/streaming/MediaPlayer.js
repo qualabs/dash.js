@@ -1556,6 +1556,12 @@ function MediaPlayer() {
         videoModel.setVttRenderingDiv(div);
     }
 
+    function attachAlternativeVideoElement(element) {
+        if (alternativeMediaController) {
+            alternativeMediaController.setAlternativeVideoElement(element);
+        }
+    }
+
     /*
     ---------------------------------------------------------------------------
 
@@ -2862,6 +2868,7 @@ function MediaPlayer() {
         attachTTMLRenderingDiv,
         attachView,
         attachVttRenderingDiv,
+        attachAlternativeVideoElement,
         clearDefaultUTCTimingSources,
         convertToTimeCode,
         destroy,

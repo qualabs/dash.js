@@ -106,14 +106,8 @@ function MediaManager() {
 
             logger.info(`Starting prebuffering for event ${event.id}`);
             
-            // Create a prebuffered video element
-            if (!altVideoElement) {
-                altVideoElement = document.createElement('video');
-                altVideoElement.style.display = 'none';
-                altVideoElement.autoplay = false;
-                altVideoElement.controls = false;
-                document.body.appendChild(altVideoElement);
-            }
+            // Create a video element
+            initializeAlternativeVideoElement();
 
             // Create a prebuffered player
             const prebufferedPlayer = MediaPlayer().create();
@@ -164,7 +158,7 @@ function MediaManager() {
         }
     }
 
-    function initializeAlternativePlayerElement(event) {
+    function initializeAlternativeVideoElement() {
         if (!altVideoElement) {
             // Create a new video element for the alternative content
             altVideoElement = document.createElement('video');
@@ -180,9 +174,6 @@ function MediaManager() {
                 parentNode.insertBefore(altVideoElement, videoElement.nextSibling);
             }
         };
-
-        // Initialize alternative player
-        initializeAlternativePlayer(event);
     }
 
     function initializeAlternativePlayer(event) {
@@ -249,7 +240,8 @@ function MediaManager() {
             altPlayer.attachView(altVideoElement);
         } else {
             // No prebuffered content, initialize normally
-            initializeAlternativePlayerElement(event);
+            initializeAlternativeVideoElement();
+            initializeAlternativePlayer(event);
         }
 
         videoModel.pause();
@@ -350,20 +342,29 @@ function MediaManager() {
 
         isSwitching = false;
     }
+    
+    function setAlternativeVideoElement(element) {
+        altVideoElement = element;
+        // Create a new video element for the alternative content
+        altVideoElement.style.display = 'none';
+        altVideoElement.autoplay = false;
+        altVideoElement.controls = !hideAlternativePlayerControls;
+    }
 
     function getAlternativePlayer() {
         return altPlayer;
     }
 
     instance = {
-        setConfig,
+        cleanupPrebufferedContent,
+        getAlternativePlayer,
         initialize,
         prebufferAlternativeContent,
-        cleanupPrebufferedContent,
+        reset,
+        setConfig,
+        setAlternativeVideoElement,
         switchToAlternativeContent,
         switchBackToMainContent,
-        getAlternativePlayer,
-        reset
     };
 
     return instance;
