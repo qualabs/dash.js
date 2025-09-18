@@ -114,7 +114,7 @@ function MediaManager() {
 
             // Create a prebuffered player
             const prebufferedPlayer = MediaPlayer().create();
-            prebufferedPlayer.initialize(null, alternativeMpdUrl, false, NaN, null);
+            prebufferedPlayer.initialize(null, alternativeMpdUrl, false, NaN);
             prebufferedPlayer.updateSettings({
                 streaming: {cacheInitSegments: true}
             });
@@ -194,7 +194,7 @@ function MediaManager() {
                 cacheInitSegments: true
             }
         });
-        altPlayer.initialize(null, alternativeMpdUrl, false, NaN, null);
+        altPlayer.initialize(null, alternativeMpdUrl, false, NaN);
         altPlayer.preload();
         altPlayer.setAutoPlay(false);
         altPlayer.on(Events.ERROR, onAlternativePlayerError, this);
