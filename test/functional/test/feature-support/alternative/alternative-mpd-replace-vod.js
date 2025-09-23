@@ -3,6 +3,10 @@ import Utils from '../../../src/Utils.js';
 import { initializeDashJsAdapterForAlternativMedia } from '../../common/common.js';
 import { expect } from 'chai';
 
+// Executes with:
+// test/functional/content/alternative-mpd/alternative-mpd-replace-vod-to-vod.mpd
+// test/functional/content/alternative-mpd/alternative-mpd-replace-vod-to-live.mpd
+
 Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-replace-vod').forEach((item) => {
     const name = item.name;
     const url = item.url;
@@ -46,6 +50,8 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-rep
                     alternativeContentDetected = true;
                     alternativeStartTime = player.getCurrentTime();
                     expectedAlternativeDuration = data.event.duration;
+                    // Validate that alternativeStartTime is close to presentation time
+                    expect(alternativeStartTime).to.be.closeTo(5, 1);
                 }
             });
             
