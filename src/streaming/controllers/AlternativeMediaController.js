@@ -41,25 +41,6 @@ function AlternativeMediaController() {
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
 
-    function _calculateSeekTime(currentEvent, altPlayer) {
-        let seekTime;
-        if (currentEvent.mode === Constants.ALTERNATIVE_MPD.MODES.REPLACE) {
-            if (currentEvent.returnOffset || currentEvent.returnOffset === 0) {
-                seekTime = currentEvent.presentationTime + currentEvent.returnOffset;
-                logger.debug(`Using return offset - seeking to: ${seekTime}`);
-            } else {
-                const alternativeDuration = altPlayer.duration()
-                const alternativeEffectiveDuration = !isNaN(currentEvent.maxDuration) ? Math.min(currentEvent.maxDuration, alternativeDuration) : alternativeDuration
-                seekTime = currentEvent.presentationTime + alternativeEffectiveDuration;
-                logger.debug(`Using alternative duration - seeking to: ${seekTime}`);
-            }
-        } else if (currentEvent.mode === Constants.ALTERNATIVE_MPD.MODES.INSERT) {
-            seekTime = currentEvent.presentationTime;
-            logger.debug(`Insert mode - seeking to original presentation time: ${seekTime}`);
-        }
-        return seekTime;
-    }
-
     let instance,
         debug,
         logger,
@@ -75,13 +56,6 @@ function AlternativeMediaController() {
         alternativeContext = null,
         hideAlternativePlayerControls = false,
         alternativeVideoElement = null;
-
-    function setup() {
-        if (!debug) {
-            debug = Debug(context).getInstance();
-        }
-        logger = debug.getLogger(instance);
-    }
 
     function setConfig(config) {
         if (!config) {
@@ -114,7 +88,10 @@ function AlternativeMediaController() {
     }
 
     function initialize() {
-        setup();
+        if (!debug) {
+            debug = Debug(context).getInstance();
+        }
+        logger = debug.getLogger(instance);
 
         // Initialize the media manager if not already provided via config
         if (!mediaManager) {
@@ -318,6 +295,25 @@ function AlternativeMediaController() {
         } catch (err) {
             logger.error(`Error at ${actualEventPresentationTime} in onAlternativePlaybackTimeUpdated:`, err);
         }
+    }
+
+    function _calculateSeekTime(currentEvent, altPlayer) {
+        let seekTime;
+        if (currentEvent.mode === Constants.ALTERNATIVE_MPD.MODES.REPLACE) {
+            if (currentEvent.returnOffset || currentEvent.returnOffset === 0) {
+                seekTime = currentEvent.presentationTime + currentEvent.returnOffset;
+                logger.debug(`Using return offset - seeking to: ${seekTime}`);
+            } else {
+                const alternativeDuration = altPlayer.duration()
+                const alternativeEffectiveDuration = !isNaN(currentEvent.maxDuration) ? Math.min(currentEvent.maxDuration, alternativeDuration) : alternativeDuration
+                seekTime = currentEvent.presentationTime + alternativeEffectiveDuration;
+                logger.debug(`Using alternative duration - seeking to: ${seekTime}`);
+            }
+        } else if (currentEvent.mode === Constants.ALTERNATIVE_MPD.MODES.INSERT) {
+            seekTime = currentEvent.presentationTime;
+            logger.debug(`Insert mode - seeking to original presentation time: ${seekTime}`);
+        }
+        return seekTime;
     }
 
     function _resetAlternativeSwitchStates() {
