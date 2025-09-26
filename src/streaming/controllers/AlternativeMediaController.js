@@ -218,8 +218,8 @@ function AlternativeMediaController() {
             const altPlayer = mediaManager.getAlternativePlayer();
             if (altPlayer) {
                 altPlayer.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
-                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onPlyabackEnded, this)
-                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onDynamicToStatic, this)
+                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onDynamicToStatic, this)
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlyabackEnded, this)
             }
         } catch (err) {
             logger.error('Error handling alternative event:', err);
