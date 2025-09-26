@@ -8,22 +8,18 @@ import { expect } from 'chai';
  * This tests the clip feature scenarios where only a portion of the alternative live content is played
  */
 function injectAlternativeMpdClipEvents(player, originalManifestUrl, alternativeManifestUrl, presentationTime, maxDuration, callback) {
-    // Access the underlying MediaPlayer instance
     const mediaPlayer = player.player;
 
     mediaPlayer.retrieveManifest(originalManifestUrl, (manifest) => {
-        // Initialize EventStream if it doesn't exist
         if (!manifest.Period[0].EventStream) {
             manifest.Period[0].EventStream = [];
         } else {
-            // Clear existing EventStreams
             manifest.Period[0].EventStream = [];
         }
 
         const duration = 8000;
         const earliestResolutionTimeOffset = 3000;
 
-        // Create the replace event with clip functionality for live-to-live scenario
         const replaceClipEvent = {
             schemeIdUri: 'urn:mpeg:dash:event:alternativeMPD:replace:2025',
             timescale: 1000,
@@ -40,10 +36,7 @@ function injectAlternativeMpdClipEvents(player, originalManifestUrl, alternative
             }]
         };
 
-        // Add the event to the manifest
         manifest.Period[0].EventStream.push(replaceClipEvent);
-
-        // Attach the modified manifest using the MediaPlayer directly
         mediaPlayer.attachSource(manifest);
 
         if (callback) {
@@ -65,7 +58,6 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
         let presentationTimeOffset;
         
         before((done) => {
-            // Calculate presentation time for the test
             const currentPresentationTime = Date.now();
             presentationTimeOffset = 10000 //includes potential latency
             presentationTime = currentPresentationTime - presentationTimeOffset; //alternative content already started
@@ -99,12 +91,10 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
                 done(new Error('Test timed out - alternative MPD replace clip event not completed within 35 seconds'));
             }, 35000);
 
-            // Listen for alternative MPD REPLACE events
             player.registerEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, () => {
                 eventTriggered = true;
             });
 
-            // Listen for alternative content start event
             player.registerEvent(Constants.ALTERNATIVE_MPD.CONTENT_START, (data) => {
                 if (data.event.mode === 'replace') {
                     alternativeContentDetected = true;
@@ -115,7 +105,6 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
                 }
             });
 
-            // Listen for alternative content end event
             player.registerEvent(Constants.ALTERNATIVE_MPD.CONTENT_END, (data) => {
                 if (data.event.mode === 'replace') {
                     backToOriginalDetected = true;

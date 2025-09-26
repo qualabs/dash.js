@@ -34,12 +34,10 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
                 done(new Error('Test timed out - alternative MPD replace clip event not completed within 30 seconds'));
             }, 30000);
 
-            // Listen for alternative MPD REPLACE events
             player.registerEvent(Constants.ALTERNATIVE_MPD.URIS.REPLACE, () => {
                 eventTriggered = true;
             });
 
-            // Listen for alternative content start event
             player.registerEvent(Constants.ALTERNATIVE_MPD.CONTENT_START, (data) => {
                 if (data.event.mode === 'replace') {
                     alternativeContentDetected = true;
@@ -50,10 +48,9 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
                 }
             });
 
-            // Listen for alternative content end event
             player.registerEvent(Constants.ALTERNATIVE_MPD.CONTENT_END, (data) => {
                 if (data.event.mode === 'replace') {
-                    alternativeEndTime = player.getCurrentTime(); // Get playback time when alternative ends
+                    alternativeEndTime = player.getCurrentTime();
                     backToOriginalDetected = true;
                     clearTimeout(timeout);
 
