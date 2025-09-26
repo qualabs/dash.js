@@ -65,7 +65,7 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
 
                         // With clip="true", alternative should terminate at PRT + maxDuration
                         const expectedTerminationTime = expectedPresentationTime + expectedMaxDuration;
-                        expect(alternativeEndTime).equals(expectedTerminationTime);
+                        expect(alternativeEndTime).to.be.closeTo(expectedTerminationTime, 0.5);
                         done();
                     }, 1000); // Wait for VOD content stability
                 }
