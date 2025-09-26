@@ -219,7 +219,7 @@ function AlternativeMediaController() {
             if (altPlayer) {
                 altPlayer.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
                 altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onPlyabackEnded(), this)
-                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlyabackEnded(), this)
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onDynamicToStatic(), this)
             }
         } catch (err) {
             logger.error('Error handling alternative event:', err);
@@ -301,6 +301,10 @@ function AlternativeMediaController() {
 
     function _onPlyabackEnded(e){
         alternativePlaybackEnded = e.isLast
+    }
+
+    function _onDynamicToStatic(){
+        alternativePlaybackEnded = true;
     }
 
     function _calculateSeekTime(currentEvent, altPlayer) {
