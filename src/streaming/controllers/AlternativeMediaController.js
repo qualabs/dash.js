@@ -282,7 +282,7 @@ function AlternativeMediaController() {
                     alternativePlaybackEnded ||
                     // Check if the alternative content reached the max duration
                     (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
-                    (calculatedMaxDuration && calculatedMaxDuration <= e.time)
+                    (calculatedMaxDuration && calculatedMaxDuration <= adjustedTime)
                 );
             if (shouldSwitchBack) {
                 const seekTime = _calculateSeekTime(event, altPlayer);
