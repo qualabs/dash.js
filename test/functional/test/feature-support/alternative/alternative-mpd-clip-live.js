@@ -95,7 +95,6 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-cli
             let expectedMaxDuration = 0;
             let expectedPresentationTime = 0;
 
-            // Timeout disabled for debugging
             const timeout = setTimeout(() => {
                 done(new Error('Test timed out - alternative MPD replace clip event not completed within 35 seconds'));
             }, 35000);
