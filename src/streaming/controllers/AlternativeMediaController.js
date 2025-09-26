@@ -271,17 +271,17 @@ function AlternativeMediaController() {
             
             const altPlayer = mediaManager.getAlternativePlayer();
             
-            const deltaTime = e.time - timeToSwitch;
-            if (!alternativeSwitched) {
+            const adjustedTime = e.time - timeToSwitch;
+            if (!alternativeSwitched && adjustedTime > 0) {
                 alternativeSwitched = true;
-                calculatedMaxDuration = altPlayer.isDynamic() ? deltaTime + maxDuration : maxDuration;
+                calculatedMaxDuration = altPlayer.isDynamic() ? adjustedTime + maxDuration : maxDuration;
             }
             console.log(alternativePlaybackEnded)
             const shouldSwitchBack =
                 // Check if the alternative content has finished playing
                 alternativePlaybackEnded ||
                 // Check if the alternative content reached the max duration
-                (clip && actualEventPresentationTime + deltaTime >= presentationTime + calculatedMaxDuration) ||
+                (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
                 (calculatedMaxDuration && calculatedMaxDuration <= e.time);
             if (shouldSwitchBack) {
                 const seekTime = _calculateSeekTime(event, altPlayer);
