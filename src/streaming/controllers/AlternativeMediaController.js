@@ -279,7 +279,7 @@ function AlternativeMediaController() {
                     (!altPlayer.isDynamic() && Math.round(altPlayer.duration() - e.time) === 0) ||
                     // Check if the alternative content reached the max duration
                     (clip && actualEventPresentationTime + deltaTime >= presentationTime + calculatedMaxDuration) ||
-                    (calculatedMaxDuration && calculatedMaxDuration <= e.time)
+                    (calculatedMaxDuration && calculatedMaxDuration <= deltaTime)
                 );
             if (shouldSwitchBack) {
                 const seekTime = _calculateSeekTime(event, altPlayer);
