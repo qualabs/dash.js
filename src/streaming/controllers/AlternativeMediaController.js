@@ -55,6 +55,7 @@ function AlternativeMediaController() {
         videoModel = null,
         alternativeContext = null,
         hideAlternativePlayerControls = false,
+        alternativePlaybackEnded = false,
         alternativeVideoElement = null;
 
     function setConfig(config) {
@@ -217,6 +218,8 @@ function AlternativeMediaController() {
             const altPlayer = mediaManager.getAlternativePlayer();
             if (altPlayer) {
                 altPlayer.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
+                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onPlyabackEnded(), this)
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlyabackEnded(), this)
             }
         } catch (err) {
             logger.error('Error handling alternative event:', err);
@@ -273,9 +276,10 @@ function AlternativeMediaController() {
                 alternativeSwitched = true;
                 calculatedMaxDuration = altPlayer.isDynamic() ? deltaTime + maxDuration : maxDuration;
             }
+            console.log(alternativePlaybackEnded)
             const shouldSwitchBack =
                 // Check if the alternative content has finished playing
-                (Math.round(altPlayer.duration() - e.time) === 0) ||
+                alternativePlaybackEnded ||
                 // Check if the alternative content reached the max duration
                 (clip && actualEventPresentationTime + deltaTime >= presentationTime + calculatedMaxDuration) ||
                 (calculatedMaxDuration && calculatedMaxDuration <= e.time);
@@ -293,6 +297,10 @@ function AlternativeMediaController() {
         } catch (err) {
             logger.error(`Error at ${actualEventPresentationTime} in onAlternativePlaybackTimeUpdated:`, err);
         }
+    }
+
+    function _onPlyabackEnded(e){
+        alternativePlaybackEnded = e.isLast
     }
 
     function _calculateSeekTime(currentEvent, altPlayer) {
@@ -320,6 +328,7 @@ function AlternativeMediaController() {
         timeToSwitch = 0;
         alternativeSwitched = false;
         calculatedMaxDuration = 0;
+        alternativePlaybackEnded = false;
     }
 
     function reset() {
