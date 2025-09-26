@@ -277,11 +277,13 @@ function AlternativeMediaController() {
                 calculatedMaxDuration = altPlayer.isDynamic() ? adjustedTime + maxDuration : maxDuration;
             }
             const shouldSwitchBack =
-                // Check if the alternative content has finished playing
-                alternativePlaybackEnded ||
-                // Check if the alternative content reached the max duration
-                (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
-                (calculatedMaxDuration && calculatedMaxDuration <= e.time);
+                calculatedMaxDuration > 0 && (
+                    // Check if the alternative content has finished playing
+                    alternativePlaybackEnded ||
+                    // Check if the alternative content reached the max duration
+                    (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
+                    (calculatedMaxDuration && calculatedMaxDuration <= e.time)
+                );
             if (shouldSwitchBack) {
                 const seekTime = _calculateSeekTime(event, altPlayer);
                 mediaManager.switchBackToMainContent(seekTime);
