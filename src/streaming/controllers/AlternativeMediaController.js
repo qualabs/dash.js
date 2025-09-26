@@ -276,7 +276,6 @@ function AlternativeMediaController() {
                 alternativeSwitched = true;
                 calculatedMaxDuration = altPlayer.isDynamic() ? adjustedTime + maxDuration : maxDuration;
             }
-            console.log(alternativePlaybackEnded)
             const shouldSwitchBack =
                 // Check if the alternative content has finished playing
                 alternativePlaybackEnded ||
