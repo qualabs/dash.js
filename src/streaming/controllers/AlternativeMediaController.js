@@ -218,8 +218,8 @@ function AlternativeMediaController() {
             const altPlayer = mediaManager.getAlternativePlayer();
             if (altPlayer) {
                 altPlayer.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
-                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onDynamicToStatic, this)
-                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onPlyabackEnded, this)
+                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onAlternativeDynamicToStatic, this)
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onAlternativePlaybackEnded, this)
             }
         } catch (err) {
             logger.error('Error handling alternative event:', err);
@@ -276,7 +276,6 @@ function AlternativeMediaController() {
                 alternativeSwitched = true;
                 calculatedMaxDuration = altPlayer.isDynamic() ? adjustedTime + maxDuration : maxDuration;
             }
-            console.log(alternativePlaybackEnded)
             const shouldSwitchBack =
                 // Check if the alternative content has finished playing
                 alternativePlaybackEnded ||
@@ -299,12 +298,11 @@ function AlternativeMediaController() {
         }
     }
 
-    function _onPlyabackEnded(e){
-        console.log(e)
+    function _onAlternativePlaybackEnded(e){
         alternativePlaybackEnded = e.isLast
     }
 
-    function _onDynamicToStatic(){
+    function _onAlternativeDynamicToStatic(){
         alternativePlaybackEnded = true;
     }
 
