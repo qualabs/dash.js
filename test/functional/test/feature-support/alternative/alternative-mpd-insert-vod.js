@@ -87,7 +87,7 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-ins
             // Handle errors
             player.registerEvent('error', (e) => {
                 clearTimeout(timeout);
-                console.error('Player error:', e);
+                done(new Error(`Player error: ${JSON.stringify(e)}`));
             });
 
         }, 35000);
