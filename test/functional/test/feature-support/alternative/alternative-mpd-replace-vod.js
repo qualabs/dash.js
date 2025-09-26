@@ -84,6 +84,7 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-rep
 
             // Handle errors
             player.registerEvent('error', (e) => {
+                clearTimeout(timeout);
                 console.error('Player error:', e);
             });
 
