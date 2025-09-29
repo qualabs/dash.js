@@ -278,7 +278,7 @@ function AlternativeMediaController() {
             const shouldSwitchBack =
                 calculatedMaxDuration > 0 && (
                     // Check if the alternative content has finished playing
-                    ((!altPlayer.isDynamic() && Math.round(altPlayer.duration() - e.time) === 0)) ||
+                    (!altPlayer.isDynamic() && Math.round(altPlayer.duration() - e.time) === 0) ||
                     // Check if the alternative content reached the max duration
                     (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
                     (calculatedMaxDuration && calculatedMaxDuration <= adjustedTime)
