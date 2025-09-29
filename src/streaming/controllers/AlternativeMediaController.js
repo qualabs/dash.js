@@ -295,14 +295,18 @@ function AlternativeMediaController() {
         if (e.isLast){
             const event = { ...currentEvent };
             const altPlayer = mediaManager.getAlternativePlayer();
-            _switchBackToMainContent(altPlayer, event);
+            if (altPlayer.isDynamic()){
+                _switchBackToMainContent(altPlayer, event);
+            }
         }
     }
 
     function _onAlternativeDynamicToStatic(){
         const event = { ...currentEvent };
         const altPlayer = mediaManager.getAlternativePlayer();
-        _switchBackToMainContent(altPlayer, event);
+        if (altPlayer.isDynamic()){
+            _switchBackToMainContent(altPlayer, event);
+        }
     }
 
     function _switchBackToMainContent(altPlayer, event) {
