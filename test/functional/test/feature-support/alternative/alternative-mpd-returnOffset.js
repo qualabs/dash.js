@@ -60,11 +60,8 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-ret
         let presentationTime;
 
         before((done) => {
-            // Initialize the player without attaching source immediately
             player = initializeDashJsAdapterForAlternativMedia(item, null);
 
-            // Calculate presentation time for live content
-            // For live streams, use current time + offset to ensure the event is in the future
             const currentPresentationTime = Date.now();
             presentationTime = currentPresentationTime + 4000; // 4 seconds from now
 
