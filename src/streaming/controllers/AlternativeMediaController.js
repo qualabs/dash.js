@@ -55,7 +55,6 @@ function AlternativeMediaController() {
         videoModel = null,
         alternativeContext = null,
         hideAlternativePlayerControls = false,
-        alternativePlaybackEnded = false,
         alternativeVideoElement = null;
 
     function setConfig(config) {
@@ -279,21 +278,13 @@ function AlternativeMediaController() {
             const shouldSwitchBack =
                 calculatedMaxDuration > 0 && (
                     // Check if the alternative content has finished playing
-                    alternativePlaybackEnded ||
+                    ((!altPlayer.isDynamic() && Math.round(altPlayer.duration() - e.time) === 0)) ||
                     // Check if the alternative content reached the max duration
                     (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
                     (calculatedMaxDuration && calculatedMaxDuration <= adjustedTime)
                 );
             if (shouldSwitchBack) {
-                const seekTime = _calculateSeekTime(event, altPlayer);
-                mediaManager.switchBackToMainContent(seekTime);
-                
-                // Trigger content end event
-                if (eventBus){
-                    eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_END, { event });
-                }
-                
-                _resetAlternativeSwitchStates();
+                _switchBackToMainContent(altPlayer, event);
             }
         } catch (err) {
             logger.error(`Error at ${actualEventPresentationTime} in onAlternativePlaybackTimeUpdated:`, err);
@@ -301,11 +292,29 @@ function AlternativeMediaController() {
     }
 
     function _onAlternativePlaybackEnded(e){
-        alternativePlaybackEnded = e.isLast
+        if (e.isLast){
+            const event = { ...currentEvent };
+            const altPlayer = mediaManager.getAlternativePlayer();
+            _switchBackToMainContent(altPlayer, event);
+        }
     }
 
     function _onAlternativeDynamicToStatic(){
-        alternativePlaybackEnded = true;
+        const event = { ...currentEvent };
+        const altPlayer = mediaManager.getAlternativePlayer();
+        _switchBackToMainContent(altPlayer, event);
+    }
+
+    function _switchBackToMainContent(altPlayer, event) {
+        const seekTime = _calculateSeekTime(event, altPlayer);
+        mediaManager.switchBackToMainContent(seekTime);
+
+        // Trigger content end event
+        if (eventBus){
+            eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_END, { event });
+        }
+
+        _resetAlternativeSwitchStates();
     }
 
     function _calculateSeekTime(currentEvent, altPlayer) {
@@ -333,7 +342,6 @@ function AlternativeMediaController() {
         timeToSwitch = 0;
         alternativeSwitched = false;
         calculatedMaxDuration = 0;
-        alternativePlaybackEnded = false;
     }
 
     function reset() {
