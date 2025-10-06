@@ -90,7 +90,6 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-ret
 
             player.registerEvent(Constants.ALTERNATIVE_MPD.CONTENT_END, (data) => {
                 if (data.event.mode === 'replace' && data.event.returnOffset !== undefined) {
-                    timeAfterSwitch = videoElement.currentTime;
                     eventPresentationTime = data.event.presentationTime;
                     eventReturnOffset = data.event.returnOffset;
                     backToOriginalDetected = true;
@@ -98,6 +97,7 @@ Utils.getTestvectorsForTestcase('feature-support/alternative/alternative-mpd-ret
 
                     // Wait for playback to stabilize
                     setTimeout(() => {
+                        timeAfterSwitch = videoElement.currentTime;
                         expect(backToOriginalDetected).to.be.true;
 
                         // RT = PRT + returnOffset (where PRT is presentationTime)
