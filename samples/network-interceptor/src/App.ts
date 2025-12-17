@@ -1,5 +1,5 @@
 import { CommonMediaRequest, CommonMediaResponse, RequestInterceptor, ResponseInterceptor } from '@svta/common-media-library/request'
-import { CmcdObjectType } from '@svta/common-media-library/cmcd/CmcdObjectType'
+import { CmcdObjectType } from '@svta/cml-cmcd'
 import * as dashjs from 'dashjs'
 
 declare global {

@@ -29,9 +29,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-import {CmcdObjectType} from '@svta/common-media-library/cmcd/CmcdObjectType';
-import {CmcdStreamType} from '@svta/common-media-library/cmcd/CmcdStreamType';
-import {CmcdStreamingFormat} from '@svta/common-media-library/cmcd/CmcdStreamingFormat';
+import {CmcdObjectType, CmcdStreamType, CmcdStreamingFormat} from '@svta/cml-cmcd';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import MediaPlayerEvents from '../MediaPlayerEvents.js';
 import Utils from '../../core/Utils.js';
