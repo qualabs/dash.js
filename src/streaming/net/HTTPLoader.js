@@ -272,7 +272,7 @@ function HTTPLoader(cfg) {
 
                 if (commonMediaResponse.status >= 200 && commonMediaResponse.status <= 299 && commonMediaResponse.data) {
                     if (config.success) {
-                        config.success(commonMediaResponse.data, commonMediaResponse.statusText, commonMediaResponse.url);
+                        config.success(commonMediaResponse.data, commonMediaResponse.statusText, commonMediaResponse.url, commonMediaResponse.headers);
                     }
 
                     if (config.complete) {
