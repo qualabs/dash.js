@@ -103,43 +103,6 @@ function DashParser(config) {
         return objectIron;
     }
 
-    function applyDateMatcherToObject(obj) {
-        const dateTimeMatcher = matchers[1]; // DateTimeMatcher
-
-        function processObject(target, nodeName = '') {
-            if (!target || typeof target !== 'object') {
-                return;
-            }
-
-            if (Array.isArray(target)) {
-                for (let i = 0; i < target.length; i++) {
-                    processObject(target[i], nodeName);
-                }
-                return;
-            }
-
-            for (let key in target) {
-                if (!target.hasOwnProperty(key)) {
-                    continue;
-                }
-
-                let value = target[key];
-
-                if (typeof value === 'string') {
-                    if (dateTimeMatcher.test(nodeName || target.tagName || '', key, value)) {
-                        target[key] = dateTimeMatcher.converter(value);
-                    }
-                }
-                else if (typeof value === 'object' && value !== null) {
-                    processObject(value, key);
-                }
-            }
-        }
-
-        processObject(obj);
-        return obj;
-    }
-
     function parse(data) {
         let manifest;
         const startTime = window.performance.now();
@@ -147,7 +110,7 @@ function DashParser(config) {
         if (typeof data === 'string') {
             manifest = parseXml(data);
         } else {
-            manifest = parseJson(data);
+            manifest = data;
         }
 
         if (!manifest) {
@@ -256,15 +219,6 @@ function DashParser(config) {
             return {
                 [root.tagName]: root
             };
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function parseJson(data) {
-        try {
-            applyDateMatcherToObject(data);
-            return data;
         } catch (e) {
             return null;
         }
