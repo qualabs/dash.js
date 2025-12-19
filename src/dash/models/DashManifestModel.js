@@ -1237,8 +1237,7 @@ function DashManifestModel() {
             }
 
             if (manifest.hasOwnProperty(DashConstants.PUBLISH_TIME)) {
-                const pt = manifest.publishTime;
-                mpd.publishTime = pt instanceof Date ? pt : new Date(pt);
+                mpd.publishTime = new Date(manifest.publishTime);
             }
         }
 
