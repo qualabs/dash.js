@@ -1213,9 +1213,7 @@ function DashManifestModel() {
             }
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_END_TIME)) {
-                const aet = manifest.availabilityEndTime;
-                const timestamp = aet instanceof Date ? aet.getTime() : new Date(aet).getTime();
-                mpd.availabilityEndTime = new Date(timestamp);
+                mpd.availabilityEndTime = new Date(manifest.availabilityEndTime);
             }
 
             if (manifest.hasOwnProperty(DashConstants.MINIMUM_UPDATE_PERIOD)) {
