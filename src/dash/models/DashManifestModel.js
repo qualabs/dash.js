@@ -1205,9 +1205,7 @@ function DashManifestModel() {
             mpd.manifest = manifest;
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_START_TIME)) {
-                const ast = manifest.availabilityStartTime;
-                const timestamp = ast instanceof Date ? ast.getTime() : new Date(ast).getTime();
-                mpd.availabilityStartTime = new Date(timestamp);
+                mpd.availabilityStartTime = new Date(manifest.availabilityStartTime);
             } else {
                 if (manifest.loadedTime) {
                     const lt = manifest.loadedTime;
