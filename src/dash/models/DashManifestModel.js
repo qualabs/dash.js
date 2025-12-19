@@ -1205,21 +1205,15 @@ function DashManifestModel() {
             mpd.manifest = manifest;
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_START_TIME)) {
-                const ast = manifest.availabilityStartTime;
-                const timestamp = ast instanceof Date ? ast.getTime() : new Date(ast).getTime();
-                mpd.availabilityStartTime = new Date(timestamp);
+                mpd.availabilityStartTime = new Date(manifest.availabilityStartTime);
             } else {
                 if (manifest.loadedTime) {
-                    const lt = manifest.loadedTime;
-                    const timestamp = lt instanceof Date ? lt.getTime() : new Date(lt).getTime();
-                    mpd.availabilityStartTime = new Date(timestamp);
+                    mpd.availabilityStartTime = new Date(manifest.loadedTime);
                 }
             }
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_END_TIME)) {
-                const aet = manifest.availabilityEndTime;
-                const timestamp = aet instanceof Date ? aet.getTime() : new Date(aet).getTime();
-                mpd.availabilityEndTime = new Date(timestamp);
+                mpd.availabilityEndTime = new Date(manifest.availabilityEndTime);
             }
 
             if (manifest.hasOwnProperty(DashConstants.MINIMUM_UPDATE_PERIOD)) {
@@ -1243,8 +1237,7 @@ function DashManifestModel() {
             }
 
             if (manifest.hasOwnProperty(DashConstants.PUBLISH_TIME)) {
-                const pt = manifest.publishTime;
-                mpd.publishTime = pt instanceof Date ? pt : new Date(pt);
+                mpd.publishTime = new Date(manifest.publishTime);
             }
         }
 
