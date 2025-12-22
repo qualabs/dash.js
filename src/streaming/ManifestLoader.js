@@ -153,16 +153,6 @@ function ManifestLoader(config) {
                         baseUri = urlUtils.parseBaseUrl(url);
                     }
 
-                    // A response of no content implies in-memory is properly up to date
-                    if (textStatus == 'No Content') {
-                        eventBus.trigger(
-                            Events.INTERNAL_MANIFEST_LOADED, {
-                                manifest: null
-                            }
-                        );
-                        return;
-                    }
-
                     // Create parser according to manifest type
                     if (parser === null) {
                         parser = createParser(data);
