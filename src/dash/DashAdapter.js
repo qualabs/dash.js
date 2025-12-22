@@ -328,25 +328,30 @@ function DashAdapter() {
     function mergeManifests(manifest, importedManifest, period, mpdHasDuration) {
         const voPeriods = getRegularPeriods(manifest);
         const periodIndex = voPeriods.findIndex(voperiod => voperiod.id === period.id);
-        
+
         if (periodIndex === -1) {
             // Period not found
-            return; 
+            return;
         }
-    
+
         let newPeriod = {};
         const linkedPeriod = voPeriods[periodIndex];
-    
+
         if (importedManifest) {
+            // availabilityEndTime must be greater than current time
+            if (importedManifest.availabilityEndTime?.getTime() < Date.now()) {
+                return;
+            }
+
             const importedPeriod = importedManifest.Period[0];
 
             if (importedManifest.hasOwnProperty(DashConstants.PROFILES)) {
                 importedPeriod.profiles = importedManifest.profiles;
-                
+
                 const existingProfiles = manifest.profiles ? manifest.profiles.split(',') : [];
                 const importedProfiles = importedManifest.profiles ? importedManifest.profiles.split(',') : [];
                 const uniqueProfiles = new Set([...existingProfiles, ...importedProfiles]);
-            
+
                 manifest.profiles = Array.from(uniqueProfiles).join(',');
             }
 
@@ -369,7 +374,7 @@ function DashAdapter() {
                 EssentialProperty: period.EssentialProperty || [],
                 EventStream: period.EventStream || [],
             };
-    
+
             // Update duration
             if (importedPeriod.duration && importedPeriod.duration < linkedPeriod.duration) {
                 newPeriod.duration = importedPeriod.duration;
@@ -377,7 +382,7 @@ function DashAdapter() {
                     manifest.mediaPresentationDuration += importedPeriod.duration - linkedPeriod.duration;
                 }
             }
-    
+
             // Merge custom namespace properties
             Object.keys(linkedPeriod)
                 .filter(name => name.includes(':'))
@@ -387,11 +392,11 @@ function DashAdapter() {
             _mergeEquivalentProperties(newPeriod.SupplementalProperty, importedPeriod.SupplementalProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
             _mergeEquivalentProperties(newPeriod.EssentialProperty, importedPeriod.EssentialProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
             _mergeEquivalentProperties(newPeriod.EventStream, importedPeriod.EventStream, Constants.SCHEME_ID_URI, DashConstants.VALUE);
-    
+
             removeEmptyProperties(newPeriod, [
                 DashConstants.SERVICE_DESCRIPTION,
-                DashConstants.SUPPLEMENTAL_PROPERTY, 
-                DashConstants.ESSENTIAL_PROPERTY, 
+                DashConstants.SUPPLEMENTAL_PROPERTY,
+                DashConstants.ESSENTIAL_PROPERTY,
                 DashConstants.EVENT_STREAM
             ]);
 
@@ -406,7 +411,7 @@ function DashAdapter() {
             delete newPeriod.ImportedMPD;
             delete newPeriod.earliestResolutionTimeOffset;
         }
-    
+
         if (newPeriod.minBufferTime && (newPeriod.AdaptationSet || newPeriod.duration === 0)) {
             manifest.Period[periodIndex] = newPeriod;
         } else {
@@ -418,7 +423,7 @@ function DashAdapter() {
         if (!sourceArray || !targetArray) {
             return;
         }
-        
+
         for (const item of sourceArray) {
             const index = targetArray.findIndex(existingItem => existingItem[keyProp] === item[keyProp] && (!valueProp || existingItem[valueProp] === item[valueProp]));
             if (index !== -1) {
@@ -429,7 +434,7 @@ function DashAdapter() {
             }
         }
     }
-    
+
     // Helper function to remove empty properties
     function removeEmptyProperties(obj, propertyNames) {
         for (const prop of propertyNames) {
@@ -438,7 +443,7 @@ function DashAdapter() {
             }
         }
     }
-    
+
 
     /**
      * Returns an array of streamInfo objects

@@ -1192,10 +1192,6 @@ function DashManifestModel() {
             return linkedPeriods;
         }
 
-        if (mpd.availabilityEndTime < Date.now()) {
-            throw new Error('availabilityEndTime must be greater than current time');
-        }
-
         let currentPeriod = null;
         for (let i = 0, len = mpd.manifest.Period.length; i < len; i++) {
             currentPeriod = mpd.manifest.Period[i];
