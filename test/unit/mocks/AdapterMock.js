@@ -179,25 +179,12 @@ function AdapterMock() {
         return supplementalCodecs.split(' ').map((codec) => representation.mimeType + ';codecs="' + codec + '"');
     }
 
-    this.getEssentialPropertiesForRepresentation = function (realRepresentation) {
-        if (!realRepresentation || !realRepresentation.EssentialProperty || !realRepresentation.EssentialProperty.length) {
+    this.getEssentialProperties = function (element) {
+        if (!element || !element.EssentialProperty || !element.EssentialProperty.length) {
             return null;
         }
 
-        return realRepresentation.EssentialProperty.map((prop) => {
-            return {
-                schemeIdUri: prop.schemeIdUri,
-                value: prop.value
-            };
-        });
-    };
-
-    this.getEssentialPropertiesForAdaptationSet = function (adaptationSet) {
-        if (!adaptationSet || !adaptationSet.EssentialProperty || !adaptationSet.EssentialProperty.length) {
-            return null;
-        }
-
-        return adaptationSet.EssentialProperty.map((prop) => {
+        return element.EssentialProperty.map((prop) => {
             return {
                 schemeIdUri: prop.schemeIdUri,
                 value: prop.value
@@ -233,6 +220,36 @@ function AdapterMock() {
             wallClockTime: '1970-01-01T00:00:04Z'
         }];
     };
+
+    this.areMediaInfosEqual = function () {
+        return true
+    }
+
+    this.getPreselectionIsTypeOf = function (preselection, adaptations, type) {
+        if (preselection.mimeType) {
+            return preselection.mimeType.startsWith(type)
+        }
+        if (adaptations[0].mimeType) {
+            return adaptations[0].mimeType.startsWith(type)
+        }
+        return adaptations[0].Representation[0].mimeType.startsWith(type)
+    }
+
+    this.getCodecForPreselection = function (preselection, adaptations) {
+        if (preselection.codecs) {
+            return 'audio/mp4;codecs="' + preselection.codecs + '\"'
+        }
+        if (adaptations[0].codec) {
+            return 'audio/mp4;codecs="' + adaptations.codecs + '"'
+        }
+        return 'audio/mp4;codecs="' + adaptations[0].Representation[0].codecs + '"'
+    }
+
+    this.getCommonRepresentationForPreselection = function (preselection, adaptations) {
+        const id = preselection.preselectionComponents.split(' ')[0];
+        const as = adaptations.find((as) => as.id == id);
+        return (as ? as.Representation[0] : undefined);
+    }
 
 }
 

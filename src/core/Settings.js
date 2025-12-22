@@ -35,6 +35,7 @@ import Constants from '../streaming/constants/Constants.js';
 import {HTTPRequest} from '../streaming/vo/metrics/HTTPRequest.js';
 import EventBus from './EventBus.js';
 import Events from './events/Events.js';
+import SwitchRequest from '../streaming/rules/SwitchRequest.js';
 
 /** @module Settings
  * @description Define the configuration parameters of Dash.js MediaPlayer.
@@ -83,7 +84,8 @@ import Events from './events/Events.js';
  *               ],
  *               useMediaCapabilitiesApi: true,
  *               filterVideoColorimetryEssentialProperties: false,
- *               filterHDRMetadataFormatEssentialProperties: false
+ *               filterHDRMetadataFormatEssentialProperties: false,
+ *               filterAudioChannelConfiguration: false
  *            },
  *            events: {
  *              eventControllerRefreshDelay: 100,
@@ -103,6 +105,7 @@ import Events from './events/Events.js';
  *            },
  *            protection: {
  *                keepProtectionMediaKeys: false,
+ *                keepProtectionMediaKeysMaximumOpenSessions: -1,
  *                ignoreEmeEncryptedEvent: false,
  *                detectPlayreadyMessageFormat: true,
  *                ignoreKeyStatuses: false
@@ -139,7 +142,8 @@ import Events from './events/Events.js';
  *                threshold: 0.3,
  *                enableSeekFix: true,
  *                enableStallFix: false,
- *                stallSeek: 0.1
+ *                stallSeek: 0.1,
+ *                seekOffset: 0
  *            },
  *            utcSynchronization: {
  *                enabled: true,
@@ -154,7 +158,8 @@ import Events from './events/Events.js';
  *                defaultTimingSource: {
  *                    scheme: 'urn:mpeg:dash:utc:http-xsdate:2014',
  *                    value: 'http://time.akamai.com/?iso&ms'
- *                }
+ *                },
+ *                artificialTimeOffsetToApply: 0
  *            },
  *            scheduling: {
  *                defaultTimeout: 500,
@@ -188,10 +193,12 @@ import Events from './events/Events.js';
  *                audio: Constants.TRACK_SWITCH_MODE_ALWAYS_REPLACE,
  *                video: Constants.TRACK_SWITCH_MODE_NEVER_REPLACE
  *            },
+ *            includePreselectionsInMediainfoArray: true,
+ *            includePreselectionsForInitialTrackSelection: false,
  *            ignoreSelectionPriority: false,
  *            prioritizeRoleMain: true,
  *            assumeDefaultRoleAsMain: true,
- *            selectionModeForInitialTrack: Constants.TRACK_SELECTION_MODE_HIGHEST_EFFICIENCY,
+ *            selectionModeForInitialTrack: Constants.TRACK_SELECTION_MODE_LOWEST_STARTUP_DELAY,
  *            fragmentRequestTimeout: 20000,
  *            fragmentRequestProgressTimeout: -1,
  *            manifestRequestTimeout: 10000,
@@ -327,6 +334,10 @@ import Events from './events/Events.js';
  *                    etpWeightRatio: 0
  *                }
  *            },
+ *            enhancement: {
+ *                enabled: false,
+ *                codecs: ['lvc1']
+ *            },
  *            defaultSchemeIdUri: {
  *                viewpoint: '',
  *                audioChannelConfiguration: 'urn:mpeg:mpegB:cicp:ChannelConfiguration',
@@ -393,10 +404,12 @@ import Events from './events/Events.js';
  *
  * If you experience unexpected seeking triggered by BufferController, you can try setting this value to false.
 
- * @property {boolean} [fastSwitchEnabled=true]
+ * @property {boolean} [fastSwitchEnabled=null]
  * When enabled, after an ABR up-switch in quality, instead of requesting and appending the next fragment at the end of the current buffer range it is requested and appended closer to the current time.
  *
  * When enabled, The maximum time to render a higher quality is current time + (1.5 * fragment duration).
+ *
+ * If this value is set to null we will automatically enable fast switches for non low-latency playback
  *
  * Note, When ABR down-switch is detected, we appended the lower quality at the end of the buffer range to preserve the
  * higher quality media for as long as possible.
@@ -549,6 +562,8 @@ import Events from './events/Events.js';
  * If playback stalled in a buffered range this fix will perform a seek by the value defined in stallSeek to trigger playback again.
  * @property {number} [stallSeek=0.1]
  * Value to be used in case enableStallFix is set to true
+ * @property {number} [seekOffset=0]
+ * An additional offset in seconds that is applied when performing a seek to jump a gap.
  */
 
 /**
@@ -588,7 +603,11 @@ import Events from './events/Events.js';
  *
  * @property {object} [defaultTimingSource={scheme:'urn:mpeg:dash:utc:http-xsdate:2014',value: 'http://time.akamai.com/?iso&ms'}]
  * The default timing source to be used. The timing sources in the MPD take precedence over this one.
- */
+ *
+ * @property {number} [artificialTimeOffsetToApply=0]
+ * The offset defined in milliseconds that is applied on top of the offset that was derived after the time synchronization.
+ *
+ * /
 
 /**
  * @typedef {Object} Scheduling
@@ -692,8 +711,11 @@ import Events from './events/Events.js';
  * @typedef {Object} Protection
  * @property {boolean} [keepProtectionMediaKeys=false]
  * Set the value for the ProtectionController and MediaKeys life cycle.
- *
  * If true, the ProtectionController and then created MediaKeys and MediaKeySessions will be preserved during the MediaPlayer lifetime.
+ *
+ * @property {number} [keepProtectionMediaKeysMaximumOpenSessions=-1]
+ * Maximum number of open MediaKeySessions, when keepProtectionMediaKeys is enabled. If set, dash.js will close the oldest sessions when the limit is exceeded. -1 means unlimited.
+ *
  * @property {boolean} [ignoreEmeEncryptedEvent=false]
  * If set to true the player will ignore "encrypted" and "needkey" events thrown by the EME.
  *
@@ -717,6 +739,8 @@ import Events from './events/Events.js';
  * If disabled, registered properties per supportedEssentialProperties will be allowed without any further checking (including 'urn:mpeg:mpegB:cicp:MatrixCoefficients').
  * @property {boolean} [filterHDRMetadataFormatEssentialProperties=false]
  * Enable dash.js to query MediaCapabilities API for signalled HDR-MetadataFormat EssentialProperty (per schemeIdUri:'urn:dvb:dash:hdr-dmi').
+ * @property {boolean} [filterAudioChannelConfiguration=false]
+ * Enable dash.js to query MediaCapabilities API for signalled AudioChannelConfiguration.
  */
 
 /**
@@ -938,6 +962,16 @@ import Events from './events/Events.js';
  */
 
 /**
+ * @typedef {Object} EnhancementSettings
+ * @property {boolean} [enabled=false]
+ * Enable or disable the scalable enhancement playback (e.g. LCEVC).
+ * @property {Array.<string>} [codecs]
+ * Specifies which scalable enhancement codecs are supported by the player.
+ *
+ * If not specified this value defaults to ['lvc1'].
+ */
+
+/**
  * @typedef {Object} Metrics
  * @property {number} [metricsMaxListDepth=100]
  * Maximum number of metrics that are persisted per type.
@@ -1016,6 +1050,12 @@ import Events from './events/Events.js';
  * - Constants.TRACK_SWITCH_MODE_NEVER_REPLACE
  * Do not replace existing segments in the buffer
  *
+ * @property {} [includePreselectionsInMediainfoArray: true]
+ * provides the option to include Preselections in the MediaInfo object
+ *
+ * @property {} [includePreselectionsForInitialTrackSelection: false]
+ * provides the option to include Preselections for initial track selection
+ *
  * @property {} [ignoreSelectionPriority: false]
  * provides the option to disregard any signalled selectionPriority attribute. If disabled and if no initial media settings are set, track selection is accomplished as defined by selectionModeForInitialTrack.
  *
@@ -1024,8 +1064,8 @@ import Events from './events/Events.js';
  *
  * @property {} [assumeDefaultRoleAsMain: true]
  * when no Role descriptor is present, assume main per default
- * 
- * @property {string} [selectionModeForInitialTrack="highestEfficiency"]
+ *
+ * @property {string} [selectionModeForInitialTrack="lowestStartupDelay"]
  * Sets the selection mode for the initial track. This mode defines how the initial track will be selected if no initial media settings are set. If initial media settings are set this parameter will be ignored. Available options are:
  *
  * Possible values
@@ -1067,6 +1107,8 @@ import Events from './events/Events.js';
  * Settings related to Common Media Client Data reporting.
  * @property {module:Settings~CmsdSettings} cmsd
  * Settings related to Common Media Server Data parsing.
+ * @property {module:Settings~EnhancementSettings} enhancement
+ * Settings related to scalable enhancement playback (e.g. LCEVC).
  * @property {module:Settings~defaultSchemeIdUri} defaultSchemeIdUri
  * Default schemeIdUri for descriptor type elements
  * These strings are used when not provided with setInitialMediaSettingsFor()
@@ -1133,13 +1175,15 @@ function Settings() {
                     { schemeIdUri: Constants.EXT_URL_QUERY_INFO_SCHEME },
                     { schemeIdUri: Constants.MATRIX_COEFFICIENTS_SCHEME_ID_URI, value: /0|1|5|6/ },
                     { schemeIdUri: Constants.TRANSFER_CHARACTERISTICS_SCHEME_ID_URI, value: /1|6|13|14|15/ },
+                    { schemeIdUri: Constants.SEGMENT_SEQUENCE_REPRESENTATION_SCHEME_ID_URI},
                     ...Constants.THUMBNAILS_SCHEME_ID_URIS.map(ep => {
                         return { 'schemeIdUri': ep };
                     })
                 ],
                 useMediaCapabilitiesApi: true,
                 filterVideoColorimetryEssentialProperties: false,
-                filterHDRMetadataFormatEssentialProperties: false
+                filterHDRMetadataFormatEssentialProperties: false,
+                filterAudioChannelConfiguration: false
             },
             events: {
                 eventControllerRefreshDelay: 100,
@@ -1159,6 +1203,7 @@ function Settings() {
             },
             protection: {
                 keepProtectionMediaKeys: false,
+                keepProtectionMediaKeysMaximumOpenSessions: -1,
                 ignoreEmeEncryptedEvent: false,
                 detectPlayreadyMessageFormat: true,
                 ignoreKeyStatuses: false
@@ -1195,7 +1240,8 @@ function Settings() {
                 threshold: 0.3,
                 enableSeekFix: true,
                 enableStallFix: false,
-                stallSeek: 0.1
+                stallSeek: 0.1,
+                seekOffset: 0
             },
             utcSynchronization: {
                 enabled: true,
@@ -1210,7 +1256,8 @@ function Settings() {
                 defaultTimingSource: {
                     scheme: 'urn:mpeg:dash:utc:http-xsdate:2014',
                     value: 'https://time.akamai.com/?iso&ms'
-                }
+                },
+                artificialTimeOffsetToApply: 0,
             },
             scheduling: {
                 defaultTimeout: 500,
@@ -1256,10 +1303,12 @@ function Settings() {
                 audio: Constants.TRACK_SWITCH_MODE_ALWAYS_REPLACE,
                 video: Constants.TRACK_SWITCH_MODE_NEVER_REPLACE
             },
+            includePreselectionsInMediainfoArray: true,
+            includePreselectionsForInitialTrackSelection: false,
             ignoreSelectionPriority: false,
             prioritizeRoleMain: true,
             assumeDefaultRoleAsMain: true,
-            selectionModeForInitialTrack: Constants.TRACK_SELECTION_MODE_HIGHEST_EFFICIENCY,
+            selectionModeForInitialTrack: Constants.TRACK_SELECTION_MODE_LOWEST_STARTUP_DELAY,
             fragmentRequestTimeout: 20000,
             fragmentRequestProgressTimeout: -1,
             manifestRequestTimeout: 10000,
@@ -1293,13 +1342,16 @@ function Settings() {
                 enableSupplementalPropertyAdaptationSetSwitching: true,
                 rules: {
                     throughputRule: {
-                        active: true
+                        active: true,
+                        priority: SwitchRequest.PRIORITY.DEFAULT
                     },
                     bolaRule: {
-                        active: true
+                        active: true,
+                        priority: SwitchRequest.PRIORITY.DEFAULT
                     },
                     insufficientBufferRule: {
                         active: true,
+                        priority: SwitchRequest.PRIORITY.DEFAULT,
                         parameters: {
                             throughputSafetyFactor: 0.7,
                             segmentIgnoreCount: 2
@@ -1307,6 +1359,7 @@ function Settings() {
                     },
                     switchHistoryRule: {
                         active: true,
+                        priority: SwitchRequest.PRIORITY.DEFAULT,
                         parameters: {
                             sampleSize: 8,
                             switchPercentageThreshold: 0.075
@@ -1314,6 +1367,7 @@ function Settings() {
                     },
                     droppedFramesRule: {
                         active: false,
+                        priority: SwitchRequest.PRIORITY.DEFAULT,
                         parameters: {
                             minimumSampleSize: 375,
                             droppedFramesPercentageThreshold: 0.15
@@ -1321,6 +1375,7 @@ function Settings() {
                     },
                     abandonRequestsRule: {
                         active: true,
+                        priority: SwitchRequest.PRIORITY.DEFAULT,
                         parameters: {
                             abandonDurationMultiplier: 1.8,
                             minSegmentDownloadTimeThresholdInMs: 500,
@@ -1328,10 +1383,12 @@ function Settings() {
                         }
                     },
                     l2ARule: {
-                        active: false
+                        active: false,
+                        priority: SwitchRequest.PRIORITY.DEFAULT
                     },
                     loLPRule: {
-                        active: false
+                        active: false,
+                        priority: SwitchRequest.PRIORITY.DEFAULT
                     }
                 },
                 throughput: {
@@ -1396,6 +1453,10 @@ function Settings() {
                     applyMb: false,
                     etpWeightRatio: 0
                 }
+            },
+            enhancement: {
+                enabled: false,
+                codecs: ['lvc1']
             },
             defaultSchemeIdUri: {
                 viewpoint: '',
