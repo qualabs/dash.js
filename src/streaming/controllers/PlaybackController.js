@@ -67,6 +67,7 @@ function PlaybackController() {
         playbackStalled,
         manifestUpdateInProgress,
         initialCatchupModeActivated,
+        seekDisabled,
         settings;
 
     function setup() {
@@ -212,6 +213,10 @@ function PlaybackController() {
 
         let currentTime = !isNaN(seekTarget) ? seekTarget : videoModel.getTime();
         if (time === currentTime) {
+            return;
+        }
+
+        if (seekDisabled){
             return;
         }
 
@@ -629,6 +634,10 @@ function PlaybackController() {
         wallclockTimeIntervalId = null;
     }
 
+    function setSeekDisabled(value){
+        seekDisabled = value;
+    }
+
     function _onDataUpdateCompleted(e) {
         const voRepresentation = e.currentRepresentation;
         const info = voRepresentation ? voRepresentation.mediaInfo.streamInfo : null;
@@ -686,6 +695,10 @@ function PlaybackController() {
     function _onPlaybackSeeking() {
         // Check if internal seeking to be ignored
         if (internalSeek) {
+            return;
+        }
+
+        if (seekDisabled){
             return;
         }
 
@@ -972,6 +985,7 @@ function PlaybackController() {
         seekToStartDvrWindow,
         setConfig,
         updateCurrentTime,
+        setSeekDisabled
     };
 
     setup();

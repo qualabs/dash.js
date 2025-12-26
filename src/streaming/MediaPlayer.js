@@ -773,6 +773,10 @@ function MediaPlayer() {
         return playbackController.isSeeking();
     }
 
+    function setSeekDisabled(value){
+        playbackController.setSeekDisabled(value)
+    }
+
     /**
      * Returns a Boolean that indicates whether the media is in the process of dynamic.
      * @return {boolean}
@@ -2964,6 +2968,7 @@ function MediaPlayer() {
         setTextTrack,
         setVolume,
         setXHRWithCredentialsForType,
+        setSeekDisabled,
         time,
         timeAsUTC,
         timeInDvrWindow,
