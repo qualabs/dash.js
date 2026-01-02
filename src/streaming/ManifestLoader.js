@@ -107,7 +107,7 @@ function ManifestLoader(config) {
         }
     }
 
-    function load(url, serviceLocation = null, queryParams = null, alternative = false) {
+    function load(url, serviceLocation = null, queryParams = null, linkedPeriod = null, alternative = false) {
 
         const requestStartDate = new Date();
         const request = new TextRequest(url, HTTPRequest.MPD_TYPE);
@@ -124,134 +124,141 @@ function ManifestLoader(config) {
             request.startDate = requestStartDate;
         }
 
-        eventBus.trigger(
-            Events.MANIFEST_LOADING_STARTED, {
-                request
-            }
-        );
-
-        urlLoader.load({
-            request: request,
-            success: function (data, textStatus, responseURL) {
-                // Manage situations in which success is called after calling reset
-                if (!xlinkController) {
-                    return;
-                }
-
-                let actualUrl,
-                    baseUri,
-                    manifest;
-
-                // Handle redirects for the MPD - as per RFC3986 Section 5.1.3
-                // also handily resolves relative MPD URLs to absolute
-                if (responseURL && responseURL !== url) {
-                    baseUri = urlUtils.parseBaseUrl(responseURL);
-                    actualUrl = responseURL;
-                } else {
-                    // usually this case will be caught and resolved by
-                    // responseURL above but it is not available for IE11 and Edge/12 and Edge/13
-                    // baseUri must be absolute for BaseURL resolution later
-                    if (urlUtils.isRelative(url)) {
-                        url = urlUtils.resolve(url, window.location.href);
+        function createUrlLoaderObject(resolve, reject) {
+            return {
+                request: request,
+                success: function (data, textStatus, responseURL) {
+                    // Manage situations in which success is called after calling reset
+                    if (!xlinkController) {
+                        return;
                     }
 
-                    baseUri = urlUtils.parseBaseUrl(url);
-                }
+                    let actualUrl,
+                        baseUri,
+                        manifest;
 
-                // A response of no content implies in-memory is properly up to date
-                if (textStatus == 'No Content') {
-                    eventBus.trigger(
-                        Events.INTERNAL_MANIFEST_LOADED, {
-                            manifest: null
-                        }
-                    );
-                    return;
-                }
-
-                // Create parser according to manifest type
-                if (parser === null) {
-                    parser = createParser(data);
-                }
-
-                if (parser === null) {
-                    eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
-                        manifest: null,
-                        error: new DashJSError(
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
-                        )
-                    });
-                    return;
-                }
-
-                // init xlinkcontroller with created parser
-                xlinkController.setParser(parser);
-
-                try {
-                    manifest = parser.parse(data);
-                } catch (e) {
-                    eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
-                        manifest: null,
-                        error: new DashJSError(
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
-                        )
-                    });
-                    return;
-                }
-
-                if (manifest) {
-                    manifest.url = actualUrl || url;
-
-                    // URL from which the MPD was originally retrieved (MPD updates will not change this value)
-                    if (!manifest.originalUrl) {
-                        manifest.originalUrl = manifest.url;
-                    }
-
-                    // If there is a mismatch between the manifest's specified duration and the total duration of all periods,
-                    // and the specified duration is greater than the total duration of all periods,
-                    // overwrite the manifest's duration attribute. This is a patch for if a manifest is generated incorrectly.
-                    if (settings &&
-                        settings.get().streaming.enableManifestDurationMismatchFix &&
-                        manifest.mediaPresentationDuration &&
-                        manifest.Period.length > 1) {
-                        const sumPeriodDurations = manifest.Period.reduce((totalDuration, period) => totalDuration + period.duration, 0);
-                        if (!isNaN(sumPeriodDurations) && manifest.mediaPresentationDuration > sumPeriodDurations) {
-                            logger.warn('Media presentation duration greater than duration of all periods. Setting duration to total period duration');
-                            manifest.mediaPresentationDuration = sumPeriodDurations;
-                        }
-                    }
-
-                    manifest.baseUri = baseUri;
-                    manifest.loadedTime = new Date();
-                    xlinkController.resolveManifestOnLoad(manifest);
-
-                    if (alternative) {
-                        eventBus.trigger(Events.ORIGINAL_ALTERNATIVE_MANIFEST_LOADED, { manifest: data });
+                    // Handle redirects for the MPD - as per RFC3986 Section 5.1.3
+                    // also handily resolves relative MPD URLs to absolute
+                    if (responseURL && responseURL !== url) {
+                        baseUri = urlUtils.parseBaseUrl(responseURL);
+                        actualUrl = responseURL;
                     } else {
-                        eventBus.trigger(Events.ORIGINAL_MANIFEST_LOADED, { originalManifest: data });
+                        // usually this case will be caught and resolved by
+                        // responseURL above but it is not available for IE11 and Edge/12 and Edge/13
+                        // baseUri must be absolute for BaseURL resolution later
+                        if (urlUtils.isRelative(url)) {
+                            url = urlUtils.resolve(url, window.location.href);
+                        }
+
+                        baseUri = urlUtils.parseBaseUrl(url);
                     }
 
-                } else {
-                    eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
-                        manifest: null,
-                        error: new DashJSError(
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
-                            Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
-                        )
-                    });
+                    // Create parser according to manifest type
+                    if (parser === null) {
+                        parser = createParser(data);
+                    }
+
+                    if (parser === null && !linkedPeriod) {
+                        eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
+                            manifest: null,
+                            error: new DashJSError(
+                                Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
+                                Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
+                            )
+                        });
+                        return;
+                    }
+
+                    // init xlinkcontroller with created parser
+                    xlinkController.setParser(parser);
+
+                    try {
+                        manifest = parser.parse(data);
+                    } catch (e) {
+                        if (!linkedPeriod) {
+                            eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
+                                manifest: null,
+                                error: new DashJSError(
+                                    Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
+                                    Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
+                                )
+                            });
+                        }
+                        return;
+                    }
+
+                    if (manifest) {
+                        manifest.url = actualUrl || url;
+
+                        // URL from which the MPD was originally retrieved (MPD updates will not change this value)
+                        if (!manifest.originalUrl) {
+                            manifest.originalUrl = manifest.url;
+                        }
+
+                        // If there is a mismatch between the manifest's specified duration and the total duration of all periods,
+                        // and the specified duration is greater than the total duration of all periods,
+                        // overwrite the manifest's duration attribute. This is a patch for if a manifest is generated incorrectly.
+                        if (settings &&
+                            settings.get().streaming.enableManifestDurationMismatchFix &&
+                            manifest.mediaPresentationDuration &&
+                            manifest.Period.length > 1) {
+                            const sumPeriodDurations = manifest.Period.reduce((totalDuration, period) => totalDuration + period.duration, 0);
+                            if (!isNaN(sumPeriodDurations) && manifest.mediaPresentationDuration > sumPeriodDurations) {
+                                logger.warn('Media presentation duration greater than duration of all periods. Setting duration to total period duration');
+                                manifest.mediaPresentationDuration = sumPeriodDurations;
+                            }
+                        }
+
+                        manifest.baseUri = baseUri;
+                        manifest.loadedTime = new Date();
+                        if (!linkedPeriod) {
+                            xlinkController.resolveManifestOnLoad(manifest);
+                            if (alternative) {
+                                eventBus.trigger(Events.ORIGINAL_ALTERNATIVE_MANIFEST_LOADED, { manifest: data });
+                            } else {
+                                eventBus.trigger(Events.ORIGINAL_MANIFEST_LOADED, { originalManifest: data });
+                            }
+                        } else {
+                            resolve(manifest);
+                        }
+                    } else if (!linkedPeriod) {
+                        eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
+                            manifest: null,
+                            error: new DashJSError(
+                                Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE,
+                                Errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_MESSAGE + `${url}`
+                            )
+                        });
+                    }
+                },
+                error: function (request, statusText, errorText) {
+                    if (!linkedPeriod) {
+                        eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
+                            manifest: null,
+                            error: new DashJSError(
+                                Errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE,
+                                Errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_MESSAGE + `${url}, ${errorText}`
+                            )
+                        });
+                    } else {
+                        reject();
+                    }
                 }
-            },
-            error: function (request, statusText, errorText) {
-                eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
-                    manifest: null,
-                    error: new DashJSError(
-                        Errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE,
-                        Errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_MESSAGE + `${url}, ${errorText}`
-                    )
-                });
             }
-        });
+        }
+
+        if (linkedPeriod) {
+            return new Promise((resolve, reject) => {
+                urlLoader.load(createUrlLoaderObject(resolve, reject));
+            });
+        } else {
+            eventBus.trigger(
+                Events.MANIFEST_LOADING_STARTED, {
+                    request
+                }
+            );
+            urlLoader.load(createUrlLoaderObject());
+        }
     }
 
     function reset() {
@@ -274,7 +281,7 @@ function ManifestLoader(config) {
 
     instance = {
         load: load,
-        reset: reset
+        reset: reset,
     };
 
     setup();

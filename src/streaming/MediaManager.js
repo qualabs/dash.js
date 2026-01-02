@@ -139,7 +139,7 @@ function MediaManager() {
                 prebufferedPlayer.player.off(Events.STREAM_INITIALIZED);
                 prebufferedPlayer.player.off(Events.ERROR);
                 prebufferedPlayer.player.reset();
-                
+
                 prebufferedPlayers.delete(playerId);
             }
             logger.debug(`Cleaned up prebuffered content for ${playerId}`);
@@ -171,11 +171,11 @@ function MediaManager() {
     }
 
     function switchToAlternativeContent(playerId, alternativeMpdUrl, time = 0) {
-        if (isSwitching) { 
+        if (isSwitching) {
             logger.debug('Switch already in progress - ignoring request');
-            return 
+            return
         };
-        
+
         logger.info(`Switching to alternative content at time ${time}`);
         isSwitching = true;
 
@@ -214,22 +214,22 @@ function MediaManager() {
 
         altPlayer.play();
         logger.info(`Alternative content playback started for player ${playerId}`);
-        
+
         isSwitching = false;
     }
 
 
     function switchBackToMainContent(seekTime) {
-        if (isSwitching) { 
+        if (isSwitching) {
             logger.debug('Switch already in progress - ignoring request');
-            return 
+            return
         };
 
         if (!altPlayer) {
             logger.warn('No alternative player to switch back from');
             return;
         }
-        
+
         logger.info('Switching back to main content');
         isSwitching = true;
 
@@ -244,7 +244,7 @@ function MediaManager() {
             } else {
                 logger.warn('Seek time is before DVR window start, seeking to start of DVR window');
                 playbackController.seekToDvrWindowStart();
-            }   
+            }
         } else {
             logger.debug(`Seeking main content to time: ${seekTime}`);
             playbackController.seek(seekTime, false, false);
