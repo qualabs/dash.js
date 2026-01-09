@@ -643,7 +643,6 @@ function CmcdModel() {
     function getCmcdParametersFromManifest() {
         let cmcdParametersFromManifest = {};
         if (serviceDescriptionController) {
-            debugger;
             const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
             if (
                 settings.get().streaming.cmcd.applyParametersFromMpd &&
@@ -657,8 +656,7 @@ function CmcdModel() {
     }
 
     function getEventTargetsFromCmcdParameters(){
-        //TODO: deberia devolver un array de event targets
-        let eventTargets = getCmcdParametersFromManifest().eventTarget
+        let eventTargets = getCmcdParametersFromManifest().reportingTargets
         return eventTargets
     }
 

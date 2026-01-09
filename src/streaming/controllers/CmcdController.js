@@ -229,8 +229,7 @@ function CmcdController() {
     }
 
     function triggerCmcdEventMode(event, response){
-        // si existen EventTargets en cmcd parameters usar ese array
-        console.log('triggerCmcdEventMode')
+        // TODO si existen EventTargets en cmcd parameters usar ese array
         const eventTargetsFromCmcdParameters = cmcdModel.getEventTargetsFromCmcdParameters();
         const targets = eventTargetsFromCmcdParameters ? eventTargetsFromCmcdParameters : settings.get().streaming.cmcd.targets;
 
@@ -466,7 +465,9 @@ function CmcdController() {
     }
 
     function _targetCanBeEnabled(targetSettings) {
-        const cmcdVersion = settings.get().streaming.cmcd.version ?? Constants.DEFAULT_CMCD_VERSION;
+        //TODO usar cmcdVersion del cmcd parameter si existe
+        const cmcdVersionFromManifest = getCmcdParametersFromManifest().version
+        const cmcdVersion = cmcdVersionFromManifest ? cmcdVersionFromManifest : (settings.get().streaming.cmcd.version ?? Constants.DEFAULT_CMCD_VERSION);
 
         if (cmcdVersion !== 2) {
             logger.warn('CMCD version 2 is required for target configuration');
