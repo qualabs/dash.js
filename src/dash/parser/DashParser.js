@@ -55,6 +55,7 @@ const arrayNodes = [
     DashConstants.S,
     DashConstants.SEGMENT_URL,
     DashConstants.EVENT,
+    DashConstants.EVENT_TARGET,
     DashConstants.EVENT_STREAM,
     DashConstants.LOCATION,
     DashConstants.SERVICE_DESCRIPTION,

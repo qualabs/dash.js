@@ -643,6 +643,7 @@ function CmcdModel() {
     function getCmcdParametersFromManifest() {
         let cmcdParametersFromManifest = {};
         if (serviceDescriptionController) {
+            debugger;
             const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
             if (
                 settings.get().streaming.cmcd.applyParametersFromMpd &&
@@ -653,6 +654,12 @@ function CmcdModel() {
             }
         }
         return cmcdParametersFromManifest;
+    }
+
+    function getEventTargetsFromCmcdParameters(){
+        //TODO: deberia devolver un array de event targets
+        let eventTargets = getCmcdParametersFromManifest().eventTarget
+        return eventTargets
     }
 
     function getCmcdData(request) {
@@ -806,6 +813,7 @@ function CmcdModel() {
         updateMsdData,
         resetInitialSettings,
         getCmcdParametersFromManifest,
+        getEventTargetsFromCmcdParameters,
         triggerCmcdEventMode,
         getGenericCmcdData,
         isIncludedInRequestFilter,

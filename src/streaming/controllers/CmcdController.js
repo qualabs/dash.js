@@ -151,6 +151,7 @@ function CmcdController() {
     let timeouts = [];
 
     function _initializeEventModeTimeInterval() {
+        // si existen EventTargets en cmcd parameters usar ese array
         const targets = settings.get().streaming.cmcd.targets;
         targets.forEach(({ timeInterval, events }) => {
             if (!events || !events.includes(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL)) {
@@ -228,7 +229,10 @@ function CmcdController() {
     }
 
     function triggerCmcdEventMode(event, response){
-        const targets = settings.get().streaming.cmcd.targets;
+        // si existen EventTargets en cmcd parameters usar ese array
+        console.log('triggerCmcdEventMode')
+        const eventTargetsFromCmcdParameters = cmcdModel.getEventTargetsFromCmcdParameters();
+        const targets = eventTargetsFromCmcdParameters ? eventTargetsFromCmcdParameters : settings.get().streaming.cmcd.targets;
 
         if (targets.length === 0) {
             return;
@@ -303,7 +307,7 @@ function CmcdController() {
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
 
         if (isIncludedFilters) {
-            const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
+            const cmcdParameters = getCmcdParametersFromManifest();
             const cmcdModeSetting = targetSettings ? targetSettings.mode : settings.get().streaming.cmcd.mode;
             const mode = cmcdParameters.mode ? cmcdParameters.mode : cmcdModeSetting;
             switch (mode) {
@@ -399,19 +403,30 @@ function CmcdController() {
             return _targetCanBeEnabled(targetSettings) && _checkTargetIncludeInRequests(targetSettings);
         }
         else {
-            const cmcdParametersFromManifest = cmcdModel.getCmcdParametersFromManifest();
+            const cmcdParametersFromManifest = getCmcdParametersFromManifest();
             return _canBeEnabled(cmcdParametersFromManifest) && _checkIncludeInRequests(cmcdParametersFromManifest);
         }
     }
 
     function _canBeEnabled(cmcdParametersFromManifest) {
         if (Object.keys(cmcdParametersFromManifest).length) {
-            if (parseInt(cmcdParametersFromManifest.version) !== 1) {
-                logger.error(`version parameter must be defined in 1.`);
+            const version = parseInt(cmcdParametersFromManifest.version);
+
+            // Support both version 1 and version 2
+            if (version !== 1 && version !== 2) {
+                logger.error(`version parameter must be 1 or 2, got ${version}.`);
                 return false;
             }
-            if (!cmcdParametersFromManifest.keys) {
-                logger.error(`keys parameter must be defined.`);
+
+            // Version 1: keys must be defined at CMCDParameters level
+            // Version 2: keys are defined in each EventTarget within ReportingTargets
+            if (version === 1 && !cmcdParametersFromManifest.keys) {
+                logger.error(`keys parameter must be defined for version 1.`);
+                return false;
+            }
+
+            if (version === 2 && (!cmcdParametersFromManifest.reportingTargets || !cmcdParametersFromManifest.reportingTargets.length)) {
+                logger.error(`reportingTargets must be defined for version 2.`);
                 return false;
             }
         }
@@ -421,6 +436,14 @@ function CmcdController() {
     }
 
     function _checkIncludeInRequests(cmcdParametersFromManifest) {
+        // Version 2 doesn't use includeInRequests at CMCDParameters level
+        // Instead, each EventTarget has its own events configuration
+        const version = parseInt(cmcdParametersFromManifest.version);
+        if (version === 2) {
+            return true; // Skip this validation for version 2
+        }
+
+        // Version 1 validation
         let enabledRequests = settings.get().streaming.cmcd.includeInRequests;
 
         if (cmcdParametersFromManifest.version) {
@@ -480,7 +503,7 @@ function CmcdController() {
     }
 
     function _createCmcdEncodeOptions(targetSettings) {
-        const cmcdParametersFromManifest = cmcdModel.getCmcdParametersFromManifest();
+        const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const enabledKeys = targetSettings ?
             targetSettings.enabledKeys :
             (cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys);
