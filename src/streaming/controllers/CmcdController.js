@@ -151,7 +151,7 @@ function CmcdController() {
     let timeouts = [];
 
     function _initializeEventModeTimeInterval() {
-        // si existen EventTargets en cmcd parameters usar ese array
+        // TODO si existen EventTargets en cmcd parameters usar ese array
         const targets = settings.get().streaming.cmcd.targets;
         targets.forEach(({ timeInterval, events }) => {
             if (!events || !events.includes(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL)) {
@@ -229,7 +229,6 @@ function CmcdController() {
     }
 
     function triggerCmcdEventMode(event, response){
-        // TODO si existen EventTargets en cmcd parameters usar ese array
         const eventTargetsFromCmcdParameters = cmcdModel.getEventTargetsFromCmcdParameters();
         const targets = eventTargetsFromCmcdParameters ? eventTargetsFromCmcdParameters : settings.get().streaming.cmcd.targets;
 
@@ -409,7 +408,7 @@ function CmcdController() {
 
     function _canBeEnabled(cmcdParametersFromManifest) {
         if (Object.keys(cmcdParametersFromManifest).length) {
-            const version = parseInt(cmcdParametersFromManifest.version);
+            const version = cmcdParametersFromManifest.version;
 
             // Support both version 1 and version 2
             if (version !== 1 && version !== 2) {
@@ -437,7 +436,7 @@ function CmcdController() {
     function _checkIncludeInRequests(cmcdParametersFromManifest) {
         // Version 2 doesn't use includeInRequests at CMCDParameters level
         // Instead, each EventTarget has its own events configuration
-        const version = parseInt(cmcdParametersFromManifest.version);
+        const version = cmcdParametersFromManifest.version;
         if (version === 2) {
             return true; // Skip this validation for version 2
         }

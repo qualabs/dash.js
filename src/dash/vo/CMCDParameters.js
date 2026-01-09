@@ -52,7 +52,7 @@ class CMCDParameters extends DescriptorType {
         super.init(data);
 
         if (data) {
-            this.version = data.version;
+            this.version = data.version ? parseInt(data.version) : null;
             this.sessionID = data.sessionID;
             this.contentID = data.contentID;
             this.mode = data.mode ?? 'query';
