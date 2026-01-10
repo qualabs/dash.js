@@ -37,7 +37,6 @@ import MediaPlayerEvents from '../MediaPlayerEvents.js';
 import Utils from '../../core/Utils.js';
 import Constants from '../../streaming/constants/Constants.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
-import Settings from '../../core/Settings.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import CmcdConfigAccessor from '../cmcd/config/CmcdConfigAccessor.js';
 
@@ -68,8 +67,7 @@ function CmcdModel() {
         _rebufferingDuration = {};
 
     let context = this.context;
-    let settings = Settings(context).getInstance();
-    
+
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         cmcdConfig = CmcdConfigAccessor(context).getInstance();
@@ -644,7 +642,7 @@ function CmcdModel() {
         if (serviceDescriptionController) {
             const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
             if (
-                settings.get().streaming.cmcd.applyParametersFromMpd &&
+                cmcdConfig.get('applyParametersFromMpd') &&
                 serviceDescription.clientDataReporting &&
                 serviceDescription.clientDataReporting.cmcdParameters
             ) {
@@ -693,12 +691,7 @@ function CmcdModel() {
     }
 
     function isIncludedInRequestFilter(type, includeInRequests) {
-        const cmcdParametersFromManifest = getCmcdParametersFromManifest();
-        let includeInRequestsArray = includeInRequests || settings.get().streaming.cmcd.includeInRequests;
-
-        if (cmcdParametersFromManifest.version) {
-            includeInRequestsArray = cmcdParametersFromManifest.includeInRequests ? cmcdParametersFromManifest.includeInRequests : [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
-        }
+        const includeInRequestsArray = includeInRequests || cmcdConfig.get('includeInRequests');
 
         const filtersTypes = {
             [HTTPRequest.INIT_SEGMENT_TYPE]: 'segment',
