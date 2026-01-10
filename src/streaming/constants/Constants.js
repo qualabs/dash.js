@@ -28,13 +28,15 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import { CmcdPlayerState } from '@svta/common-media-library/cmcd/CmcdPlayerState';
-import { CmcdReportingMode } from '@svta/common-media-library/cmcd/CmcdReportingMode';
-import { CmcdEventType } from '@svta/common-media-library/cmcd/CmcdEventType';
-import { CMCD_DEFAULT_TIME_INTERVAL } from '@svta/common-media-library/cmcd/CMCD_DEFAULT_TIME_INTERVAL';
-import { CMCD_PARAM } from '@svta/common-media-library/cmcd/CMCD_PARAM';
-import { CMCD_QUERY } from '@svta/common-media-library/cmcd/CMCD_QUERY';
-import { CMCD_KEYS } from '@svta/common-media-library/cmcd/CMCD_KEYS';
+import {
+    CmcdPlayerState,
+    CmcdReportingMode,
+    CmcdEventType,
+    CMCD_DEFAULT_TIME_INTERVAL,
+    CMCD_PARAM,
+    CMCD_QUERY,
+    CMCD_KEYS
+} from '@svta/cml-cmcd';
 
 /**
  * Constants declaration

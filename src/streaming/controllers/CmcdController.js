@@ -34,11 +34,13 @@ import FactoryMaker from '../../core/FactoryMaker.js';
 import MediaPlayerEvents from '../MediaPlayerEvents.js';
 import Constants from '../../streaming/constants/Constants.js';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
-import {CMCD_PARAM} from '@svta/common-media-library/cmcd/CMCD_PARAM';
+import {
+    CMCD_PARAM,
+    encodeCmcd,
+    toCmcdHeaders,
+    toCmcdUrl
+} from '@svta/cml-cmcd';
 import Debug from '../../core/Debug.js';
-import {encodeCmcd} from '@svta/common-media-library/cmcd/encodeCmcd';
-import {toCmcdHeaders} from '@svta/common-media-library/cmcd/toCmcdHeaders';
-import {toCmcdUrl} from '@svta/common-media-library/cmcd/toCmcdUrl';
 
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
 import Utils from '../../core/Utils.js';
@@ -249,7 +251,7 @@ function CmcdController() {
             cmcdData = {...cmcdData, ...response.request.cmcd}
             cmcdData = _addCmcdResponseReceivedData(response, cmcdData);
         }
-        
+
         targets.forEach(targetSettings => {
             if (!isCmcdEnabled(targetSettings)){
                 return;
