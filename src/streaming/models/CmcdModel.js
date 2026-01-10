@@ -39,6 +39,7 @@ import Constants from '../../streaming/constants/Constants.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
 import Settings from '../../core/Settings.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
+import CmcdConfigAccessor from '../cmcd/config/CmcdConfigAccessor.js';
 
 const RTP_SAFETY_FACTOR = 5;
 
@@ -51,6 +52,7 @@ function CmcdModel() {
         internalData,
         abrController,
         throughputController,
+        cmcdConfig,
         _lastMediaTypeRequest,
         _isStartup,
         _bufferLevelStarved,
@@ -70,6 +72,7 @@ function CmcdModel() {
     
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
+        cmcdConfig = CmcdConfigAccessor(context).getInstance();
         resetInitialSettings();
     }
     
@@ -129,10 +132,9 @@ function CmcdModel() {
             }
         }
 
-        let rtp = settings.get().streaming.cmcd.rtp;
-        if (!rtp) {
-            rtp = _calculateRtp(request);
-        }
+        const rtp = cmcdConfig.has('rtp')
+            ? cmcdConfig.get('rtp')
+            : _calculateRtp(request);
         if (!isNaN(rtp)) {
             data.rtp = rtp;
         }
@@ -461,16 +463,13 @@ function CmcdModel() {
     }
 
     function getGenericCmcdData(mediaType) {
-        const cmcdParametersFromManifest = getCmcdParametersFromManifest();
         const data = {};
 
-        let cid = settings.get().streaming.cmcd.cid ? settings.get().streaming.cmcd.cid : internalData.cid;
-        cid = cmcdParametersFromManifest.contentID ? cmcdParametersFromManifest.contentID : cid;
+        const cid = cmcdConfig.get('contentID', { defaultValue: internalData.cid });
 
-        data.v = settings.get().streaming.cmcd.version ?? Constants.DEFAULT_CMCD_VERSION;
+        data.v = cmcdConfig.getVersion();
 
-        data.sid = settings.get().streaming.cmcd.sid ? settings.get().streaming.cmcd.sid : internalData.sid;
-        data.sid = cmcdParametersFromManifest.sessionID ? cmcdParametersFromManifest.sessionID : data.sid;
+        data.sid = cmcdConfig.get('sessionID', { defaultValue: internalData.sid });
 
         data.sid = `${data.sid}`;
         data.ts = Date.now();
@@ -614,7 +613,7 @@ function CmcdModel() {
             let segmentSize = (bandwidth * duration) / 1000; // Calculate file size in kilobits
             let timeToLoad = (currentBufferLevel / playbackRate) / 1000; // Calculate time available to load file in seconds
             let minBandwidth = segmentSize / timeToLoad; // Calculate the exact bandwidth required
-            let rtpSafetyFactor = settings.get().streaming.cmcd.rtpSafetyFactor && !isNaN(settings.get().streaming.cmcd.rtpSafetyFactor) ? settings.get().streaming.cmcd.rtpSafetyFactor : RTP_SAFETY_FACTOR;
+            const rtpSafetyFactor = cmcdConfig.get('rtpSafetyFactor', { defaultValue: RTP_SAFETY_FACTOR });
             let maxBandwidth = minBandwidth * rtpSafetyFactor; // Include a safety buffer
 
 
@@ -626,7 +625,7 @@ function CmcdModel() {
     }
 
     function updateMsdData(mode) {
-        const cmcdVersion = settings.get().streaming.cmcd.version ?? Constants.DEFAULT_CMCD_VERSION;
+        const cmcdVersion = cmcdConfig.getVersion();
         const data = {};
         const msd = internalData.msd;
 
@@ -636,7 +635,7 @@ function CmcdModel() {
                 _msdSent[mode] = true;
             }
         }
-    
+
         return data;
     }
 
@@ -652,6 +651,12 @@ function CmcdModel() {
                 cmcdParametersFromManifest = serviceDescription.clientDataReporting.cmcdParameters;
             }
         }
+
+        // Update CmcdConfigAccessor with manifest parameters
+        if (cmcdConfig && Object.keys(cmcdParametersFromManifest).length > 0) {
+            cmcdConfig.setManifestParams(cmcdParametersFromManifest);
+        }
+
         return cmcdParametersFromManifest;
     }
 

@@ -91,26 +91,22 @@ function CmcdConfigAccessor() {
      * @private
      */
     function _detectVersion() {
-        if (detectedVersion !== null) {
-            return detectedVersion;
-        }
-
-        // Check manifest parameters first
+        // Check manifest parameters first (cache this since it's set explicitly)
         if (manifestParams && manifestParams.version) {
-            detectedVersion = parseInt(manifestParams.version, 10);
+            if (detectedVersion === null) {
+                detectedVersion = parseInt(manifestParams.version, 10);
+            }
             return detectedVersion;
         }
 
-        // Check settings
+        // Check settings (don't cache - settings can change dynamically)
         const cmcdSettings = settings.get().streaming.cmcd;
         if (cmcdSettings && cmcdSettings.version) {
-            detectedVersion = parseInt(cmcdSettings.version, 10);
-            return detectedVersion;
+            return parseInt(cmcdSettings.version, 10);
         }
 
         // Default to version 1
-        detectedVersion = 1;
-        return detectedVersion;
+        return 1;
     }
 
     /**

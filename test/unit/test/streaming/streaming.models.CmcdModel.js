@@ -285,4 +285,48 @@ describe('CmcdModel', function () {
             clock.restore();
         });
     });
+
+    describe('CmcdConfigAccessor integration', function () {
+        it('should return CMCD parameters from manifest when present', function () {
+            // Ensure applyParametersFromMpd is true
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        enabled: true,
+                        version: 1,
+                        applyParametersFromMpd: true,
+                        sid: 'test-session-id',
+                        cid: 'test-content-id',
+                        includeInRequests: ['segment', 'mpd']
+                    }
+                }
+            });
+
+            const cmcdParams = {
+                version: 2,
+                sessionID: 'manifest-session-id',
+                contentID: 'manifest-content-id'
+            };
+
+            serviceDescriptionControllerMock.getServiceDescriptionSettings = sinon.stub().returns({
+                clientDataReporting: {
+                    cmcdParameters: cmcdParams
+                }
+            });
+
+            const result = cmcdModel.getCmcdParametersFromManifest();
+
+            expect(result).to.deep.equal(cmcdParams);
+        });
+
+        it('should return empty object when no CMCD parameters in manifest', function () {
+            serviceDescriptionControllerMock.getServiceDescriptionSettings = sinon.stub().returns({
+                clientDataReporting: {}
+            });
+
+            const result = cmcdModel.getCmcdParametersFromManifest();
+
+            expect(result).to.deep.equal({});
+        });
+    });
 });
