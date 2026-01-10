@@ -48,12 +48,14 @@ import CmcdModel from '../models/CmcdModel.js'
 import CmcdBatchController from './CmcdBatchController.js';
 import Errors from '../../core/errors/Errors.js';
 import Settings from '../../core/Settings.js';
+import CmcdConfigAccessor from '../cmcd/config/CmcdConfigAccessor.js';
 
 function CmcdController() {
     let instance,
         logger,
         cmcdModel,
         cmcdBatchController,
+        cmcdConfig,
         clientDataReportingController,
         urlLoader,
         mediaPlayerModel,
@@ -69,6 +71,7 @@ function CmcdController() {
 
     cmcdModel = CmcdModel(context).getInstance();
     cmcdBatchController = CmcdBatchController(context).getInstance();
+    cmcdConfig = CmcdConfigAccessor(context).getInstance();
 
     function setup() {
         logger = debug.getLogger(instance);
@@ -151,13 +154,12 @@ function CmcdController() {
     let timeouts = [];
 
     function _initializeEventModeTimeInterval() {
-        // TODO si existen EventTargets en cmcd parameters usar ese array
-        const targets = settings.get().streaming.cmcd.targets;
+        const targets = cmcdConfig.getTargets();
         targets.forEach(({ timeInterval, events }) => {
             if (!events || !events.includes(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL)) {
                 return;
             }
-            
+
             timeInterval = timeInterval ?? Constants.CMCD_DEFAULT_TIME_INTERVAL;
             if (timeInterval >= 1) {
                 const triggerEventModeInterval = () => {
@@ -215,7 +217,7 @@ function CmcdController() {
                 requestType: request.type,
                 cmcdData,
                 cmcdString: finalPayloadString,
-                mode: targetSettings ? targetSettings.mode : settings.get().streaming.cmcd.mode,
+                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -230,7 +232,7 @@ function CmcdController() {
 
     function triggerCmcdEventMode(event, response){
         const eventTargetsFromCmcdParameters = cmcdModel.getEventTargetsFromCmcdParameters();
-        const targets = eventTargetsFromCmcdParameters ? eventTargetsFromCmcdParameters : settings.get().streaming.cmcd.targets;
+        const targets = eventTargetsFromCmcdParameters || cmcdConfig.getTargets();
 
         if (targets.length === 0) {
             return;
@@ -305,9 +307,7 @@ function CmcdController() {
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
 
         if (isIncludedFilters) {
-            const cmcdParameters = getCmcdParametersFromManifest();
-            const cmcdModeSetting = targetSettings ? targetSettings.mode : settings.get().streaming.cmcd.mode;
-            const mode = cmcdParameters.mode ? cmcdParameters.mode : cmcdModeSetting;
+            const mode = targetSettings ? targetSettings.mode : cmcdConfig.get('mode');
             switch (mode) {
                 case Constants.CMCD_MODE_QUERY:
                     request.url = Utils.removeQueryParameterFromUrl(request.url, Constants.CMCD_QUERY_KEY);
@@ -363,7 +363,7 @@ function CmcdController() {
                 mediaType: request.mediaType,
                 cmcdData,
                 headers,
-                mode: targetSettings ? targetSettings.mode : settings.get().streaming.cmcd.mode,
+                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -385,7 +385,7 @@ function CmcdController() {
                 requestType: request.type,
                 cmcdData,
                 cmcdString: body,
-                mode: targetSettings ? targetSettings.mode : settings.get().streaming.cmcd.mode,
+                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -428,9 +428,7 @@ function CmcdController() {
                 return false;
             }
         }
-        const isEnabledFromManifest = cmcdParametersFromManifest.version;
-        const isEnabledFromSettings = settings.get().streaming.cmcd && settings.get().streaming.cmcd.enabled;
-        return isEnabledFromManifest || isEnabledFromSettings;
+        return cmcdConfig.isEnabled();
     }
 
     function _checkIncludeInRequests(cmcdParametersFromManifest) {
@@ -442,11 +440,7 @@ function CmcdController() {
         }
 
         // Version 1 validation
-        let enabledRequests = settings.get().streaming.cmcd.includeInRequests;
-
-        if (cmcdParametersFromManifest.version) {
-            enabledRequests = cmcdParametersFromManifest.includeInRequests ?? [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
-        }
+        const enabledRequests = cmcdConfig.get('includeInRequests');
 
         const defaultAvailableRequests = Constants.CMCD_AVAILABLE_REQUESTS;
         const invalidRequests = enabledRequests.filter(k => !defaultAvailableRequests.includes(k));
@@ -464,9 +458,7 @@ function CmcdController() {
     }
 
     function _targetCanBeEnabled(targetSettings) {
-        //TODO usar cmcdVersion del cmcd parameter si existe
-        const cmcdVersionFromManifest = getCmcdParametersFromManifest().version
-        const cmcdVersion = cmcdVersionFromManifest ? cmcdVersionFromManifest : (settings.get().streaming.cmcd.version ?? Constants.DEFAULT_CMCD_VERSION);
+        const cmcdVersion = cmcdConfig.getVersion();
 
         if (cmcdVersion !== 2) {
             logger.warn('CMCD version 2 is required for target configuration');
@@ -503,14 +495,11 @@ function CmcdController() {
     }
 
     function _createCmcdEncodeOptions(targetSettings) {
-        const cmcdParametersFromManifest = getCmcdParametersFromManifest();
-        const enabledKeys = targetSettings ?
-            targetSettings.enabledKeys :
-            (cmcdParametersFromManifest.version ? cmcdParametersFromManifest.keys : settings.get().streaming.cmcd.enabledKeys);
+        const enabledKeys = targetSettings ? targetSettings.enabledKeys : cmcdConfig.get('keys');
 
         return {
             reportingMode: targetSettings ? Constants.CMCD_REPORTING_MODE.EVENT : Constants.CMCD_REPORTING_MODE.REQUEST,
-            version: settings.get().streaming.cmcd.version ?? Constants.CMCD_DEFAULT_VERSION,
+            version: cmcdConfig.getVersion(),
             filter: enabledKeys ? (key) => enabledKeys.includes(key) : undefined,
         }
     }
