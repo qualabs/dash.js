@@ -219,11 +219,20 @@ function CmcdConfigAccessor() {
             pathContext.targetIndex = options.targetIndex;
         }
 
+        // Check if we should skip manifest params (avoid circular dependency by checking settings directly)
+        const applyParametersFromMpd = property === 'applyParametersFromMpd' ? true :
+            (context.settings?.streaming?.cmcd?.applyParametersFromMpd ?? true);
+
         // Sort sources by priority (lower number = higher priority)
         const sortedSources = [...propertyMapping.sources].sort((a, b) => a.priority - b.priority);
 
         // Try each source in priority order
         for (const source of sortedSources) {
+            // Skip manifestParams sources if applyParametersFromMpd is false
+            if (!applyParametersFromMpd && source.path.startsWith('manifestParams')) {
+                continue;
+            }
+
             const value = _resolvePath(context, source.path, pathContext);
 
             // Check if value exists and is not null/undefined

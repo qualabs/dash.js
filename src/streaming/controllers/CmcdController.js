@@ -112,12 +112,15 @@ function CmcdController() {
         targetSequenceNumbers = new Map();
         requestModeSequenceNumber = 0;
 
+        // Ensure cmcdConfig is updated with manifest parameters
+        getCmcdParametersFromManifest();
+
         eventBus.on(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
         eventBus.on(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, instance);
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
-        
+
         if (autoPlay) {
             eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
         }
@@ -206,6 +209,9 @@ function CmcdController() {
 
     function getQueryParameter(request, cmcdData, targetSettings) {
         try {
+            // Ensure accessor is updated with latest manifest parameters
+            getCmcdParametersFromManifest();
+
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
             const encodeOptions = _createCmcdEncodeOptions(targetSettings);
@@ -353,6 +359,9 @@ function CmcdController() {
 
     function getHeaderParameters(request, cmcdData, targetSettings) {
         try {
+            // Ensure accessor is updated with latest manifest parameters
+            getCmcdParametersFromManifest();
+
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
             const encodeOptions = _createCmcdEncodeOptions(targetSettings);

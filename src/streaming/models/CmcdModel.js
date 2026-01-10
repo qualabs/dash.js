@@ -642,7 +642,6 @@ function CmcdModel() {
         if (serviceDescriptionController) {
             const serviceDescription = serviceDescriptionController.getServiceDescriptionSettings();
             if (
-                cmcdConfig.get('applyParametersFromMpd') &&
                 serviceDescription.clientDataReporting &&
                 serviceDescription.clientDataReporting.cmcdParameters
             ) {
@@ -650,9 +649,15 @@ function CmcdModel() {
             }
         }
 
-        // Update CmcdConfigAccessor with manifest parameters
+        // Update CmcdConfigAccessor with manifest parameters if available
+        // Note: Always update accessor when params exist, regardless of applyParametersFromMpd
+        // The accessor uses priority-based resolution, so manifest params will only be used
+        // when they have higher priority in the PropertyMap configuration
         if (cmcdConfig && Object.keys(cmcdParametersFromManifest).length > 0) {
             cmcdConfig.setManifestParams(cmcdParametersFromManifest);
+        } else if (cmcdConfig) {
+            // Clear manifest params if none are available
+            cmcdConfig.setManifestParams(null);
         }
 
         return cmcdParametersFromManifest;
