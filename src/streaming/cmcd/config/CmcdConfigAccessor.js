@@ -226,7 +226,7 @@ function CmcdConfigAccessor() {
         // Sort sources by priority (lower number = higher priority)
         const sortedSources = [...propertyMapping.sources].sort((a, b) => a.priority - b.priority);
 
-        // Try each source in priority order
+        // First pass: Try to find an actual value from any source
         for (const source of sortedSources) {
             // Skip manifestParams sources if applyParametersFromMpd is false
             if (!applyParametersFromMpd && source.path.startsWith('manifestParams')) {
@@ -244,14 +244,21 @@ function CmcdConfigAccessor() {
 
                 return value;
             }
+        }
 
-            // If this source has a default and we found nothing, use it
-            if (source.default !== undefined && value === undefined) {
+        // Second pass: If no actual value found, look for the highest-priority default
+        for (const source of sortedSources) {
+            // Skip manifestParams sources if applyParametersFromMpd is false
+            if (!applyParametersFromMpd && source.path.startsWith('manifestParams')) {
+                continue;
+            }
+
+            if (source.default !== undefined) {
                 return source.default;
             }
         }
 
-        // No value found in any source, return override default or undefined
+        // No value or default found in any source, return override default or undefined
         return options.defaultValue !== undefined ? options.defaultValue : undefined;
     }
 
