@@ -436,8 +436,6 @@ function CmcdController() {
             return _targetCanBeEnabled(targetIndex) && _checkTargetIncludeInRequests(targetIndex);
         }
         else {
-            // Ensure accessor is updated with latest manifest parameters
-            getCmcdParametersFromManifest();
             return _canBeEnabled() && _checkIncludeInRequests();
         }
     }

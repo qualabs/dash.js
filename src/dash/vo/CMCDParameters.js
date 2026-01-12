@@ -31,6 +31,7 @@
 
 import DescriptorType from './DescriptorType.js';
 import EventTarget from './EventTarget.js';
+import Constants from '../../streaming/constants/Constants.js';
 
 /**
  * @class
@@ -57,7 +58,9 @@ class CMCDParameters extends DescriptorType {
             this.contentID = data.contentID;
             this.mode = data.mode ?? 'query';
             this.keys = data.keys ? data.keys.split(' ') : null;
-            this.includeInRequests = data.includeInRequests ? data.includeInRequests.split(' ') : null;
+            this.includeInRequests = data.includeInRequests
+                ? data.includeInRequests.split(' ')
+                : [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
             this.schemeIdUri = data.schemeIdUri;
 
             // Version 2: Parse ReportingTargets with EventTargets
