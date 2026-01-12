@@ -239,8 +239,7 @@ function CmcdController() {
     }
 
     function triggerCmcdEventMode(event, response){
-        const eventTargetsFromCmcdParameters = cmcdModel.getEventTargetsFromCmcdParameters();
-        const targets = eventTargetsFromCmcdParameters || cmcdConfig.getTargets();
+        const targets = cmcdConfig.getTargets();
 
         if (targets.length === 0) {
             return;
