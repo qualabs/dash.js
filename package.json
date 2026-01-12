@@ -84,6 +84,7 @@
     "yargs": "^17.7.2"
   },
   "dependencies": {
+    "@svta/cml-cmcd": "^1.0.2",
     "@svta/common-media-library": "^0.17.1",
     "bcp-47-match": "^2.0.3",
     "bcp-47-normalize": "^2.3.0",
