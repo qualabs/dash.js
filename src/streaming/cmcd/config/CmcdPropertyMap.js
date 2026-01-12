@@ -200,11 +200,11 @@ const CmcdPropertyMap = {
     },
 
     /**
-     * Enabled CMCD keys (V1)
+     * Global enabled CMCD keys
      * Priority: manifest > settings > default (all keys)
      *
-     * Note: In V1, this is a global setting
-     * In V2, keys can be per-target (see keysV2)
+     * Note: In V1, this is a global setting.
+     * In V2, keys can be per-target (see targetKeys), and this serves as a fallback.
      */
     keys: {
         version: [1, 2],
