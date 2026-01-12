@@ -593,7 +593,6 @@ function CmcdModel() {
 
     function _calculateRtp(request) {
         try {
-            // Get the values we need
             let playbackRate = playbackController.getPlaybackRate();
             if (!playbackRate) {
                 playbackRate = 1;

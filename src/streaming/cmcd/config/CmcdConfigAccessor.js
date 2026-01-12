@@ -106,7 +106,7 @@ function CmcdConfigAccessor() {
             return parseInt(cmcdSettings.version, 10);
         }
 
-        // Default to version 1
+        // Default
         return Constants.CMCD_DEFAULT_VERSION;
     }
 
@@ -202,7 +202,6 @@ function CmcdConfigAccessor() {
         const propertyMapping = CmcdPropertyMap[property];
 
         if (!propertyMapping) {
-            // Property not found in map, return undefined or provided default
             return options.defaultValue !== undefined ? options.defaultValue : undefined;
         }
 
@@ -297,7 +296,6 @@ function CmcdConfigAccessor() {
      * @public
      */
     function isEnabled() {
-        // If manifest params exist with a valid version, CMCD is implicitly enabled
         if (manifestParams && manifestParams.version) {
             return true;
         }

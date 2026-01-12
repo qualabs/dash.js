@@ -114,7 +114,6 @@ function CmcdController() {
         targetSequenceNumbers = new Map();
         requestModeSequenceNumber = 0;
 
-        // Ensure cmcdConfig is updated with manifest parameters
         getCmcdParametersFromManifest();
 
         eventBus.on(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
@@ -211,12 +210,10 @@ function CmcdController() {
 
     function getQueryParameter(request, cmcdData, keys = null, isEventMode = false, mode = null) {
         try {
-            // Ensure accessor is updated with latest manifest parameters
             getCmcdParametersFromManifest();
 
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
-            // Use provided keys or fallback to global config
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const finalPayloadString = encodeCmcd(cmcdData, encodeOptions);
@@ -254,7 +251,6 @@ function CmcdController() {
         }
 
         targets.forEach((targetSettings, targetIndex) => {
-            // Validate target using accessor
             if (!isCmcdEnabled(targetIndex)){
                 return;
             }
@@ -329,7 +325,6 @@ function CmcdController() {
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
 
         if (isIncludedFilters) {
-            // Use provided mode or fallback to global config
             const effectiveMode = mode || cmcdConfig.get('mode');
             const effectiveKeys = keys || cmcdConfig.get('keys');
 
@@ -381,12 +376,10 @@ function CmcdController() {
 
     function getHeaderParameters(request, cmcdData, keys = null, isEventMode = false, mode = null) {
         try {
-            // Ensure accessor is updated with latest manifest parameters
             getCmcdParametersFromManifest();
 
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
-            // Use provided keys or fallback to global config
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const headers = toCmcdHeaders(cmcdData, encodeOptions);
@@ -409,7 +402,6 @@ function CmcdController() {
     function getJsonParameters(request, cmcdData, keys = null, isEventMode = false, mode = null){
         try {
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
-            // Use provided keys or fallback to global config
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const body = toCmcdUrl(cmcdData, encodeOptions);
@@ -443,21 +435,15 @@ function CmcdController() {
     function _canBeEnabled() {
         const version = cmcdConfig.getVersion();
 
-        // Support both version 1 and version 2
         if (version !== 1 && version !== 2) {
             logger.error(`version parameter must be 1 or 2, got ${version}.`);
             return false;
         }
 
-        // Version 1: If keys are not defined, all available keys will be sent (CML default behavior)
-        // Version 2 Request Mode: Works like v1 but with v2 structure
-        // Version 2 Event Mode: Requires targets (validated in triggerCmcdEventMode)
         return cmcdConfig.isEnabled();
     }
 
     function _checkIncludeInRequests() {
-        // Version 2 doesn't use includeInRequests at CMCDParameters level
-        // Instead, each EventTarget has its own events configuration
         const version = cmcdConfig.getVersion();
         if (version === 2) {
             return true; // Skip this validation for version 2
@@ -538,7 +524,6 @@ function CmcdController() {
 
     function _onManifestLoaded(data) {
         cmcdModel.onManifestLoaded(data);
-        // Update accessor with manifest parameters after manifest is loaded
         getCmcdParametersFromManifest();
     }
 
@@ -566,7 +551,6 @@ function CmcdController() {
     }
 
     function getCmcdRequestInterceptors() {
-        // Add here request interceptors
         return [_cmcdRequestModeInterceptor];
     }
 
