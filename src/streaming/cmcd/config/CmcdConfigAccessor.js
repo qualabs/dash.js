@@ -32,6 +32,7 @@
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import CmcdPropertyMap from './CmcdPropertyMap.js';
 import Settings from '../../../core/Settings.js';
+import Constants from '../../constants/Constants.js';
 
 /**
  * @module CmcdConfigAccessor
@@ -106,7 +107,7 @@ function CmcdConfigAccessor() {
         }
 
         // Default to version 1
-        return 1;
+        return Constants.CMCD_DEFAULT_VERSION;
     }
 
     /**
