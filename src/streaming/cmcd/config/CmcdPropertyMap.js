@@ -82,19 +82,16 @@ const CmcdPropertyMap = {
 
     /**
      * CMCD enabled flag
-     * Priority: manifest > settings > default (false)
+     * Note: This only exists in player settings, not in manifest.
+     * Manifest presence (CMCDParameters tag) implies enabled=true.
+     * Priority: settings > default (false)
      */
     enabled: {
         version: [1, 2],
         sources: [
             {
-                path: 'manifestParams.enabled',
-                priority: 1,
-                type: 'boolean'
-            },
-            {
                 path: 'settings.streaming.cmcd.enabled',
-                priority: 2,
+                priority: 1,
                 type: 'boolean',
                 default: false
             }
@@ -291,6 +288,27 @@ const CmcdPropertyMap = {
                 priority: 2,
                 type: 'array',
                 default: []
+            }
+        ]
+    },
+
+    /**
+     * V2: Target enabled flag
+     * Note: This is target-specific, requires context
+     */
+    targetEnabled: {
+        version: [2],
+        sources: [
+            {
+                path: 'manifestParams.reportingTargets[{targetIndex}].enabled',
+                priority: 1,
+                type: 'boolean'
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].enabled',
+                priority: 2,
+                type: 'boolean',
+                default: true
             }
         ]
     },

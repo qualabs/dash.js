@@ -209,14 +209,16 @@ function CmcdController() {
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
     }
 
-    function getQueryParameter(request, cmcdData, targetSettings) {
+    function getQueryParameter(request, cmcdData, keys = null, isEventMode = false, mode = null) {
         try {
             // Ensure accessor is updated with latest manifest parameters
             getCmcdParametersFromManifest();
 
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
-            const encodeOptions = _createCmcdEncodeOptions(targetSettings);
+            // Use provided keys or fallback to global config
+            const effectiveKeys = keys || cmcdConfig.get('keys');
+            const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const finalPayloadString = encodeCmcd(cmcdData, encodeOptions);
 
             const eventBusData = {
@@ -225,7 +227,7 @@ function CmcdController() {
                 requestType: request.type,
                 cmcdData,
                 cmcdString: finalPayloadString,
-                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
+                mode: mode || cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -251,21 +253,30 @@ function CmcdController() {
             cmcdData = _addCmcdResponseReceivedData(response, cmcdData);
         }
 
-        targets.forEach(targetSettings => {
-            if (!isCmcdEnabled(targetSettings)){
+        targets.forEach((targetSettings, targetIndex) => {
+            // Validate target using accessor
+            if (!isCmcdEnabled(targetIndex)){
                 return;
             }
+
+            // Use target accessor to get target-specific properties
+            const targetAccessor = cmcdConfig.getTarget(targetIndex);
+            const includeOnRequests = targetAccessor.get('targetIncludeOnRequests');
+            const events = targetAccessor.get('targetEvents');
+            const url = targetAccessor.get('targetUrl');
+            const mode = targetAccessor.get('targetMode');
+            const keys = targetAccessor.get('targetKeys');
+            const batchSize = targetAccessor.get('targetBatchSize');
+            const batchTimer = targetAccessor.get('targetBatchTimer');
 
             const requestType = response?.request.customData.request.type;
-            if (requestType && !cmcdModel.isIncludedInRequestFilter(requestType, targetSettings.includeOnRequests)){
+            if (requestType && !cmcdModel.isIncludedInRequestFilter(requestType, includeOnRequests)){
                 return;
             }
 
-            if (targetSettings.events?.length === 0) {
+            if (events?.length === 0) {
                 logger.warn('CMCD Event Mode is enabled, but the "events" setting is empty. No event-specific CMCD data will be sent.');
             }
-
-            let events = targetSettings.events ? targetSettings.events : Object.values(Constants.CMCD_REPORTING_EVENTS);
 
             if (!events.includes(event)) {
                 return;
@@ -273,7 +284,7 @@ function CmcdController() {
 
             let httpRequest = new CmcdReportRequest();
 
-            httpRequest.url = targetSettings.url;
+            httpRequest.url = url;
             httpRequest.type = HTTPRequest.CMCD_EVENT;
             httpRequest.method = HTTPRequest.GET;
 
@@ -281,8 +292,8 @@ function CmcdController() {
             let cmcd = {...cmcdData, sn: sequenceNumber}
             httpRequest.cmcd = cmcd;
 
-            _updateRequestWithCmcd(httpRequest, cmcd, targetSettings)
-            if ((targetSettings.batchSize || targetSettings.batchTimer) && httpRequest.body){
+            _updateRequestWithCmcd(httpRequest, cmcd, mode, keys, true)
+            if ((batchSize || batchTimer) && httpRequest.body){
                 cmcdBatchController.addReport(targetSettings, httpRequest.body)
             } else {
                 _sendCmcdDataReport(httpRequest);
@@ -305,29 +316,36 @@ function CmcdController() {
     /**
      * Updates the request url and headers with CMCD data
      * @param request
+     * @param cmcdData
+     * @param mode - CMCD mode (query, header, body)
+     * @param keys - Array of enabled CMCD keys
+     * @param isEventMode - Whether this is event mode (true) or request mode (false)
      * @private
     */
-    function _updateRequestWithCmcd(request, cmcdData, targetSettings) {
+    function _updateRequestWithCmcd(request, cmcdData, mode, keys, isEventMode = false) {
         const currentServiceLocation = request?.serviceLocation;
         const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
         const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
             clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
 
         if (isIncludedFilters) {
-            const mode = targetSettings ? targetSettings.mode : cmcdConfig.get('mode');
-            switch (mode) {
+            // Use provided mode or fallback to global config
+            const effectiveMode = mode || cmcdConfig.get('mode');
+            const effectiveKeys = keys || cmcdConfig.get('keys');
+
+            switch (effectiveMode) {
                 case Constants.CMCD_MODE_QUERY:
                     request.url = Utils.removeQueryParameterFromUrl(request.url, Constants.CMCD_QUERY_KEY);
-                    const additionalQueryParameter = _getAdditionalQueryParameter(request, cmcdData, targetSettings);
+                    const additionalQueryParameter = _getAdditionalQueryParameter(request, cmcdData, effectiveKeys, isEventMode);
                     request.url = Utils.addAdditionalQueryParameterToUrl(request.url, additionalQueryParameter);
                     break;
                 case Constants.CMCD_MODE_HEADER:
                     request.headers = request.headers || {};
-                    request.headers = Object.assign(request.headers, getHeaderParameters(request, cmcdData, targetSettings));
+                    request.headers = Object.assign(request.headers, getHeaderParameters(request, cmcdData, effectiveKeys, isEventMode, effectiveMode));
                     break;
                 case Constants.CMCD_MODE_BODY:
                     if (request.type === HTTPRequest.CMCD_EVENT) {
-                        request.body = getJsonParameters(request, cmcdData, targetSettings);
+                        request.body = getJsonParameters(request, cmcdData, effectiveKeys, isEventMode, effectiveMode);
                         request.method = HTTPRequest.POST;
                         request.headers = request.headers || {};
                         request.headers = Object.assign(request.headers, Constants.CMCD_CONTENT_TYPE_HEADER)
@@ -340,13 +358,16 @@ function CmcdController() {
     /**
      * Generates the additional query parameters to be appended to the request url
      * @param {object} request
+     * @param {object} cmcdData
+     * @param {array} keys - Array of enabled CMCD keys
+     * @param {boolean} isEventMode - Whether this is event mode
      * @return {array}
      * @private
     */
-    function _getAdditionalQueryParameter(request, cmcdData, targetSettings) {
+    function _getAdditionalQueryParameter(request, cmcdData, keys = null, isEventMode = false) {
         try {
             const additionalQueryParameter = [];
-            const cmcdQueryParameter = getQueryParameter(request, cmcdData, targetSettings);
+            const cmcdQueryParameter = getQueryParameter(request, cmcdData, keys, isEventMode, null);
 
             if (cmcdQueryParameter) {
                 additionalQueryParameter.push(cmcdQueryParameter);
@@ -358,14 +379,16 @@ function CmcdController() {
         }
     }
 
-    function getHeaderParameters(request, cmcdData, targetSettings) {
+    function getHeaderParameters(request, cmcdData, keys = null, isEventMode = false, mode = null) {
         try {
             // Ensure accessor is updated with latest manifest parameters
             getCmcdParametersFromManifest();
 
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
 
-            const encodeOptions = _createCmcdEncodeOptions(targetSettings);
+            // Use provided keys or fallback to global config
+            const effectiveKeys = keys || cmcdConfig.get('keys');
+            const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const headers = toCmcdHeaders(cmcdData, encodeOptions);
 
             const eventBusData = {
@@ -373,7 +396,7 @@ function CmcdController() {
                 mediaType: request.mediaType,
                 cmcdData,
                 headers,
-                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
+                mode: mode || cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -383,10 +406,12 @@ function CmcdController() {
         }
     }
 
-    function getJsonParameters(request, cmcdData, targetSettings){
+    function getJsonParameters(request, cmcdData, keys = null, isEventMode = false, mode = null){
         try {
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
-            const encodeOptions = _createCmcdEncodeOptions(targetSettings);
+            // Use provided keys or fallback to global config
+            const effectiveKeys = keys || cmcdConfig.get('keys');
+            const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
             const body = toCmcdUrl(cmcdData, encodeOptions);
 
             const eventBusData = {
@@ -395,7 +420,7 @@ function CmcdController() {
                 requestType: request.type,
                 cmcdData,
                 cmcdString: body,
-                mode: targetSettings ? targetSettings.mode : cmcdConfig.get('mode'),
+                mode: mode || cmcdConfig.get('mode'),
             }
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
@@ -406,45 +431,36 @@ function CmcdController() {
         }
     }
 
-    function isCmcdEnabled(targetSettings) {
-        if (targetSettings) {
-            return _targetCanBeEnabled(targetSettings) && _checkTargetIncludeInRequests(targetSettings);
+    function isCmcdEnabled(targetIndex = null) {
+        if (targetIndex !== null) {
+            return _targetCanBeEnabled(targetIndex) && _checkTargetIncludeInRequests(targetIndex);
         }
         else {
-            const cmcdParametersFromManifest = getCmcdParametersFromManifest();
-            return _canBeEnabled(cmcdParametersFromManifest) && _checkIncludeInRequests(cmcdParametersFromManifest);
+            // Ensure accessor is updated with latest manifest parameters
+            getCmcdParametersFromManifest();
+            return _canBeEnabled() && _checkIncludeInRequests();
         }
     }
 
-    function _canBeEnabled(cmcdParametersFromManifest) {
-        if (Object.keys(cmcdParametersFromManifest).length) {
-            const version = cmcdParametersFromManifest.version;
+    function _canBeEnabled() {
+        const version = cmcdConfig.getVersion();
 
-            // Support both version 1 and version 2
-            if (version !== 1 && version !== 2) {
-                logger.error(`version parameter must be 1 or 2, got ${version}.`);
-                return false;
-            }
-
-            // Version 1: keys must be defined at CMCDParameters level
-            // Version 2: keys are defined in each EventTarget within ReportingTargets
-            if (version === 1 && !cmcdParametersFromManifest.keys) {
-                logger.error(`keys parameter must be defined for version 1.`);
-                return false;
-            }
-
-            if (version === 2 && (!cmcdParametersFromManifest.reportingTargets || !cmcdParametersFromManifest.reportingTargets.length)) {
-                logger.error(`reportingTargets must be defined for version 2.`);
-                return false;
-            }
+        // Support both version 1 and version 2
+        if (version !== 1 && version !== 2) {
+            logger.error(`version parameter must be 1 or 2, got ${version}.`);
+            return false;
         }
+
+        // Version 1: If keys are not defined, all available keys will be sent (CML default behavior)
+        // Version 2 Request Mode: Works like v1 but with v2 structure
+        // Version 2 Event Mode: Requires targets (validated in triggerCmcdEventMode)
         return cmcdConfig.isEnabled();
     }
 
-    function _checkIncludeInRequests(cmcdParametersFromManifest) {
+    function _checkIncludeInRequests() {
         // Version 2 doesn't use includeInRequests at CMCDParameters level
         // Instead, each EventTarget has its own events configuration
-        const version = cmcdParametersFromManifest.version;
+        const version = cmcdConfig.getVersion();
         if (version === 2) {
             return true; // Skip this validation for version 2
         }
@@ -467,23 +483,29 @@ function CmcdController() {
         return true;
     }
 
-    function _targetCanBeEnabled(targetSettings) {
+    function _targetCanBeEnabled(targetIndex) {
         const cmcdVersion = cmcdConfig.getVersion();
 
         if (cmcdVersion !== 2) {
             logger.warn('CMCD version 2 is required for target configuration');
+            return false;
         }
 
-        if (!targetSettings?.url) {
+        const targetAccessor = cmcdConfig.getTarget(targetIndex);
+        const enabled = targetAccessor.get('targetEnabled');
+        const url = targetAccessor.get('targetUrl');
+
+        if (!url) {
             logger.warn('Target URL is not configured');
+            return false;
         }
 
-        return (cmcdVersion === 2 && targetSettings?.enabled && targetSettings?.url);
+        return (enabled && url);
     }
 
-    function _checkTargetIncludeInRequests(targetSettings) {
-
-        let enabledRequests = targetSettings?.includeInRequests;
+    function _checkTargetIncludeInRequests(targetIndex) {
+        const targetAccessor = cmcdConfig.getTarget(targetIndex);
+        let enabledRequests = targetAccessor.get('targetIncludeOnRequests');
 
         if (!enabledRequests) {
             return true;
@@ -504,13 +526,11 @@ function CmcdController() {
         return true;
     }
 
-    function _createCmcdEncodeOptions(targetSettings) {
-        const enabledKeys = targetSettings ? targetSettings.enabledKeys : cmcdConfig.get('keys');
-
+    function _createCmcdEncodeOptions(keys, isEventMode = false) {
         return {
-            reportingMode: targetSettings ? Constants.CMCD_REPORTING_MODE.EVENT : Constants.CMCD_REPORTING_MODE.REQUEST,
+            reportingMode: isEventMode ? Constants.CMCD_REPORTING_MODE.EVENT : Constants.CMCD_REPORTING_MODE.REQUEST,
             version: cmcdConfig.getVersion(),
-            filter: enabledKeys ? (key) => enabledKeys.includes(key) : undefined,
+            filter: keys ? (key) => keys.includes(key) : undefined,
         }
     }
 
@@ -520,6 +540,8 @@ function CmcdController() {
 
     function _onManifestLoaded(data) {
         cmcdModel.onManifestLoaded(data);
+        // Update accessor with manifest parameters after manifest is loaded
+        getCmcdParametersFromManifest();
     }
 
     function _onBufferLevelStateChanged(data) {
@@ -568,9 +590,10 @@ function CmcdController() {
         };
 
         request.cmcd = cmcdRequestData;
-    
+
         if (isCmcdEnabled()) {
-            _updateRequestWithCmcd(request, cmcdRequestData, null);
+            // Request Mode: use global config for mode and keys (not event mode)
+            _updateRequestWithCmcd(request, cmcdRequestData, null, null, false);
         }
     
         commonMediaRequest = {

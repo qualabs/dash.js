@@ -285,10 +285,24 @@ function CmcdConfigAccessor() {
 
     /**
      * Check if CMCD is enabled
+     *
+     * CMCD is considered enabled if:
+     * 1. Manifest has CMCDParameters configured (presence implies enabled), OR
+     * 2. Player settings explicitly set enabled: true
+     *
+     * Note: 'enabled' attribute does not exist in the manifest standard,
+     * only in player configuration.
+     *
      * @returns {boolean} True if CMCD is enabled
      * @public
      */
     function isEnabled() {
+        // If manifest params exist with a valid version, CMCD is implicitly enabled
+        if (manifestParams && manifestParams.version) {
+            return true;
+        }
+
+        // Fall back to player settings configuration
         return get('enabled') === true;
     }
 
