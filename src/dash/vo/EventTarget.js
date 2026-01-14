@@ -46,7 +46,7 @@ class EventTarget {
     init(data) {
         if (data) {
             this.url = data.url;
-            this.timeInterval = data.timeInterval ? parseInt(data.timeInterval) : 0;
+            this.timeInterval = data.timeInterval ? parseInt(data.timeInterval, 10) : 0;
             this.mode = data.mode ?? 'query';
             this.keys = data.keys ? data.keys.split(' ') : null;
             this.events = data.events ? data.events.split(' ') : null;
