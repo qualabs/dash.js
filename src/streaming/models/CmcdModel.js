@@ -667,11 +667,6 @@ function CmcdModel() {
         return cmcdParametersFromManifest;
     }
 
-    function getEventTargetsFromCmcdParameters(){
-        let eventTargets = getCmcdParametersFromManifest().reportingTargets
-        return eventTargets
-    }
-
     function getCmcdData(request) {
         try {
             _updateLastMediaTypeRequest(request.type, request.mediaType);
@@ -818,7 +813,6 @@ function CmcdModel() {
         updateMsdData,
         resetInitialSettings,
         getCmcdParametersFromManifest,
-        getEventTargetsFromCmcdParameters,
         triggerCmcdEventMode,
         getGenericCmcdData,
         isIncludedInRequestFilter,
