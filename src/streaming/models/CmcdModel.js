@@ -773,41 +773,28 @@ function CmcdModel() {
 
         // CMCD v2: Use Inner Lists with object type parameters (;v, ;a)
         if (cmcdConfig.getVersion() === 2) {
-            // ab: current aggregated bitrate as Inner List
-            const abValues = {};
-            if (currentVideoBitrate > 0) {
-                abValues.video = Math.round(currentVideoBitrate);
-            }
-            if (currentAudioBitrate > 0) {
-                abValues.audio = Math.round(currentAudioBitrate);
-            }
-            const abInnerList = buildInnerList(abValues);
+            const createBitrateInnerList = (videoBitrate, audioBitrate) => {
+                const values = {};
+                if (videoBitrate > 0) {
+                    values.video = Math.round(videoBitrate);
+                }
+                if (audioBitrate > 0) {
+                    values.audio = Math.round(audioBitrate);
+                }
+                return buildInnerList(values);
+            };
+
+            const abInnerList = createBitrateInnerList(currentVideoBitrate, currentAudioBitrate);
             if (abInnerList) {
                 data.ab = abInnerList;
             }
 
-            // tab: top aggregated bitrate as Inner List
-            const tabValues = {};
-            if (topVideoBitrate > 0) {
-                tabValues.video = Math.round(topVideoBitrate);
-            }
-            if (topAudioBitrate > 0) {
-                tabValues.audio = Math.round(topAudioBitrate);
-            }
-            const tabInnerList = buildInnerList(tabValues);
+            const tabInnerList = createBitrateInnerList(topVideoBitrate, topAudioBitrate);
             if (tabInnerList) {
                 data.tab = tabInnerList;
             }
 
-            // lab: lowest aggregated bitrate as Inner List
-            const labValues = {};
-            if (lowestVideoBitrate > 0) {
-                labValues.video = Math.round(lowestVideoBitrate);
-            }
-            if (lowestAudioBitrate > 0) {
-                labValues.audio = Math.round(lowestAudioBitrate);
-            }
-            const labInnerList = buildInnerList(labValues);
+            const labInnerList = createBitrateInnerList(lowestVideoBitrate, lowestAudioBitrate);
             if (labInnerList) {
                 data.lab = labInnerList;
             }
