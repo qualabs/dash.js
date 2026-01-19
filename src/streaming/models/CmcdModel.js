@@ -41,7 +41,7 @@ import Constants from '../../streaming/constants/Constants.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import CmcdConfigAccessor from '../cmcd/config/CmcdConfigAccessor.js';
-import { buildInnerList } from '../cmcd/InnerListBuilder.js';
+import { buildInnerListWithTokenIdentifier } from '../cmcd/InnerListBuilder.js';
 
 const RTP_SAFETY_FACTOR = 5;
 
@@ -781,7 +781,7 @@ function CmcdModel() {
                 if (audioBitrate > 0) {
                     values.audio = Math.round(audioBitrate);
                 }
-                return buildInnerList(values);
+                return buildInnerListWithTokenIdentifier(values);
             };
 
             const abInnerList = createBitrateInnerList(currentVideoBitrate, currentAudioBitrate);

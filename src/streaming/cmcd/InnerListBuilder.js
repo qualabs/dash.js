@@ -41,7 +41,7 @@ const OBJECT_TYPE_PARAMS = {
 };
 
 /**
- * Builds an Inner List for a CMCD key
+ * Builds an Inner List with token identifier for a CMCD key
  *
  * @param {Object} values - Object with values per media type { video: number, audio: number }
  * @param {number|null} rounding - Rounding factor (e.g., 100 to round to multiples of 100)
@@ -49,11 +49,11 @@ const OBJECT_TYPE_PARAMS = {
  *
  * @example
  * // Generates Inner List for buffer level
- * buildInnerList({ video: 1523, audio: 2100 }, 100)
+ * buildInnerListWithTokenIdentifier({ video: 1523, audio: 2100 }, 100)
  * // Returns: [SfItem(1500, {v: true}), SfItem(2100, {a: true})]
  * // Which encodeCmcd serializes as: "(1500;v 2100;a)"
  */
-function buildInnerList(values, rounding = null) {
+function buildInnerListWithTokenIdentifier(values, rounding = null) {
     if (!values) {return null;}
 
     const items = [];
@@ -74,4 +74,4 @@ function buildInnerList(values, rounding = null) {
     return items.length > 0 ? items : null;
 }
 
-export { buildInnerList, OBJECT_TYPE_PARAMS };
+export { buildInnerListWithTokenIdentifier, OBJECT_TYPE_PARAMS };
