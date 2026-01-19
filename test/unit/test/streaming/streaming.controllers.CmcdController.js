@@ -2168,14 +2168,26 @@ describe('CmcdController', function () {
         });
 
         it('aggregated bitrate values ab, tab, lab should be present on active stream', () => {
-            // mocking active stream
+            // mocking active stream with different values for video and audio
             const streamMock = new StreamMock();
-            streamMock.getRepresentationsByType = function() {
-                return [{ bitrateInKbit: 1000 }, { bitrateInKbit: 2000 }, { bitrateInKbit: 3000 }];
-            }
-            streamMock.getCurrentRepresentationForType = function() {
-                return { bitrateInKbit: 2000 };
-            }
+            streamMock.getRepresentationsByType = function(type) {
+                if (type === 'video') {
+                    return [{ bitrateInKbit: 1000 }, { bitrateInKbit: 2000 }, { bitrateInKbit: 3000 }];
+                }
+                if (type === 'audio') {
+                    return [{ bitrateInKbit: 64 }, { bitrateInKbit: 128 }, { bitrateInKbit: 256 }];
+                }
+                return [];
+            };
+            streamMock.getCurrentRepresentationForType = function(type) {
+                if (type === 'video') {
+                    return { bitrateInKbit: 2000 };
+                }
+                if (type === 'audio') {
+                    return { bitrateInKbit: 128 };
+                }
+                return null;
+            };
 
             internalPlaybackControllerMock.streamController.activeStream = streamMock;
 
@@ -2186,12 +2198,34 @@ describe('CmcdController', function () {
             expect(requestSent.method).to.equal(HTTPRequest.POST);
 
             const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
-            expect(metrics).to.have.property('lab');
-            expect(metrics.lab).to.equal(2000);
+
+            // CMCD v2: ab is now an Inner List with separate video and audio values
             expect(metrics).to.have.property('ab');
-            expect(metrics.ab).to.equal(4000);
+            expect(metrics.ab).to.be.an('array');
+            expect(metrics.ab).to.have.lengthOf(2);
+            // Inner List items have value and params: [{value: 2000, params: {v: true}}, {value: 128, params: {a: true}}]
+            expect(metrics.ab[0].value).to.equal(2000); // video bitrate
+            expect(metrics.ab[0].params).to.have.property('v', true);
+            expect(metrics.ab[1].value).to.equal(128); // audio bitrate
+            expect(metrics.ab[1].params).to.have.property('a', true);
+
+            // tab: top aggregated bitrate as Inner List
             expect(metrics).to.have.property('tab');
-            expect(metrics.tab).to.equal(6000);
+            expect(metrics.tab).to.be.an('array');
+            expect(metrics.tab).to.have.lengthOf(2);
+            expect(metrics.tab[0].value).to.equal(3000); // max video bitrate
+            expect(metrics.tab[0].params).to.have.property('v', true);
+            expect(metrics.tab[1].value).to.equal(256); // max audio bitrate
+            expect(metrics.tab[1].params).to.have.property('a', true);
+
+            // lab: lowest aggregated bitrate as Inner List
+            expect(metrics).to.have.property('lab');
+            expect(metrics.lab).to.be.an('array');
+            expect(metrics.lab).to.have.lengthOf(2);
+            expect(metrics.lab[0].value).to.equal(1000); // min video bitrate
+            expect(metrics.lab[0].params).to.have.property('v', true);
+            expect(metrics.lab[1].value).to.equal(64); // min audio bitrate
+            expect(metrics.lab[1].params).to.have.property('a', true);
         });
     });
 

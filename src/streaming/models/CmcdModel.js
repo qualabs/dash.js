@@ -41,6 +41,7 @@ import Constants from '../../streaming/constants/Constants.js';
 import DashManifestModel from '../../dash/models/DashManifestModel.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import CmcdConfigAccessor from '../cmcd/config/CmcdConfigAccessor.js';
+import { buildInnerList } from '../cmcd/InnerListBuilder.js';
 
 const RTP_SAFETY_FACTOR = 5;
 
@@ -747,42 +748,85 @@ function CmcdModel() {
     }
 
     function _getAggregatedBitrateData() {
-        // defining data to return
         const data = {};
-        // accessing active stream
         const activeStream = playbackController.getStreamController()?.getActiveStream();
         if (!activeStream) {
             return data;
-        }   
- 
+        }
+
         // Get current representations
         const videoRep = activeStream.getCurrentRepresentationForType(Constants.VIDEO);
         const audioRep = activeStream.getCurrentRepresentationForType(Constants.AUDIO);
 
-        // Calculate aggregated bitrate (current video + audio)
         const currentVideoBitrate = videoRep ? videoRep.bitrateInKbit : 0;
         const currentAudioBitrate = audioRep ? audioRep.bitrateInKbit : 0;
-        const aggregatedBitrate = currentVideoBitrate + currentAudioBitrate;
-        if (aggregatedBitrate > 0) {
-            data.ab = Math.round(aggregatedBitrate);
-        }
 
-        // Calculate top aggregated bitrate (max video + max audio)
+        // Get all representations for top/lowest calculations
         const allVideoReps = activeStream.getRepresentationsByType(Constants.VIDEO) || [];
         const allAudioReps = activeStream.getRepresentationsByType(Constants.AUDIO) || [];
+
         const topVideoBitrate = allVideoReps.reduce((max, rep) => Math.max(max, rep.bitrateInKbit), 0);
         const topAudioBitrate = allAudioReps.reduce((max, rep) => Math.max(max, rep.bitrateInKbit), 0);
-        const topAggregatedBitrate = topVideoBitrate + topAudioBitrate;
-        if (topAggregatedBitrate > 0) {
-            data.tab = Math.round(topAggregatedBitrate);
-        }
 
-        // Calculate lowest aggregated bitrate (min video + min audio)
         const lowestVideoBitrate = allVideoReps.length > 0 ? Math.min(...allVideoReps.map(rep => rep.bitrateInKbit)) : 0;
         const lowestAudioBitrate = allAudioReps.length > 0 ? Math.min(...allAudioReps.map(rep => rep.bitrateInKbit)) : 0;
-        const lowestAggregatedBitrate = lowestVideoBitrate + lowestAudioBitrate;
-        if (lowestAggregatedBitrate > 0) {
-            data.lab = Math.round(lowestAggregatedBitrate);
+
+        // CMCD v2: Use Inner Lists with object type parameters (;v, ;a)
+        if (cmcdConfig.getVersion() === 2) {
+            // ab: current aggregated bitrate as Inner List
+            const abValues = {};
+            if (currentVideoBitrate > 0) {
+                abValues.video = Math.round(currentVideoBitrate);
+            }
+            if (currentAudioBitrate > 0) {
+                abValues.audio = Math.round(currentAudioBitrate);
+            }
+            const abInnerList = buildInnerList(abValues);
+            if (abInnerList) {
+                data.ab = abInnerList;
+            }
+
+            // tab: top aggregated bitrate as Inner List
+            const tabValues = {};
+            if (topVideoBitrate > 0) {
+                tabValues.video = Math.round(topVideoBitrate);
+            }
+            if (topAudioBitrate > 0) {
+                tabValues.audio = Math.round(topAudioBitrate);
+            }
+            const tabInnerList = buildInnerList(tabValues);
+            if (tabInnerList) {
+                data.tab = tabInnerList;
+            }
+
+            // lab: lowest aggregated bitrate as Inner List
+            const labValues = {};
+            if (lowestVideoBitrate > 0) {
+                labValues.video = Math.round(lowestVideoBitrate);
+            }
+            if (lowestAudioBitrate > 0) {
+                labValues.audio = Math.round(lowestAudioBitrate);
+            }
+            const labInnerList = buildInnerList(labValues);
+            if (labInnerList) {
+                data.lab = labInnerList;
+            }
+        } else {
+            // CMCD v1: Use scalar aggregated values
+            const aggregatedBitrate = currentVideoBitrate + currentAudioBitrate;
+            if (aggregatedBitrate > 0) {
+                data.ab = Math.round(aggregatedBitrate);
+            }
+
+            const topAggregatedBitrate = topVideoBitrate + topAudioBitrate;
+            if (topAggregatedBitrate > 0) {
+                data.tab = Math.round(topAggregatedBitrate);
+            }
+
+            const lowestAggregatedBitrate = lowestVideoBitrate + lowestAudioBitrate;
+            if (lowestAggregatedBitrate > 0) {
+                data.lab = Math.round(lowestAggregatedBitrate);
+            }
         }
 
         return data;
