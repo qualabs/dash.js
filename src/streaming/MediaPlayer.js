@@ -35,9 +35,9 @@ import BaseURLController from './controllers/BaseURLController.js';
 import BoxParser from './utils/BoxParser.js';
 import Capabilities from './utils/Capabilities.js';
 import CapabilitiesFilter from './utils/CapabilitiesFilter.js';
+import CmcdController from './controllers/CmcdController.js';
 import CatchupController from './controllers/CatchupController.js';
 import ClientDataReportingController from './controllers/ClientDataReportingController.js';
-import CmcdModel from './models/CmcdModel.js';
 import CmsdModel from './models/CmsdModel.js';
 import Constants from './constants/Constants.js';
 import ContentSteeringController from '../dash/controllers/ContentSteeringController.js';
@@ -76,10 +76,10 @@ import TimelineConverter from '../dash/utils/TimelineConverter.js';
 import URIFragmentModel from './models/URIFragmentModel.js';
 import URLUtils from '../streaming/utils/URLUtils.js';
 import VideoModel from './models/VideoModel.js';
-import {Cta608Parser} from '@svta/common-media-library/cta/608/Cta608Parser';
 import {HTTPRequest} from './vo/metrics/HTTPRequest.js';
 import {checkParameterType} from './utils/SupervisorTools.js';
 import {getVersionString} from '../core/Version.js';
+import { Cta608Parser } from '@svta/cml-608';
 
 /**
  * The media types
@@ -165,7 +165,7 @@ function MediaPlayer() {
         listMpdController,
         dashMetrics,
         manifestModel,
-        cmcdModel,
+        cmcdController,
         cmsdModel,
         videoModel,
         uriFragmentModel,
@@ -364,7 +364,7 @@ function MediaPlayer() {
 
             manifestModel = ManifestModel(context).getInstance();
 
-            cmcdModel = CmcdModel(context).getInstance();
+            cmcdController = CmcdController(context).getInstance();
 
             cmsdModel = CmsdModel(context).getInstance();
 
@@ -2471,7 +2471,7 @@ function MediaPlayer() {
         }
         textController.reset();
         alternativeMediaController.reset();
-        cmcdModel.reset();
+        cmcdController.reset();
         cmsdModel.reset();
     }
 
@@ -2591,12 +2591,14 @@ function MediaPlayer() {
             settings
         });
 
-        cmcdModel.setConfig({
+        cmcdController.setConfig({
             abrController,
             dashMetrics,
             playbackController,
             serviceDescriptionController,
             throughputController,
+            mediaPlayerModel,
+            errHandler
         });
 
         clientDataReportingController.setConfig({
@@ -2615,7 +2617,7 @@ function MediaPlayer() {
         gapController.initialize();
         catchupController.initialize();
         alternativeMediaController.initialize();
-        cmcdModel.initialize(autoPlay);
+        cmcdController.initialize(autoPlay);
         cmsdModel.initialize();
         contentSteeringController.initialize();
         segmentBaseController.initialize();
@@ -2660,7 +2662,7 @@ function MediaPlayer() {
                 events: Events,
                 BASE64,
                 constants: Constants,
-                cmcdModel,
+                cmcdController,
                 settings
             });
 

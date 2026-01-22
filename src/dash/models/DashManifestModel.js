@@ -754,7 +754,7 @@ function DashManifestModel() {
 
     function getRepresentationFor(index, adaptation) {
         return adaptation && adaptation.Representation && adaptation.Representation.length > 0 &&
-        isInteger(index) ? adaptation.Representation[index] : null;
+            isInteger(index) ? adaptation.Representation[index] : null;
     }
 
     function getRealAdaptationFor(voAdaptation) {
@@ -932,9 +932,13 @@ function DashManifestModel() {
             voRepresentation.segmentDuration = segmentInfo.duration / voRepresentation.timescale;
         } else if (segmentInfoType === DashConstants.SEGMENT_TIMELINE) {
             voRepresentation.segmentDuration = calcSegmentDuration(segmentInfo.SegmentTimeline) / voRepresentation.timescale;
+            voRepresentation.k = _getKValue(segmentInfo.SegmentTimeline)
         }
         if (segmentInfo.hasOwnProperty(DashConstants.MEDIA)) {
             voRepresentation.media = segmentInfo.media;
+        }
+        if (segmentInfo.hasOwnProperty(DashConstants.K)) {
+            voRepresentation.k = segmentInfo.k || 1;
         }
         if (segmentInfo.hasOwnProperty(DashConstants.START_NUMBER)) {
             voRepresentation.startNumber = parseInt(segmentInfo.startNumber);
@@ -978,6 +982,14 @@ function DashManifestModel() {
         let s0 = segmentTimeline.S[0];
         let s1 = segmentTimeline.S[1];
         return s0.hasOwnProperty('d') ? s0.d : (s1.t - s0.t);
+    }
+
+    function _getKValue(segmentTimeline) {
+        if (!segmentTimeline || !segmentTimeline.S) {
+            return 1;
+        }
+        const s0 = segmentTimeline.S[0];
+        return s0.hasOwnProperty(DashConstants.K) ? s0.k : 1;
     }
 
     function _calcMseTimeOffset(representation) {
@@ -1635,7 +1647,11 @@ function DashManifestModel() {
     function _createClientDataReportingInstance(element) {
         const entry = new ClientDataReporting();
 
-        if (element.hasOwnProperty(DashConstants.CMCD_PARAMETERS) && element[DashConstants.CMCD_PARAMETERS].schemeIdUri === Constants.CTA_5004_2023_SCHEME) {
+        // Check if schemeIdUri is either in ClientDataReporting (v2) or CMCDParameters (v1)
+        const schemeIdUri = element.schemeIdUri || (element[DashConstants.CMCD_PARAMETERS] && element[DashConstants.CMCD_PARAMETERS].schemeIdUri);
+        const isCmcdSupported = schemeIdUri === Constants.CTA_5004_2023_SCHEME || schemeIdUri === Constants.CTA_5004_2025_SCHEME;
+
+        if (element.hasOwnProperty(DashConstants.CMCD_PARAMETERS) && isCmcdSupported) {
             entry.cmcdParameters = new CMCDParameters();
             entry.cmcdParameters.init(element[DashConstants.CMCD_PARAMETERS]);
         }
