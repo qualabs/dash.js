@@ -199,7 +199,7 @@ function CmcdConfigAccessor() {
                 return undefined;
             }
 
-            // Handle array notation: targets[0]
+            // Handle array notation: targets[0] or reportingTargets[1]
             const arrayMatch = part.match(/^([^\[]+)\[(\d+)\]$/);
 
             if (arrayMatch) {

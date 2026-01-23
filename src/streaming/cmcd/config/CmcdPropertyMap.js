@@ -273,14 +273,19 @@ const CmcdPropertyMap = {
 
     /**
      * V2: Reporting targets array
-     * Priority: settings > default ([])
+     * Priority: manifest > settings > default ([])
      */
     targets: {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets',
+                path: 'manifestParams.reportingTargets',
                 priority: 1,
+                type: 'array'
+            },
+            {
+                path: 'settings.streaming.cmcd.targets',
+                priority: 2,
                 type: 'array',
                 default: []
             }
@@ -295,8 +300,13 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].enabled',
+                path: 'manifestParams.reportingTargets[{targetIndex}].enabled',
                 priority: 1,
+                type: 'boolean'
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].enabled',
+                priority: 2,
                 type: 'boolean',
                 default: true
             }
@@ -311,8 +321,13 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].url',
+                path: 'manifestParams.reportingTargets[{targetIndex}].url',
                 priority: 1,
+                type: 'string'
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].url',
+                priority: 2,
                 type: 'string',
                 default: null
             }
@@ -327,13 +342,24 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].enabledKeys',
+                path: 'manifestParams.reportingTargets[{targetIndex}].keys',
                 priority: 1,
+                type: 'array',
+                transform: (val) => {
+                    if (typeof val === 'string') {
+                        return val.split(' ');
+                    }
+                    return val;
+                }
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].enabledKeys',
+                priority: 2,
                 type: 'array'
             },
             {
                 path: 'settings.streaming.cmcd.enabledKeys',
-                priority: 2,
+                priority: 3,
                 type: 'array',
                 default: Constants.CMCD_KEYS
             }
@@ -348,8 +374,19 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].events',
+                path: 'manifestParams.reportingTargets[{targetIndex}].events',
                 priority: 1,
+                type: 'array',
+                transform: (val) => {
+                    if (typeof val === 'string') {
+                        return val.split(' ');
+                    }
+                    return val;
+                }
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].events',
+                priority: 2,
                 type: 'array',
                 default: Object.values(Constants.CMCD_REPORTING_EVENTS)
             }
@@ -364,8 +401,13 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].timeInterval',
+                path: 'manifestParams.reportingTargets[{targetIndex}].timeInterval',
                 priority: 1,
+                type: 'number'
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].timeInterval',
+                priority: 2,
                 type: 'number',
                 default: Constants.CMCD_DEFAULT_TIME_INTERVAL
             }
@@ -380,8 +422,14 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchSize',
+                path: 'manifestParams.reportingTargets[{targetIndex}].batchSize',
                 priority: 1,
+                type: 'number',
+                default: 0
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchSize',
+                priority: 2,
                 type: 'number',
                 default: 0
             }
@@ -396,8 +444,14 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchTimer',
+                path: 'manifestParams.reportingTargets[{targetIndex}].batchTimer',
                 priority: 1,
+                type: 'number',
+                default: 0
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchTimer',
+                priority: 2,
                 type: 'number',
                 default: 0
             }

@@ -51,6 +51,7 @@ const arrayNodes = [
     DashConstants.CONTENT_STEERING,
     DashConstants.ESSENTIAL_PROPERTY,
     DashConstants.EVENT,
+    DashConstants.EVENT_TARGET,
     DashConstants.EVENT_STREAM,
     DashConstants.INBAND_EVENT_STREAM,
     DashConstants.LABEL,
