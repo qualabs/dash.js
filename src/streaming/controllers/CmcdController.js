@@ -267,7 +267,7 @@ function CmcdController() {
 
             // Use target accessor to get target-specific properties
             const targetAccessor = cmcdConfig.getTarget(targetIndex);
-            const includeOnRequests = targetAccessor.get('targetIncludeOnRequests');
+            const includeOnRequests = targetAccessor.get('targetIncludeInRequests');
             const events = targetAccessor.get('targetEvents');
             const url = targetAccessor.get('targetUrl');
             const keys = targetAccessor.get('targetKeys');
@@ -501,7 +501,7 @@ function CmcdController() {
 
     function _checkTargetIncludeInRequests(targetIndex) {
         const targetAccessor = cmcdConfig.getTarget(targetIndex);
-        let enabledRequests = targetAccessor.get('targetIncludeOnRequests');
+        let enabledRequests = targetAccessor.get('targetIncludeInRequests');
 
         if (!enabledRequests) {
             return true;
