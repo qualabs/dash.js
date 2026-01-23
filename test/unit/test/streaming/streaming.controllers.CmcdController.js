@@ -2566,11 +2566,11 @@ describe('CmcdController', function () {
 
             expect(urlLoaderMock.load.calledOnce).to.be.true;
             const requestSent = urlLoaderMock.load.firstCall.args[0].request;
-            expect(requestSent.url).to.include('http://manifest.analytics.com/cmcd-collector?');
+            // CMCD v2 Event Mode uses body transmission
+            expect(requestSent.url).to.equal('http://manifest.analytics.com/cmcd-collector');
+            expect(requestSent.body).to.exist;
 
-            const url = new URL(requestSent.url);
-            const cmcdString = url.searchParams.get('CMCD');
-            const metrics = decodeCmcd(cmcdString);
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
 
             expect(metrics).to.have.property('e', 'ps');
             expect(metrics).to.have.property('sid', 'manifest-session-123');
@@ -2682,10 +2682,12 @@ describe('CmcdController', function () {
             expect(urlLoaderMock.load.calledTwice).to.be.true;
 
             const request1 = urlLoaderMock.load.firstCall.args[0].request;
-            expect(request1.url).to.include('http://target1.analytics.com/api?');
+            expect(request1.url).to.equal('http://target1.analytics.com/api');
+            expect(request1.body).to.exist;
 
             const request2 = urlLoaderMock.load.secondCall.args[0].request;
-            expect(request2.url).to.include('http://target2.analytics.com/api?');
+            expect(request2.url).to.equal('http://target2.analytics.com/api');
+            expect(request2.body).to.exist;
         });
 
         it('should prioritize manifest targets over settings targets when both are configured', () => {
@@ -2729,8 +2731,9 @@ describe('CmcdController', function () {
             expect(urlLoaderMock.load.calledOnce).to.be.true;
             const requestSent = urlLoaderMock.load.firstCall.args[0].request;
 
-            expect(requestSent.url).to.include('http://manifest.analytics.com/api?');
+            expect(requestSent.url).to.equal('http://manifest.analytics.com/api');
             expect(requestSent.url).to.not.include('http://settings.analytics.com/api');
+            expect(requestSent.body).to.exist;
         });
 
     });
