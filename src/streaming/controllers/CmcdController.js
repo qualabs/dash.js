@@ -38,7 +38,6 @@ import {
     CMCD_PARAM,
     encodeCmcd,
     toCmcdHeaders,
-    toCmcdUrl
 } from '@svta/cml-cmcd';
 import Debug from '../../core/Debug.js';
 
@@ -85,20 +84,31 @@ function CmcdController() {
         if (!config) {
             return;
         }
-        
+
         if (config.dashMetrics) {
             dashMetrics = config.dashMetrics;
         }
-        
+
         if (config.mediaPlayerModel) {
             mediaPlayerModel = config.mediaPlayerModel;
         }
-        
+
         if (config.errHandler) {
             errHandler = config.errHandler;
         }
         if (config.urlLoader) {
             urlLoader = config.urlLoader;
+        }
+
+        // Set up a provider function for CmcdConfigAccessor to get manifest params
+        // This resolves timing issues where CMCDParameters are needed before they're available
+        // Using a provider pattern keeps CmcdConfigAccessor decoupled from ServiceDescriptionController
+        if (config.serviceDescriptionController) {
+            const sdc = config.serviceDescriptionController;
+            cmcdConfig.setManifestParamsProvider(() => {
+                const serviceDescription = sdc.getServiceDescriptionSettings();
+                return serviceDescription?.clientDataReporting?.cmcdParameters || null;
+            });
         }
 
         cmcdModel.setConfig(config);
@@ -281,7 +291,6 @@ function CmcdController() {
 
             httpRequest.url = url;
             httpRequest.type = HTTPRequest.CMCD_EVENT;
-            httpRequest.method = HTTPRequest.GET;
 
             const sequenceNumber = _getNextSequenceNumber(targetSettings);
             let cmcd = {...cmcdData, sn: sequenceNumber}
@@ -331,7 +340,7 @@ function CmcdController() {
             // CMCD v2: Event Mode only uses Body mode
             if (isEventMode) {
                 if (request.type === HTTPRequest.CMCD_EVENT) {
-                    request.body = getJsonParameters(request, cmcdData, effectiveKeys, isEventMode, Constants.CMCD_MODE_BODY);
+                    request.body = getBodyParameters(request, cmcdData, effectiveKeys, isEventMode, Constants.CMCD_MODE_BODY);
                     request.method = HTTPRequest.POST;
                     request.headers = request.headers || {};
                     request.headers = Object.assign(request.headers, Constants.CMCD_CONTENT_TYPE_HEADER)
@@ -402,12 +411,12 @@ function CmcdController() {
         }
     }
 
-    function getJsonParameters(request, cmcdData, keys = null, isEventMode = false, mode = null){
+    function getBodyParameters(request, cmcdData, keys = null, isEventMode = false, mode = null){
         try {
             cmcdData = cmcdData || cmcdModel.getCmcdData(request);
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
-            const body = toCmcdUrl(cmcdData, encodeOptions);
+            const body = encodeCmcd(cmcdData, encodeOptions);
 
             const eventBusData = {
                 url: request.url,
