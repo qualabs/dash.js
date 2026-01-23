@@ -41,6 +41,8 @@ class EventTarget {
         this.keys = null;
         this.events = null;
         this.enabled = true;
+        this.batchSize = 0;
+        this.batchTimer = 0;
     }
 
     init(data) {
@@ -50,7 +52,9 @@ class EventTarget {
             this.mode = data.mode ?? 'query';
             this.keys = data.keys ? data.keys.split(' ') : null;
             this.events = data.events ? data.events.split(' ') : null;
-            this.enabled = data.enabled;
+            this.enabled = data.enabled ?? true;
+            this.batchSize = data.batchSize ? parseInt(data.batchSize, 10) : 0;
+            this.batchTimer = data.batchTimer ? parseInt(data.batchTimer, 10) : 0;
         }
     }
 }
