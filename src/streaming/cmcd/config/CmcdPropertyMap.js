@@ -422,8 +422,14 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchSize',
+                path: 'manifestParams.reportingTargets[{targetIndex}].batchSize',
                 priority: 1,
+                type: 'number',
+                default: 0
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchSize',
+                priority: 2,
                 type: 'number',
                 default: 0
             }
@@ -438,8 +444,14 @@ const CmcdPropertyMap = {
         version: [2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchTimer',
+                path: 'manifestParams.reportingTargets[{targetIndex}].batchTimer',
                 priority: 1,
+                type: 'number',
+                default: 0
+            },
+            {
+                path: 'settings.streaming.cmcd.targets[{targetIndex}].batchTimer',
+                priority: 2,
                 type: 'number',
                 default: 0
             }
