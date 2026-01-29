@@ -223,8 +223,6 @@ function CmcdController() {
     }
     
     function _onStateChange(state) {
-        cmcdModel.onStateChange(state);
-
         // Update CmcdReporter with the new player state
         if (cmcdReporter) {
             cmcdReporter.update({ sta: state });
@@ -232,9 +230,8 @@ function CmcdController() {
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
     }
 
-    function _onEventChange(state, response){
-        cmcdModel.onEventChange(state);
-        triggerCmcdEventMode(state, response);
+    function _onEventChange(event, response){
+        triggerCmcdEventMode(event, response);
     }
 
     function _onPeriodSwitchComplete() {
@@ -254,8 +251,6 @@ function CmcdController() {
         if (errorData.error && errorData.error.data.request && errorData.error.data.request.type === HTTPRequest.CMCD_EVENT) {
             return;
         }
-        cmcdModel.onPlayerError(errorData);
-
         // Update CmcdReporter with the error code
         if (cmcdReporter) {
             const errorCode = errorData.error?.code || errorData.error?.data?.code;
@@ -271,7 +266,7 @@ function CmcdController() {
         try {
             getCmcdParametersFromManifest();
 
-            cmcdData = cmcdData || cmcdModel.getCmcdData(request);
+            cmcdData = cmcdData || cmcdModel.calculateCmcdDataForRequest(request);
 
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
@@ -301,7 +296,7 @@ function CmcdController() {
             return;
         }
 
-        let cmcdData = cmcdModel.triggerCmcdEventMode(event);
+        let cmcdData = cmcdModel.triggerCmcdEventMode();
 
         // For RESPONSE_RECEIVED, merge request CMCD data and response metrics
         if (event === Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED && response) {
@@ -318,7 +313,7 @@ function CmcdController() {
         try {
             getCmcdParametersFromManifest();
 
-            cmcdData = cmcdData || cmcdModel.getCmcdData(request);
+            cmcdData = cmcdData || cmcdModel.calculateCmcdDataForRequest(request);
 
             const effectiveKeys = keys || cmcdConfig.get('keys');
             const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
@@ -435,17 +430,19 @@ function CmcdController() {
     }
 
     function _onPlaybackRateChanged(data) {
-        cmcdModel.onPlaybackRateChanged(data);
-
-        // Update CmcdReporter with the new playback rate
-        if (cmcdReporter && data.playbackRate !== undefined) {
-            cmcdReporter.update({ pr: data.playbackRate });
+        const prData = cmcdModel.onPlaybackRateChanged(data);
+        if (cmcdReporter && prData) {
+            cmcdReporter.update(prData);
         }
     }
 
     function _onManifestLoaded(data) {
-        cmcdModel.onManifestLoaded(data);
         getCmcdParametersFromManifest();
+
+        if (cmcdReporter) {
+            const streamInfo = cmcdModel.onManifestLoaded(data);
+            cmcdReporter.update(streamInfo);
+        }
     }
 
     function _onBufferLevelStateChanged(data) {
@@ -486,7 +483,7 @@ function CmcdController() {
         const request = commonMediaRequest.customData.request;
 
         const calculatedData = {
-            ...cmcdModel.getCmcdData(request),
+            ...cmcdModel.calculateCmcdDataForRequest(request),
             ...cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST),
         };
 
