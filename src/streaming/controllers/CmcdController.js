@@ -38,6 +38,9 @@ import {
     CMCD_PARAM,
     encodeCmcd,
     toCmcdHeaders,
+    CmcdReporter,
+    CMCD_QUERY,
+    CMCD_HEADERS,
 } from '@svta/cml-cmcd';
 import Debug from '../../core/Debug.js';
 
@@ -57,6 +60,7 @@ function CmcdController() {
         cmcdModel,
         cmcdBatchController,
         cmcdConfig,
+        cmcdReporter,
         clientDataReportingController,
         urlLoader,
         mediaPlayerModel,
@@ -139,6 +143,9 @@ function CmcdController() {
             eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
         }
 
+        cmcdReporter = _createCmcdReporter();
+        cmcdReporter.start();
+
         _initializeEventModeTimeInterval();
         _initializeEvenModeListeners();
         _initializePlaybackStateListeners();
@@ -163,6 +170,61 @@ function CmcdController() {
 
     function _initializeEvenModeListeners() {
         eventBus.on(MediaPlayerEvents.ERROR, _onPlayerError, instance);
+    }
+
+    function _createCmcdReporter() {
+        const config = {
+            sid: cmcdConfig.get('sessionID'),
+            cid: cmcdConfig.get('contentID'),
+            version: cmcdConfig.getVersion(),
+            transmissionMode: cmcdConfig.get('mode') === Constants.CMCD_MODE_HEADER
+                ? CMCD_HEADERS
+                : CMCD_QUERY,
+            enabledKeys: cmcdConfig.get('keys'),
+            targets: _buildReporterTargets(),
+        };
+
+        return new CmcdReporter(config, _customRequester);
+    }
+
+    function _buildReporterTargets() {
+        const targets = cmcdConfig.getTargets();
+        return targets.map((_target, index) => {
+            const accessor = cmcdConfig.getTarget(index);
+            return {
+                url: accessor.get('targetUrl'),
+                events: accessor.get('targetEvents'),
+                interval: accessor.get('targetTimeInterval') ?? Constants.CMCD_DEFAULT_TIME_INTERVAL,
+                batchSize: accessor.get('targetBatchSize') || 1,
+                enabledKeys: accessor.get('targetKeys'),
+            };
+        });
+    }
+
+    function _customRequester(request) {
+        return new Promise((resolve) => {
+            if (!urlLoader) {
+                urlLoader = URLLoader(context).create({
+                    errHandler: errHandler,
+                    mediaPlayerModel: mediaPlayerModel,
+                    errors: Errors,
+                    dashMetrics: dashMetrics,
+                });
+            }
+
+            const httpRequest = new CmcdReportRequest();
+            httpRequest.url = request.url;
+            httpRequest.method = request.method;
+            httpRequest.headers = request.headers;
+            httpRequest.body = request.body;
+            httpRequest.type = HTTPRequest.CMCD_EVENT;
+
+            urlLoader.load({
+                request: httpRequest,
+                success: () => resolve({ status: 200 }),
+                error: (e) => resolve({ status: e?.status || 500 }),
+            });
+        });
     }
     
     let timeouts = [];
