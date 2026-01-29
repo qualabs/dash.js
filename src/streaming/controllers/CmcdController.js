@@ -66,8 +66,7 @@ function CmcdController() {
         mediaPlayerModel,
         dashMetrics,
         errHandler,
-        targetSequenceNumbers,
-        requestModeSequenceNumber;
+        targetSequenceNumbers;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -126,8 +125,6 @@ function CmcdController() {
 
     function initialize(autoPlay) {
         targetSequenceNumbers = new Map();
-        requestModeSequenceNumber = 0;
-
         getCmcdParametersFromManifest();
 
         eventBus.on(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
@@ -637,28 +634,50 @@ function CmcdController() {
         }
 
         const request = commonMediaRequest.customData.request;
-    
-        requestModeSequenceNumber += 1;
-        let cmcdRequestData = {
+
+        const calculatedData = {
             ...cmcdModel.getCmcdData(request),
             ...cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST),
-            sn: requestModeSequenceNumber
         };
 
-        request.cmcd = cmcdRequestData;
+        cmcdReporter.update(calculatedData);
+
+        request.cmcd = calculatedData;
 
         if (isCmcdEnabled()) {
-            // Request Mode: use global config for mode and keys (not event mode)
-            _updateRequestWithCmcd(request, cmcdRequestData, null, null, false);
+            const decoratedRequest = cmcdReporter.applyRequestReport(request);
+            request.url = decoratedRequest.url;
+            request.headers = decoratedRequest.headers;
+
+            const effectiveMode = cmcdConfig.get('mode');
+            const eventData = {
+                url: request.url,
+                mediaType: request.mediaType,
+                requestType: request.type,
+                cmcdData: calculatedData,
+                mode: effectiveMode,
+            };
+
+            if (effectiveMode === Constants.CMCD_MODE_HEADER) {
+                eventData.headers = decoratedRequest.headers;
+            } else {
+                try {
+                    const url = new URL(request.url);
+                    eventData.cmcdString = url.searchParams.get(CMCD_PARAM) || '';
+                } catch (e) {
+                    eventData.cmcdString = '';
+                }
+            }
+
+            eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventData);
         }
-    
+
         commonMediaRequest = {
             ...commonMediaRequest,
             url: request.url,
             headers: request.headers,
             customData: { request },
-            cmcd: cmcdRequestData,
-            body: request.body
+            cmcd: request.cmcd,
         };
 
         return commonMediaRequest;
@@ -749,7 +768,6 @@ function CmcdController() {
         if (targetSequenceNumbers) {
             targetSequenceNumbers.clear();
         }
-        requestModeSequenceNumber = 0;
     }
 
     instance = {
