@@ -45,9 +45,7 @@ import {
 import Debug from '../../core/Debug.js';
 
 import CmcdReportRequest from '../../streaming/vo/CmcdReportRequest.js';
-import Utils from '../../core/Utils.js';
 import URLLoader from '../net/URLLoader.js';
-import ClientDataReportingController from '../controllers/ClientDataReportingController.js';
 import CmcdModel from '../models/CmcdModel.js'
 import CmcdBatchController from './CmcdBatchController.js';
 import Errors from '../../core/errors/Errors.js';
@@ -61,12 +59,10 @@ function CmcdController() {
         cmcdBatchController,
         cmcdConfig,
         cmcdReporter,
-        clientDataReportingController,
         urlLoader,
         mediaPlayerModel,
         dashMetrics,
-        errHandler,
-        targetSequenceNumbers;
+        errHandler;
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
@@ -79,7 +75,6 @@ function CmcdController() {
 
     function setup() {
         logger = debug.getLogger(instance);
-        clientDataReportingController = ClientDataReportingController(context).getInstance();
         reset();
     }
 
@@ -124,7 +119,6 @@ function CmcdController() {
     }
 
     function initialize(autoPlay) {
-        targetSequenceNumbers = new Map();
         getCmcdParametersFromManifest();
 
         eventBus.on(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, instance);
@@ -143,7 +137,6 @@ function CmcdController() {
         cmcdReporter = _createCmcdReporter();
         cmcdReporter.start();
 
-        _initializeEventModeTimeInterval();
         _initializeEvenModeListeners();
         _initializePlaybackStateListeners();
     }
@@ -186,16 +179,21 @@ function CmcdController() {
 
     function _buildReporterTargets() {
         const targets = cmcdConfig.getTargets();
-        return targets.map((_target, index) => {
-            const accessor = cmcdConfig.getTarget(index);
-            return {
-                url: accessor.get('targetUrl'),
-                events: accessor.get('targetEvents'),
-                interval: accessor.get('targetTimeInterval') ?? Constants.CMCD_DEFAULT_TIME_INTERVAL,
-                batchSize: accessor.get('targetBatchSize') || 1,
-                enabledKeys: accessor.get('targetKeys'),
-            };
-        });
+        return targets
+            .map((_target, index) => {
+                const accessor = cmcdConfig.getTarget(index);
+                if (!isCmcdEnabled(index)) {
+                    return null;
+                }
+                return {
+                    url: accessor.get('targetUrl'),
+                    events: accessor.get('targetEvents'),
+                    interval: accessor.get('targetTimeInterval') ?? Constants.CMCD_DEFAULT_TIME_INTERVAL,
+                    batchSize: accessor.get('targetBatchSize') || 1,
+                    enabledKeys: accessor.get('targetKeys'),
+                };
+            })
+            .filter(Boolean);
     }
 
     function _customRequester(request) {
@@ -224,30 +222,13 @@ function CmcdController() {
         });
     }
     
-    let timeouts = [];
-
-    function _initializeEventModeTimeInterval() {
-        const targets = cmcdConfig.getTargets();
-        targets.forEach(({ timeInterval, events }) => {
-            if (!events || !events.includes(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL)) {
-                return;
-            }
-
-            timeInterval = timeInterval ?? Constants.CMCD_DEFAULT_TIME_INTERVAL;
-            if (timeInterval >= 1) {
-                const triggerEventModeInterval = () => {
-                    _onEventChange(Constants.CMCD_REPORTING_EVENTS.TIME_INTERVAL);
-                    const timeOut = setTimeout(triggerEventModeInterval, (timeInterval * 1000));
-                    timeouts.push(timeOut);
-                }
-                const timeOut = setTimeout(triggerEventModeInterval, (timeInterval * 1000));
-                timeouts.push(timeOut);
-            }
-        });
-    }
-
     function _onStateChange(state) {
         cmcdModel.onStateChange(state);
+
+        // Update CmcdReporter with the new player state
+        if (cmcdReporter) {
+            cmcdReporter.update({ sta: state });
+        }
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
     }
 
@@ -274,6 +255,15 @@ function CmcdController() {
             return;
         }
         cmcdModel.onPlayerError(errorData);
+
+        // Update CmcdReporter with the error code
+        if (cmcdReporter) {
+            const errorCode = errorData.error?.code || errorData.error?.data?.code;
+            if (errorCode) {
+                cmcdReporter.update({ ec: errorCode });
+            }
+        }
+
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
     }
 
@@ -306,143 +296,22 @@ function CmcdController() {
         }
     }
 
-    function triggerCmcdEventMode(event, response){
-        const targets = cmcdConfig.getTargets();
-
-        if (targets.length === 0) {
+    function triggerCmcdEventMode(event, response) {
+        if (!cmcdReporter) {
             return;
         }
 
         let cmcdData = cmcdModel.triggerCmcdEventMode(event);
-        if (event === Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED) {
-            cmcdData = {...cmcdData, ...response.request.cmcd}
+
+        // For RESPONSE_RECEIVED, merge request CMCD data and response metrics
+        if (event === Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED && response) {
+            cmcdData = { ...cmcdData, ...response.request.cmcd };
             cmcdData = _addCmcdResponseReceivedData(response, cmcdData);
         }
 
-        targets.forEach((targetSettings, targetIndex) => {
-            if (!isCmcdEnabled(targetIndex)){
-                return;
-            }
-
-            // Use target accessor to get target-specific properties
-            const targetAccessor = cmcdConfig.getTarget(targetIndex);
-            const includeOnRequests = targetAccessor.get('targetIncludeOnRequests');
-            const events = targetAccessor.get('targetEvents');
-            const url = targetAccessor.get('targetUrl');
-            const keys = targetAccessor.get('targetKeys');
-            const batchSize = targetAccessor.get('targetBatchSize');
-            const batchTimer = targetAccessor.get('targetBatchTimer');
-
-            const requestType = response?.request.customData.request.type;
-            if (requestType && !cmcdModel.isIncludedInRequestFilter(requestType, includeOnRequests)){
-                return;
-            }
-
-            if (events?.length === 0) {
-                logger.warn('CMCD Event Mode is enabled, but the "events" setting is empty. No event-specific CMCD data will be sent.');
-            }
-
-            if (!events.includes(event)) {
-                return;
-            }
-
-            let httpRequest = new CmcdReportRequest();
-
-            httpRequest.url = url;
-            httpRequest.type = HTTPRequest.CMCD_EVENT;
-
-            const sequenceNumber = _getNextSequenceNumber(targetSettings);
-            let cmcd = {...cmcdData, sn: sequenceNumber}
-            httpRequest.cmcd = cmcd;
-
-            _updateRequestWithCmcd(httpRequest, cmcd, null, keys, true)
-            if ((batchSize || batchTimer) && httpRequest.body){
-                cmcdBatchController.addReport(targetSettings, httpRequest.body)
-            } else {
-                _sendCmcdDataReport(httpRequest);
-            }
-        });
-    }
-
-    function _sendCmcdDataReport(request){
-        if (!urlLoader) {
-            urlLoader = URLLoader(context).create({
-                errHandler: errHandler,
-                mediaPlayerModel: mediaPlayerModel,
-                errors: Errors,
-                dashMetrics: dashMetrics,
-            });
-        }
-        urlLoader.load({request})
-    }
-
-    /**
-     * Updates the request url and headers with CMCD data
-     * CMCD v2: Event Mode always uses body transmission, Request Mode uses query or header based on config
-     * @param request
-     * @param cmcdData
-     * @param mode - CMCD mode (query, header) - only used for Request Mode
-     * @param keys - Array of enabled CMCD keys
-     * @param isEventMode - Whether this is event mode (true) or request mode (false)
-     * @private
-    */
-    function _updateRequestWithCmcd(request, cmcdData, mode, keys, isEventMode = false) {
-        const currentServiceLocation = request?.serviceLocation;
-        const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
-        const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
-            clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
-
-        if (isIncludedFilters) {
-            const effectiveMode = mode || cmcdConfig.get('mode');
-            const effectiveKeys = keys || cmcdConfig.get('keys');
-
-            // CMCD v2: Event Mode only uses Body mode
-            if (isEventMode) {
-                if (request.type === HTTPRequest.CMCD_EVENT) {
-                    request.body = getBodyParameters(request, cmcdData, effectiveKeys, isEventMode, Constants.CMCD_MODE_BODY);
-                    request.method = HTTPRequest.POST;
-                    request.headers = request.headers || {};
-                    request.headers = Object.assign(request.headers, Constants.CMCD_CONTENT_TYPE_HEADER)
-                }
-            } else {
-                // Request Mode: use Query or Header based on configuration
-                switch (effectiveMode) {
-                    case Constants.CMCD_MODE_QUERY:
-                        request.url = Utils.removeQueryParameterFromUrl(request.url, Constants.CMCD_QUERY_KEY);
-                        const additionalQueryParameter = _getAdditionalQueryParameter(request, cmcdData, effectiveKeys, isEventMode);
-                        request.url = Utils.addAdditionalQueryParameterToUrl(request.url, additionalQueryParameter);
-                        break;
-                    case Constants.CMCD_MODE_HEADER:
-                        request.headers = request.headers || {};
-                        request.headers = Object.assign(request.headers, getHeaderParameters(request, cmcdData, effectiveKeys, isEventMode, effectiveMode));
-                        break;
-                }
-            }
-        }
-    }
-
-    /**
-     * Generates the additional query parameters to be appended to the request url
-     * @param {object} request
-     * @param {object} cmcdData
-     * @param {array} keys - Array of enabled CMCD keys
-     * @param {boolean} isEventMode - Whether this is event mode
-     * @return {array}
-     * @private
-    */
-    function _getAdditionalQueryParameter(request, cmcdData, keys = null, isEventMode = false) {
-        try {
-            const additionalQueryParameter = [];
-            const cmcdQueryParameter = getQueryParameter(request, cmcdData, keys, isEventMode, null);
-
-            if (cmcdQueryParameter) {
-                additionalQueryParameter.push(cmcdQueryParameter);
-            }
-
-            return additionalQueryParameter;
-        } catch (e) {
-            return [];
-        }
+        // Update reporter with calculated data and record the event
+        cmcdReporter.update(cmcdData);
+        cmcdReporter.recordEvent(event);
     }
 
     function getHeaderParameters(request, cmcdData, keys = null, isEventMode = false, mode = null) {
@@ -465,30 +334,6 @@ function CmcdController() {
 
             eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
             return headers;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function getBodyParameters(request, cmcdData, keys = null, isEventMode = false, mode = null){
-        try {
-            cmcdData = cmcdData || cmcdModel.getCmcdData(request);
-            const effectiveKeys = keys || cmcdConfig.get('keys');
-            const encodeOptions = _createCmcdEncodeOptions(effectiveKeys, isEventMode);
-            const body = encodeCmcd(cmcdData, encodeOptions);
-
-            const eventBusData = {
-                url: request.url,
-                mediaType: request.mediaType,
-                requestType: request.type,
-                cmcdData,
-                cmcdString: body,
-                mode: mode || cmcdConfig.get('mode'),
-            }
-
-            eventBus.trigger(MetricsReportingEvents.CMCD_DATA_GENERATED, eventBusData);
-
-            return body;
         } catch (e) {
             return null;
         }
@@ -591,6 +436,11 @@ function CmcdController() {
 
     function _onPlaybackRateChanged(data) {
         cmcdModel.onPlaybackRateChanged(data);
+
+        // Update CmcdReporter with the new playback rate
+        if (cmcdReporter && data.playbackRate !== undefined) {
+            cmcdReporter.update({ pr: data.playbackRate });
+        }
     }
 
     function _onManifestLoaded(data) {
@@ -688,6 +538,10 @@ function CmcdController() {
     }
 
     function _cmcdResponseReceivedInterceptor(response){
+        const requestType = response.request?.customData?.request?.type;
+        if (requestType === HTTPRequest.CMCD_EVENT) {
+            return response;
+        }
         _onEventChange(Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED, response)
         return response;
     }
@@ -732,18 +586,6 @@ function CmcdController() {
         return {...cmcdData, ...responseData};
     }
 
-    function _getTargetKey(target) {
-        return `${target.url}_${target.mode}`;
-    }
-
-    function _getNextSequenceNumber(target) {
-        const key = _getTargetKey(target);
-        const current = targetSequenceNumbers.get(key) || 0;
-        const next = current + 1;
-        targetSequenceNumbers.set(key, next);
-        return next;
-    }
-
     function getCmcdParametersFromManifest() {
         return cmcdModel.getCmcdParametersFromManifest();
     }
@@ -759,15 +601,14 @@ function CmcdController() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKING, _onPlaybackSeeking, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_WAITING, _onPlaybackWaiting, instance);
 
-        timeouts.forEach(clearTimeout);
-        timeouts = [];
+        if (cmcdReporter) {
+            cmcdReporter.stop();
+            cmcdReporter.flush();
+            cmcdReporter = null;
+        }
 
         cmcdModel.resetInitialSettings();
         cmcdBatchController.reset();
-
-        if (targetSequenceNumbers) {
-            targetSequenceNumbers.clear();
-        }
     }
 
     instance = {
