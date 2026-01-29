@@ -821,6 +821,18 @@
           "Video",
           "Audio"
         ]
+      },
+      {
+        "title": "List MPD",
+        "description": "This sample demonstrates the List MPD implementation in dash.js",
+        "href": "advanced/list-mpds.html",
+        "image": "lib/img/bbb-1.jpg",
+        "labels": [
+          "VoD",
+          "Video",
+          "Audio",
+          "List MPD"
+        ]
       }
     ]
   },
@@ -834,6 +846,64 @@
         "image": "lib/img/mss-1.jpg",
         "labels": [
           "MSS",
+          "Video",
+          "Audio"
+        ]
+      }
+    ]
+  },
+  {
+    "section": "Alternative Media Presentations",
+    "samples": [
+      {
+        "title": "Alternative Media Presentations",
+        "description": "A sample showing alternative media presentations with a dedicated alternative video element for content switching (Insert/Replace modes).",
+        "href": "alternative/alternative-media-presentations.html",
+        "image": "lib/img/bbb-1.jpg",
+        "labels": [
+          "VoD",
+          "Alternative MPD",
+          "Video",
+          "Audio"
+        ]
+      },
+      {
+        "title": "Live-to-Live Alternative Media Presentations",
+        "description": "A sample showing live-to-live alternative media presentations where both original and alternative content are live streams. Configure replace events with dynamic presentation times.",
+        "href": "alternative/live-to-live.html",
+        "image": "lib/img/livesim-1.jpg",
+        "labels": [
+          "Live",
+          "Alternative MPD",
+          "Replace Events",
+          "Video",
+          "Audio"
+        ]
+      },
+      {
+        "title": "Alternative MPD Listen Mode",
+        "description": "A sample demonstrating listen mode where alternative content can be inserted without maxDuration, and then a status update can add maxDuration to return to original content. Simplified interface with Insert and Return buttons.",
+        "href": "alternative/listen-mode.html",
+        "image": "lib/img/livesim-1.jpg",
+        "labels": [
+          "Live",
+          "Alternative MPD",
+          "Insert Events",
+          "Status Update",
+          "Video",
+          "Audio"
+        ]
+      },
+      {
+        "title": "SGAI Insert Mode Test",
+        "description": "Testing SGAI with alternative MPD and list MPDs using insert mode only. Uses List MPD as the main content with configurable insert events for alternative content.",
+        "href": "alternative/sgai-insert-test.html",
+        "image": "lib/img/bbb-2.jpg",
+        "labels": [
+          "VoD",
+          "Alternative MPD",
+          "Insert Events",
+          "List MPD",
           "Video",
           "Audio"
         ]

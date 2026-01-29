@@ -79,7 +79,7 @@ function CapabilitiesFilter() {
 
                     _removeMultiRepresentationPreselections(manifest);
                     _removePreselectionWithNoAdaptationSet(manifest);
-                    
+
                     return _applyCustomFilters(manifest);
                 })
                 .then(() => {
@@ -205,19 +205,21 @@ function CapabilitiesFilter() {
         const configurations = [];
 
         manifest.Period.forEach((period) => {
-            period.AdaptationSet.forEach((as) => {
-                if (adapter.getIsTypeOf(as, type)) {
-                    as.Representation.forEach((rep, i) => {
-                        const codec = adapter.getCodec(as, i, false);
-                        _processCodecToCheck(type, rep, codec, configurationsSet, configurations);
+            if (!period.ImportedMPD) {
+                period.AdaptationSet.forEach((as) => {
+                    if (adapter.getIsTypeOf(as, type)) {
+                        as.Representation.forEach((rep, i) => {
+                            const codec = adapter.getCodec(as, i, false);
+                            _processCodecToCheck(type, rep, codec, configurationsSet, configurations);
 
-                        const supplementalCodecs = adapter.getSupplementalCodecs(rep)
-                        if (supplementalCodecs.length > 0) {
-                            _processCodecToCheck(type, rep, supplementalCodecs[0], configurationsSet, configurations);
-                        }
-                    });
-                }
-            });
+                            const supplementalCodecs = adapter.getSupplementalCodecs(rep)
+                            if (supplementalCodecs.length > 0) {
+                                _processCodecToCheck(type, rep, supplementalCodecs[0], configurationsSet, configurations);
+                            }
+                        });
+                    }
+                });
+            }
             if (period.Preselection && period.Preselection.length) {
                 period.Preselection.forEach((prsl) => {
                     if (adapter.getPreselectionIsTypeOf(prsl, period.AdaptationSet, type)) {
@@ -305,12 +307,12 @@ function CapabilitiesFilter() {
 
             if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
                 let prslCommonRepresentationHDRColorimetryConfig = _convertHDRColorimetryToConfig(prslCommonRep);
-                
+
                 // if either the properties of the Preselection or the CommonRepresentation is not supported, we can't mark the config as supported.
                 let isCommonRepCfgSupported = prslCommonRepresentationHDRColorimetryConfig.isSupported;
                 delete prslCommonRepresentationHDRColorimetryConfig.isSupported;
                 config.isSupported = config.isSupported && isCommonRepCfgSupported;
-                
+
                 // asign only those attributes that are not present in config
                 _assignMissing(config, prslCommonRepresentationHDRColorimetryConfig);
             }
@@ -322,7 +324,7 @@ function CapabilitiesFilter() {
 
             if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
                 let prslCommonRepresentationHDRMetadataFormatConfig = _convertHDRMetadataFormatToConfig(prslCommonRep);
-                
+
                 // if either the properties of the Preselection or the CommonRepresentation is not supported, we can't mark the config as supported.
                 let isCommonRepCfgSupported = prslCommonRepresentationHDRMetadataFormatConfig.isSupported;
                 delete prslCommonRepresentationHDRMetadataFormatConfig.isSupported;
@@ -463,26 +465,28 @@ function CapabilitiesFilter() {
         }
 
         manifest.Period.forEach((period) => {
-            period.AdaptationSet = period.AdaptationSet.filter((as) => {
+            if (!period.ImportedMPD) {
+                period.AdaptationSet = period.AdaptationSet.filter((as) => {
 
-                if (!as.Representation || as.Representation.length === 0) {
-                    return true;
-                }
+                    if (!as.Representation || as.Representation.length === 0) {
+                        return true;
+                    }
 
-                const adaptationSetEssentialProperties = adapter.getEssentialProperties(as);
-                const doesSupportEssentialProperties = _doesSupportEssentialProperties(adaptationSetEssentialProperties);
+                    const adaptationSetEssentialProperties = adapter.getEssentialProperties(as);
+                    const doesSupportEssentialProperties = _doesSupportEssentialProperties(adaptationSetEssentialProperties);
 
-                if (!doesSupportEssentialProperties) {
-                    return false;
-                }
+                    if (!doesSupportEssentialProperties) {
+                        return false;
+                    }
 
-                as.Representation = as.Representation.filter((rep) => {
-                    const essentialProperties = adapter.getEssentialProperties(rep);
-                    return _doesSupportEssentialProperties(essentialProperties);
+                    as.Representation = as.Representation.filter((rep) => {
+                        const essentialProperties = adapter.getEssentialProperties(rep);
+                        return _doesSupportEssentialProperties(essentialProperties);
+                    });
+
+                    return as.Representation && as.Representation.length > 0;
                 });
-
-                return as.Representation && as.Representation.length > 0;
-            });
+            }
 
             if (period.Preselection && period.Preselection.length) {
                 period.Preselection = period.Preselection.filter(prsl => {
