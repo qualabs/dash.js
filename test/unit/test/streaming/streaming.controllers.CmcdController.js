@@ -55,152 +55,6 @@ describe('CmcdController', function () {
         });
     });
 
-    describe('applyCmcdToRequest()', () => {
-        beforeEach(function () {
-            cmcdController.setConfig({
-                abrController: abrControllerMock,
-                dashMetrics: dashMetricsMock,
-                playbackController: playbackControllerMock,
-                throughputController: throughputControllerMock,
-                serviceDescriptionController: serviceDescriptionControllerMock
-            });
-        });
-
-        function getCmcdFromUrl(url) {
-            const parsed = new URL(url);
-            const cmcdParam = parsed.searchParams.get('CMCD');
-            return cmcdParam ? decodeCmcd(cmcdParam) : {};
-        }
-
-        it('should reflect playback rate change in CMCD data', function () {
-            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 2.4 });
-
-            const request = {
-                url: 'http://example.com/segment.m4s',
-                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
-                mediaType: 'video',
-                quality: 0,
-                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
-                duration: 4
-            };
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('pr', 2.4);
-        });
-
-        it('should reflect manifest load data (st, sf) in CMCD data', function () {
-            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {
-                protocol: 'MSS',
-                data: { type: 'dynamic' }
-            });
-
-            const request = {
-                url: 'http://example.com/segment.m4s',
-                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
-                mediaType: 'video',
-                quality: 0,
-                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
-                duration: 4
-            };
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('st', 'l');
-            expect(metrics).to.have.property('sf', 's');
-        });
-
-        it('should reflect buffer starvation in CMCD data', function () {
-            const request = {
-                url: 'http://example.com/segment.m4s',
-                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
-                mediaType: 'video',
-                quality: 0,
-                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
-                duration: 4
-            };
-
-            // First request consumes startup flag
-            cmcdController.applyCmcdToRequest(request);
-
-            eventBus.trigger(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, {
-                state: MediaPlayerEvents.BUFFER_EMPTY,
-                mediaType: 'video'
-            });
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('bs', true);
-            expect(metrics).to.have.property('su', true);
-        });
-
-        it('should reflect playback seek in CMCD data', function () {
-            const request = {
-                url: 'http://example.com/segment.m4s',
-                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
-                mediaType: 'video',
-                quality: 0,
-                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
-                duration: 4
-            };
-
-            // First request consumes startup flag
-            cmcdController.applyCmcdToRequest(request);
-
-            eventBus.trigger(MediaPlayerEvents.PLAYBACK_SEEKED);
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('bs', true);
-            expect(metrics).to.have.property('su', true);
-        });
-
-        it('should include CID when explicitly configured', function () {
-            settings.update({ streaming: { cmcd: { enabled: true, cid: 'my-content-id' } } });
-            cmcdController.reset();
-            cmcdController.initialize();
-            cmcdController.setConfig({
-                abrController: abrControllerMock,
-                dashMetrics: dashMetricsMock,
-                playbackController: playbackControllerMock,
-                throughputController: throughputControllerMock,
-                serviceDescriptionController: serviceDescriptionControllerMock
-            });
-
-            const request = {
-                url: 'http://example.com/manifest.mpd',
-                type: HTTPRequest.MPD_TYPE,
-                mediaType: 'video'
-            };
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('cid', 'my-content-id');
-        });
-
-        it('should include SID in CMCD data', function () {
-            settings.update({ streaming: { cmcd: { enabled: true, sid: 'my-session-id' } } });
-            cmcdController.reset();
-            cmcdController.initialize();
-            cmcdController.setConfig({
-                abrController: abrControllerMock,
-                dashMetrics: dashMetricsMock,
-                playbackController: playbackControllerMock,
-                throughputController: throughputControllerMock,
-                serviceDescriptionController: serviceDescriptionControllerMock
-            });
-
-            const request = {
-                url: 'http://example.com/manifest.mpd',
-                type: HTTPRequest.MPD_TYPE,
-                mediaType: 'video'
-            };
-
-            const result = cmcdController.applyCmcdToRequest(request);
-            const metrics = getCmcdFromUrl(result.url);
-            expect(metrics).to.have.property('sid', 'my-session-id');
-        });
-    });
 
     describe('Event Mode', () => {
         let urlLoaderMock;
@@ -473,6 +327,38 @@ describe('CmcdController', function () {
             const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
             expect(metrics).to.have.property('ts');
             expect(metrics).to.have.property('v');
+        });
+
+        it('should only send reports for configured events and ignore non-configured ones', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        targets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta'],
+                            events: ['ps'],
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // Trigger a non-configured event (ERROR) - should NOT send a report
+            eventBus.trigger(MediaPlayerEvents.ERROR, {
+                error: { code: 100, message: 'test error', data: {} }
+            });
+            expect(urlLoaderMock.load.called).to.be.false;
+
+            // Trigger the configured event (PLAY_STATE via PLAYBACK_PLAYING) - should send a report
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'ps');
         });
     });
 
@@ -1265,6 +1151,137 @@ describe('CmcdController', function () {
             const result2 = interceptor(makeRequest());
             const metrics2 = getCmcdFromUrl(result2.url);
             expect(metrics2).to.have.property('sn', 1);
+        });
+
+        it('should reflect playback rate change in CMCD data', function () {
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 2.4 });
+
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const result = interceptor(createCommonMediaRequest({
+                url: 'http://example.com/segment.m4s',
+                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
+                mediaType: 'video',
+                quality: 0,
+                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
+                duration: 4
+            }));
+
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('pr', 2.4);
+        });
+
+        it('should reflect manifest load data (st, sf) in CMCD data', function () {
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {
+                protocol: 'MSS',
+                data: { type: 'dynamic' }
+            });
+
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const result = interceptor(createCommonMediaRequest({
+                url: 'http://example.com/segment.m4s',
+                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
+                mediaType: 'video',
+                quality: 0,
+                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
+                duration: 4
+            }));
+
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('st', 'l');
+            expect(metrics).to.have.property('sf', 's');
+        });
+
+        it('should reflect buffer starvation in CMCD data', function () {
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const makeRequest = () => createCommonMediaRequest({
+                url: 'http://example.com/segment.m4s',
+                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
+                mediaType: 'video',
+                quality: 0,
+                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
+                duration: 4
+            });
+
+            // First request consumes startup flag
+            interceptor(makeRequest());
+
+            eventBus.trigger(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, {
+                state: MediaPlayerEvents.BUFFER_EMPTY,
+                mediaType: 'video'
+            });
+
+            const result = interceptor(makeRequest());
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('bs', true);
+            expect(metrics).to.have.property('su', true);
+        });
+
+        it('should reflect playback seek in CMCD data', function () {
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const makeRequest = () => createCommonMediaRequest({
+                url: 'http://example.com/segment.m4s',
+                type: HTTPRequest.MEDIA_SEGMENT_TYPE,
+                mediaType: 'video',
+                quality: 0,
+                representation: { mediaInfo: { bitrateList: [{ bandwidth: 10000 }] } },
+                duration: 4
+            });
+
+            // First request consumes startup flag
+            interceptor(makeRequest());
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_SEEKED);
+
+            const result = interceptor(makeRequest());
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('bs', true);
+            expect(metrics).to.have.property('su', true);
+        });
+
+        it('should include CID when explicitly configured', function () {
+            settings.update({ streaming: { cmcd: { enabled: true, cid: 'my-content-id' } } });
+            cmcdController.reset();
+            cmcdController.initialize();
+            cmcdController.setConfig({
+                abrController: abrControllerMock,
+                dashMetrics: dashMetricsMock,
+                playbackController: playbackControllerMock,
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock
+            });
+
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const result = interceptor(createCommonMediaRequest({
+                url: 'http://example.com/manifest.mpd',
+                type: HTTPRequest.MPD_TYPE,
+                mediaType: 'video'
+            }));
+
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('cid', 'my-content-id');
+        });
+
+        it('should include SID when explicitly configured', function () {
+            settings.update({ streaming: { cmcd: { enabled: true, sid: 'my-session-id' } } });
+            cmcdController.reset();
+            cmcdController.initialize();
+            cmcdController.setConfig({
+                abrController: abrControllerMock,
+                dashMetrics: dashMetricsMock,
+                playbackController: playbackControllerMock,
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock
+            });
+
+            const interceptor = cmcdController.getCmcdRequestInterceptors()[0];
+            const result = interceptor(createCommonMediaRequest({
+                url: 'http://example.com/manifest.mpd',
+                type: HTTPRequest.MPD_TYPE,
+                mediaType: 'video'
+            }));
+
+            const metrics = getCmcdFromUrl(result.url);
+            expect(metrics).to.have.property('sid', 'my-session-id');
         });
 
         it('should not decorate request when CMCD is disabled', function () {

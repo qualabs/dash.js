@@ -331,6 +331,16 @@ function CmcdConfigAccessor() {
     }
 
     /**
+     * Check if manifest CMCDParameters are available
+     * @returns {boolean} True if manifest params exist with a version
+     * @public
+     */
+    function hasManifestParams() {
+        const effectiveManifestParams = _getEffectiveManifestParams();
+        return !!(effectiveManifestParams && effectiveManifestParams.version);
+    }
+
+    /**
      * Check if CMCD is enabled
      *
      * CMCD is considered enabled if:
@@ -461,6 +471,7 @@ function CmcdConfigAccessor() {
         get,
         has,
         getVersion,
+        hasManifestParams,
         isEnabled,
         getTargets,
         getTarget,

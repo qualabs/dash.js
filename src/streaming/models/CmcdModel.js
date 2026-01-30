@@ -64,7 +64,10 @@ function CmcdModel() {
             [Constants.CMCD_REPORTING_MODE.REQUEST]: false
         },
         _rebufferingStartTime = {},
-        _rebufferingDuration = {};
+        _rebufferingDuration = {},
+        _streamType,
+        _streamingFormat,
+        _playbackRate;
 
     let context = this.context;
 
@@ -436,6 +439,16 @@ function CmcdModel() {
 
         data.ts = Date.now();
 
+        if (_streamType) {
+            data.st = _streamType;
+        }
+        if (_streamingFormat) {
+            data.sf = _streamingFormat;
+        }
+        if (_playbackRate !== undefined && _playbackRate !== 1) {
+            data.pr = _playbackRate;
+        }
+
         const cmcdVersion = cmcdConfig.getVersion();
         if (cmcdVersion === 2) {
             let ltc = playbackController.getCurrentLiveLatency() * 1000;
@@ -483,6 +496,9 @@ function CmcdModel() {
         _playbackStartedTime = undefined;
         _rebufferingStartTime = {};
         _rebufferingDuration = {};
+        _streamType = undefined;
+        _streamingFormat = undefined;
+        _playbackRate = undefined;
         _msdSent = {
             [Constants.CMCD_REPORTING_MODE.EVENT]: false,
             [Constants.CMCD_REPORTING_MODE.REQUEST]: false
@@ -558,6 +574,7 @@ function CmcdModel() {
 
     function onPlaybackRateChanged(data) {
         if (data.playbackRate !== undefined) {
+            _playbackRate = data.playbackRate;
             return { pr: data.playbackRate };
         }
         return null;
@@ -567,9 +584,9 @@ function CmcdModel() {
         try {
             const dashManifestModel = DashManifestModel(context).getInstance();
             const isDynamic = dashManifestModel.getIsDynamic(data.data);
-            const st = isDynamic ? CmcdStreamType.LIVE : CmcdStreamType.VOD;
-            const sf = data.protocol && data.protocol === 'MSS' ? CmcdStreamingFormat.SMOOTH : CmcdStreamingFormat.DASH;
-            return { st: `${st}`, sf: `${sf}` };
+            _streamType = isDynamic ? `${CmcdStreamType.LIVE}` : `${CmcdStreamType.VOD}`;
+            _streamingFormat = data.protocol && data.protocol === 'MSS' ? `${CmcdStreamingFormat.SMOOTH}` : `${CmcdStreamingFormat.DASH}`;
+            return { st: _streamType, sf: _streamingFormat };
         } catch (e) {
             return {};
         }

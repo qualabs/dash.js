@@ -155,6 +155,15 @@ function CmcdController() {
             return;
         }
         reporterNeedsRebuild = false;
+
+        // Only rebuild if manifest params are available and enabled.
+        // Without manifest params, the reporter config hasn't changed
+        // and rebuilding would unnecessarily reset sid and sn.
+        const applyFromMpd = cmcdConfig.get('applyParametersFromMpd') ?? true;
+        if (!applyFromMpd || !cmcdConfig.hasManifestParams()) {
+            return;
+        }
+
         cmcdReporter.stop();
         cmcdReporter.flush();
         cmcdReporter = _createCmcdReporter();
