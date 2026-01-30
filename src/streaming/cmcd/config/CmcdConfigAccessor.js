@@ -344,10 +344,21 @@ function CmcdConfigAccessor() {
      * @public
      */
     function isEnabled() {
-        // Use live access to manifest params (resolves timing issues)
-        const effectiveManifestParams = _getEffectiveManifestParams();
-        if (effectiveManifestParams && effectiveManifestParams.version) {
-            return true;
+        const cmcdSettings = settings.get().streaming.cmcd;
+
+        // Check if manifest has CMCDParameters (only if applyParametersFromMpd is not false)
+        // Manifest CMCDParameters override player settings including enabled: false
+        const applyFromMpd = cmcdSettings?.applyParametersFromMpd ?? true;
+        if (applyFromMpd) {
+            const effectiveManifestParams = _getEffectiveManifestParams();
+            if (effectiveManifestParams && effectiveManifestParams.version) {
+                return true;
+            }
+        }
+
+        // No manifest params (or applyParametersFromMpd is false) — use player settings
+        if (cmcdSettings && cmcdSettings.enabled === false) {
+            return false;
         }
 
         // Fall back to player settings configuration
