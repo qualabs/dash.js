@@ -103,12 +103,16 @@ function CmcdModel() {
         }
     }
 
+    function _isValidValue(value) {
+        return value !== null && value !== undefined && !isNaN(value) && isFinite(value);
+    }
+
     function _toInnerList(videoValue, audioValue) {
         const values = [];
-        if (videoValue !== null && videoValue !== undefined && !isNaN(videoValue)) {
+        if (_isValidValue(videoValue)) {
             values.push(toCmcdValue(videoValue, { v: true }));
         }
-        if (audioValue !== null && audioValue !== undefined && !isNaN(audioValue)) {
+        if (_isValidValue(audioValue)) {
             values.push(toCmcdValue(audioValue, { a: true }));
         }
         return values.length > 0 ? values : null;
@@ -210,7 +214,7 @@ function CmcdModel() {
             }
         }
 
-        if (!isNaN(tb)) {
+        if (!isNaN(tb) && isFinite(tb)) {
             if (cmcdConfig.getVersion() === 2) {
                 const videoTb = mediaType === Constants.VIDEO ? tb : null;
                 const audioTb = mediaType === Constants.AUDIO ? tb : null;
