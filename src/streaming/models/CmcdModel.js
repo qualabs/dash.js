@@ -150,7 +150,17 @@ function CmcdModel() {
         }
 
         if (encodedBitrate) {
-            data.br = encodedBitrate;
+            if (cmcdConfig.getVersion() === 2) {
+                let brToken = {};
+                if (mediaType === Constants.VIDEO) {
+                    brToken = { v: true };
+                } else if (mediaType === Constants.AUDIO) {
+                    brToken = { a: true };
+                }
+                data.br = [toCmcdValue(encodedBitrate, brToken)];
+            } else {
+                data.br = encodedBitrate;
+            }
         }
 
         if (ot) {
@@ -248,7 +258,39 @@ function CmcdModel() {
         return data;
     }
 
-    
+    function _getEncodedBitrateData() {
+        const data = {};
+        const activeStream = playbackController.getStreamController()?.getActiveStream();
+        if (!activeStream) {
+            return data;
+        }
+
+        const videoRep = activeStream.getCurrentRepresentationForType(Constants.VIDEO);
+        const audioRep = activeStream.getCurrentRepresentationForType(Constants.AUDIO);
+
+        if (cmcdConfig.getVersion() === 2) {
+            const brValues = [];
+            if (videoRep && videoRep.bitrateInKbit > 0) {
+                brValues.push(toCmcdValue(Math.round(videoRep.bitrateInKbit), { v: true }));
+            }
+            if (audioRep && audioRep.bitrateInKbit > 0) {
+                brValues.push(toCmcdValue(Math.round(audioRep.bitrateInKbit), { a: true }));
+            }
+            if (brValues.length > 0) {
+                data.br = brValues;
+            }
+        } else {
+            const videoBr = videoRep ? videoRep.bitrateInKbit : 0;
+            const audioBr = audioRep ? audioRep.bitrateInKbit : 0;
+            const br = videoBr || audioBr;
+            if (br > 0) {
+                data.br = Math.round(br);
+            }
+        }
+
+        return data;
+    }
+
     function _getBitrateByRequest(request) {
         try {
             return parseInt(request.bandwidth / 1000);
@@ -519,6 +561,7 @@ function CmcdModel() {
             ...getGenericCmcdData(),
             ...updateMsdData(Constants.CMCD_REPORTING_MODE.EVENT),
             ..._getAggregatedBitrateData(),
+            ..._getEncodedBitrateData(),
             ..._getBufferLevelData(),
         };
 
