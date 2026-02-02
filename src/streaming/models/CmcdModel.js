@@ -219,7 +219,13 @@ function CmcdModel() {
         }
         
         if (pb !== null && !isNaN(pb)) {
-            data.pb = pb;
+            if (cmcdConfig.getVersion() === 2) {
+                const videoPb = mediaType === Constants.VIDEO ? pb : null;
+                const audioPb = mediaType === Constants.AUDIO ? pb : null;
+                data.pb = _toInnerList(videoPb, audioPb) || [toCmcdValue(pb, {})];
+            } else {
+                data.pb = pb;
+            }
         }
 
         if (_bufferLevelStarved[mediaType]) {
@@ -336,6 +342,18 @@ function CmcdModel() {
         } catch (e) {
             return null;
         }
+    }
+
+    function _getPlayheadBitrateData() {
+        const data = {};
+        const videoPb = _getPlayheadBitrate(Constants.VIDEO);
+        const audioPb = _getPlayheadBitrate(Constants.AUDIO);
+        const pbValues = _toInnerList(videoPb, audioPb);
+        if (pbValues) {
+            data.pb = pbValues;
+        }
+
+        return data;
     }
 
     function _getTopPlayableBitrate(mediaType) {
@@ -571,6 +589,7 @@ function CmcdModel() {
             ..._getEncodedBitrateData(),
             ..._getBufferLevelData(),
             ..._getMeasuredThroughputData(),
+            ..._getPlayheadBitrateData(),
         };
 
         return cmcdData;
