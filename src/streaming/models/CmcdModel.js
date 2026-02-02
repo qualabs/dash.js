@@ -214,7 +214,13 @@ function CmcdModel() {
         }
 
         if (_rebufferingDuration[mediaType]) {
-            data.bsd = _rebufferingDuration[mediaType];
+            if (cmcdConfig.getVersion() === 2) {
+                const videoBsd = mediaType === Constants.VIDEO ? _rebufferingDuration[mediaType] : null;
+                const audioBsd = mediaType === Constants.AUDIO ? _rebufferingDuration[mediaType] : null;
+                data.bsd = _toInnerList(videoBsd, audioBsd) || [toCmcdValue(_rebufferingDuration[mediaType], {})];
+            } else {
+                data.bsd = _rebufferingDuration[mediaType];
+            }
             delete _rebufferingDuration[mediaType];
         }
 
