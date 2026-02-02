@@ -170,7 +170,17 @@ function CmcdModel() {
         }
 
         if (!isNaN(bl)) {
-            data.bl = bl;
+            if (cmcdConfig.getVersion() === 2) {
+                let blToken = {};
+                if (mediaType === Constants.VIDEO) {
+                    blToken = { v: true };
+                } else if (mediaType === Constants.AUDIO) {
+                    blToken = { a: true };
+                }
+                data.bl = [toCmcdValue(bl, blToken)];
+            } else {
+                data.bl = bl;
+            }
         }
 
         if (!isNaN(tb)) {
@@ -344,7 +354,31 @@ function CmcdModel() {
         }
     }
 
+    function _getBufferLevelData() {
+        const data = {};
+        const videoBl = _getBufferLevelByType(Constants.VIDEO);
+        const audioBl = _getBufferLevelByType(Constants.AUDIO);
 
+        if (cmcdConfig.getVersion() === 2) {
+            const blValues = [];
+            if (videoBl !== null && !isNaN(videoBl)) {
+                blValues.push(toCmcdValue(videoBl, { v: true }));
+            }
+            if (audioBl !== null && !isNaN(audioBl)) {
+                blValues.push(toCmcdValue(audioBl, { a: true }));
+            }
+            if (blValues.length > 0) {
+                data.bl = blValues;
+            }
+        } else {
+            const bl = videoBl !== null ? videoBl : audioBl;
+            if (bl !== null && !isNaN(bl)) {
+                data.bl = bl;
+            }
+        }
+
+        return data;
+    }
 
     function onBufferLevelStateChanged(data) {
         try {
@@ -485,6 +519,7 @@ function CmcdModel() {
             ...getGenericCmcdData(),
             ...updateMsdData(Constants.CMCD_REPORTING_MODE.EVENT),
             ..._getAggregatedBitrateData(),
+            ..._getBufferLevelData(),
         };
 
         return cmcdData;
