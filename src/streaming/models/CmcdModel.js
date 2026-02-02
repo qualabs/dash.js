@@ -221,7 +221,13 @@ function CmcdModel() {
         }
 
         if (tpb !== null && !isNaN(tpb)) {
-            data.tpb = tpb;
+            if (cmcdConfig.getVersion() === 2) {
+                const videoTpb = mediaType === Constants.VIDEO ? tpb : null;
+                const audioTpb = mediaType === Constants.AUDIO ? tpb : null;
+                data.tpb = _toInnerList(videoTpb, audioTpb) || [toCmcdValue(tpb, {})];
+            } else {
+                data.tpb = tpb;
+            }
         }
         
         if (pb !== null && !isNaN(pb)) {
@@ -362,13 +368,33 @@ function CmcdModel() {
         return data;
     }
 
+    function _getTopBitrateDataForType(mediaType) {
+        if (!streamProcessors || streamProcessors.length === 0) {
+            return null;
+        }
+        const sp = streamProcessors.find(p => p.getType() === mediaType);
+        if (!sp) {
+            return null;
+        }
+        const mediaInfo = sp.getMediaInfo();
+        const tb = _getTopBitrateByType(mediaInfo);
+        return isFinite(tb) && tb > 0 ? tb : null;
+    }
+
     function _getTopBitrateData() {
         const data = {};
-        const videoTb = _getTopPlayableBitrate(Constants.VIDEO);
-        const audioTb = _getTopPlayableBitrate(Constants.AUDIO);
+        const videoTb = _getTopBitrateDataForType(Constants.VIDEO);
+        const audioTb = _getTopBitrateDataForType(Constants.AUDIO);
         const tbValues = _toInnerList(videoTb, audioTb);
         if (tbValues) {
             data.tb = tbValues;
+        }
+
+        const videoTpb = _getTopPlayableBitrate(Constants.VIDEO);
+        const audioTpb = _getTopPlayableBitrate(Constants.AUDIO);
+        const tpbValues = _toInnerList(videoTpb, audioTpb);
+        if (tpbValues) {
+            data.tpb = tpbValues;
         }
 
         return data;
