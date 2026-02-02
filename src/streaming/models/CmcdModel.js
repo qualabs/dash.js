@@ -153,10 +153,18 @@ function CmcdModel() {
         }
 
         if (nextRequest) {
-            if (request.url !== nextRequest.url) {
-                data.nor = encodeURIComponent(Utils.getRelativeUrl(request.url, nextRequest.url));
-            } else if (nextRequest.range) {
-                data.nrr = nextRequest.range;
+            if (cmcdConfig.getVersion() === 2) {
+                if (request.url !== nextRequest.url) {
+                    const relativeUrl = Utils.getRelativeUrl(request.url, nextRequest.url);
+                    const params = nextRequest.range ? { r: nextRequest.range } : undefined;
+                    data.nor = [toCmcdValue(relativeUrl, params)];
+                }
+            } else {
+                if (request.url !== nextRequest.url) {
+                    data.nor = encodeURIComponent(Utils.getRelativeUrl(request.url, nextRequest.url));
+                } else if (nextRequest.range) {
+                    data.nrr = nextRequest.range;
+                }
             }
         }
 
