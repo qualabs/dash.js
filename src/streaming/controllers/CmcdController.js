@@ -177,7 +177,7 @@ function CmcdController() {
                 ? CMCD_HEADERS
                 : CMCD_QUERY,
             enabledKeys: cmcdConfig.get('keys'),
-            targets: _buildReporterTargets(),
+            eventTargets: _buildReporterTargets(),
         };
 
         // Only pass sid/cid if they have actual values, so CmcdReporter

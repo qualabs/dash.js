@@ -293,10 +293,13 @@ describe('CmcdController', function () {
                 streaming: {
                     cmcd: {
                         version: 2,
+                        sid: 'session-id',
                         targets: [{
                             url: 'https://cmcd.event.collector/api',
                             enabled: true,
                             enabledKeys: [],
+                            events: ['rr'],
+                            timeInterval: 0
                         }]
                     }
                 }
@@ -807,15 +810,18 @@ describe('CmcdController', function () {
                 streaming: {
                     cmcd: {
                         version: 2,
+                        sid: 'session-id',
                         targets: [{
                             url: 'https://cmcd.response.collector/api',
                             enabled: true,
                             includeOnRequests: ['segment'],
-                            events: ['rr']
+                            events: ['rr'],
+                            timeInterval: 0
                         }]
                     }
                 }
             });
+            cmcdController.initialize();
 
             let currentTime = new Date(Date.now());
             const mockResponse = {
