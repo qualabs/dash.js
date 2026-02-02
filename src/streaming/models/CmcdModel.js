@@ -179,7 +179,13 @@ function CmcdModel() {
         }
 
         if (!isNaN(mtp)) {
-            data.mtp = mtp;
+            if (cmcdConfig.getVersion() === 2) {
+                const videoMtp = mediaType === Constants.VIDEO ? mtp : null;
+                const audioMtp = mediaType === Constants.AUDIO ? mtp : null;
+                data.mtp = _toInnerList(videoMtp, audioMtp) || [toCmcdValue(mtp, {})];
+            } else {
+                data.mtp = mtp;
+            }
         }
 
         if (!isNaN(dl)) {
@@ -360,6 +366,18 @@ function CmcdModel() {
         } catch (e) {
             return null;
         }
+    }
+
+    function _getMeasuredThroughputData() {
+        const data = {};
+        const videoMtp = _getMeasuredThroughputByType(Constants.VIDEO);
+        const audioMtp = _getMeasuredThroughputByType(Constants.AUDIO);
+        const mtpValues = _toInnerList(videoMtp, audioMtp);
+        if (mtpValues) {
+            data.mtp = mtpValues;
+        }
+
+        return data;
     }
 
     function _getDeadlineByType(mediaType) {
@@ -544,6 +562,7 @@ function CmcdModel() {
             ..._getAggregatedBitrateData(),
             ..._getEncodedBitrateData(),
             ..._getBufferLevelData(),
+            ..._getMeasuredThroughputData(),
         };
 
         return cmcdData;
