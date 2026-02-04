@@ -1350,9 +1350,12 @@ function DashManifestModel() {
                         event.duration = currentMpdEvent.duration / eventStream.timescale;
                     }
                     if (currentMpdEvent.hasOwnProperty(DashConstants.ID)) {
-                        event.id = parseInt(currentMpdEvent.id);
+                        // Preserve original ID (can be string or number) and also store parsed integer
+                        event.id = currentMpdEvent.id;
+                        event.idInt = parseInt(currentMpdEvent.id);
                     } else {
                         event.id = null;
+                        event.idInt = null;
                     }
                     if (currentMpdEvent.hasOwnProperty(DashConstants.STATUS)) {
                         event.status = currentMpdEvent.status;
@@ -1378,9 +1381,11 @@ function DashManifestModel() {
                         // to specifying a complete XML element(s) in the Event.
                         // It is useful when an event leans itself to a compact
                         // string representation'.
+                        // Support both __cdata (legacy) and #cdata (current XML parser format)
                         event.messageData =
                             currentMpdEvent.messageData ||
                             currentMpdEvent.__cdata ||
+                            currentMpdEvent['#cdata']?.nodeValue ||
                             currentMpdEvent.__text;
                     }
 

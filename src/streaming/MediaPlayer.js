@@ -1372,6 +1372,18 @@ function MediaPlayer() {
         return dashMetrics;
     }
 
+    /**
+     * Returns the CmcdReporter instance for external access.
+     * This allows custom event recording and data updates from outside the player.
+     *
+     * @returns {CmcdReporter|null} The CmcdReporter instance or null if not initialized
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function getCmcdReporter() {
+        return cmcdController ? cmcdController.getReporter() : null;
+    }
+
     /*
     ---------------------------------------------------------------------------
 
@@ -2908,6 +2920,7 @@ function MediaPlayer() {
         getCurrentSteeringResponseData,
         getCurrentTextTrackIndex,
         getCurrentTrackFor,
+        getCmcdReporter,
         getDashAdapter,
         getDashMetrics,
         getDebug,

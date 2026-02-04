@@ -185,13 +185,18 @@ function EventController() {
      */
     function _triggerEvents(events, presentationTimeThreshold, currentVideoTime) {
         try {
+            // Skip event processing if currentVideoTime is null or undefined (playback hasn't started)
+            if (currentVideoTime === null || currentVideoTime === undefined) {
+                return;
+            }
+
             const callback = function (event, currentPeriodEvents) {
                 if (event !== undefined) {
                     const duration = !isNaN(event.duration) ? event.duration : 0;
                     const isRetriggerable = _isRetriggerable(event);
                     const hasNoJump = _hasNoJumpValue(event);
                     const hasExecuteOnce = _hasExecuteOnceValue(event);
-                    
+
                     // Check if event is ready to resolve (earliestResolutionTimeOffset feature)
                     if (_checkEventReadyToResolve(event, currentVideoTime)) {
                         _triggerEventReadyToResolve(event);
@@ -200,11 +205,19 @@ function EventController() {
                     if (isRetriggerable && _canEventRetrigger(event, currentVideoTime, presentationTimeThreshold, hasExecuteOnce)) {
                         event.triggeredStartEvent = false;
                     }
-                    
+
                     // Handle noJump events first - these ignore duration and trigger when skipping ahead
                     if (hasNoJump && _shouldTriggerNoJumpEvent(event, currentVideoTime, currentPeriodEvents)) {
                         event.triggeredNoJumpEvent = true;
                         _startEvent(event, MediaPlayerEvents.EVENT_MODE_ON_START);
+                    }
+                    // Special handling for presentationTime=0 events - fire ON_START immediately when playback starts
+                    // These events semantically mean "fire at the start of content" and should trigger as soon as playback begins
+                    else if (event.calculatedPresentationTime === 0 && currentVideoTime > 0) {
+                        _startEvent(event, MediaPlayerEvents.EVENT_MODE_ON_START);
+                        if (hasNoJump) {
+                            event.triggeredNoJumpEvent = true;
+                        }
                     }
                     // Handle regular events - these check duration and timing
                     else if (event.calculatedPresentationTime <= currentVideoTime && event.calculatedPresentationTime + presentationTimeThreshold + duration >= currentVideoTime) {
@@ -267,7 +280,9 @@ function EventController() {
                     let event = values[i];
                     const currentTime = playbackController.getTime();
                     const duration = !isNaN(event.duration) ? event.duration : 0;
-                    if (!_eventHasExpired(currentTime, duration, event.calculatedPresentationTime)) {
+                    const isExpired = _eventHasExpired(currentTime, duration, event.calculatedPresentationTime, false, true);
+
+                    if (!isExpired) {
                         let result = _addOrUpdateEvent(event, inlineEvents[periodId], true);
 
                         if (result === EVENT_HANDLED_STATES.ADDED) {
@@ -812,13 +827,19 @@ function EventController() {
      * @param {number} threshold
      * @param {number} calculatedPresentationTimeInSeconds
      * @param {boolean} isRetriggerable
+     * @param {boolean} isInitialCheck - Whether this is the initial check during addInlineEvents
      * @return {boolean}
      * @private
      */
-    function _eventHasExpired(currentVideoTime, threshold, calculatedPresentationTimeInSeconds, isRetriggerable = false) {
+    function _eventHasExpired(currentVideoTime, threshold, calculatedPresentationTimeInSeconds, isRetriggerable = false, isInitialCheck = false) {
         try {
             // Retriggerables events don't expire in the traditional sense
             if (isRetriggerable) {
+                return false;
+            }
+            // Events at presentationTime=0 should not be considered expired during the initial check
+            // because they semantically mean "fire at the start of content" and should always be processed
+            if (isInitialCheck && calculatedPresentationTimeInSeconds === 0) {
                 return false;
             }
             return currentVideoTime - threshold > calculatedPresentationTimeInSeconds;
@@ -876,6 +897,8 @@ function EventController() {
                     logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
                     const url = event.messageData instanceof Uint8Array ? Utils.uint8ArrayToString(event.messageData) : event.messageData;
                     _sendCallbackRequest(url);
+                    // Also dispatch the callback event so external listeners can capture it (e.g., for CMCD reporting)
+                    eventBus.trigger(event.eventStream.schemeIdUri, { event }, { mode });
                 } else {
                     logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
                     eventBus.trigger(event.eventStream.schemeIdUri, { event }, { mode });

@@ -100,7 +100,7 @@
 
                         <div class="mb-3">
                             <label class="form-label">Alternative VOD URL:</label>
-                            <input type="text" id="alternativeUrl" class="form-control" value="https://dash.akamaized.net/akamai/tos/tears-blend-no-steering.mpd" />
+                            <input type="text" id="alternativeUrl" class="form-control" value="http://localhost:3000/api/list-mpd?vasturl=http://localhost:3000/samples/dash-alt-mpd/vast-sample.xml" />
                         </div>
 
                         <div class="event-type-selector">
@@ -422,6 +422,29 @@
             // Load without events - use attachSource with the URL
             player.attachSource(manifestUrl);
         }
+
+        player.on("alternativeContentReady", function(e) {
+            console.log(">>> Alternative content READY at:", performance.now());
+            const altPlayer = e.player;
+            if (altPlayer) {
+                const reporter = altPlayer.getCmcdReporter();
+                console.log(">>> Reporter:", reporter);
+
+                altPlayer.on("urn:mpeg:dash:event:callback:2015", function(callbackEvent, extra) {
+                    const eventType = callbackEvent.event.id;
+                    console.log(">>> Callback event received:", eventType, "mode:", extra?.mode, "at:", performance.now());
+
+                    if (reporter) {
+                        reporter.recordEvent("ce", { cen: `callback-event-${eventType}` });
+                    } else {
+                        console.log(">>> Reporter is null");
+                    }
+                });
+            } else {
+                console.log("AltPlayer not found")
+            }
+        });
+
     }
 
     document.addEventListener('DOMContentLoaded', function () {

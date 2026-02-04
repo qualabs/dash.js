@@ -196,15 +196,27 @@ function AlternativeMediaController() {
                 actualEventPresentationTime = playbackController.getTime();
                 timeToSwitch = parsedEvent.startWithOffset ? actualEventPresentationTime - parsedEvent.presentationTime : 0;
                 timeToSwitch = timeToSwitch + _getAnchor(parsedEvent.alternativeMPD.url);
+
+                // Callback to trigger CONTENT_READY when player is ready but before playback starts
+                const onPlayerReady = (altPlayer) => {
+                    if (eventBus) {
+                        eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_READY, {
+                            event: parsedEvent,
+                            player: altPlayer
+                        });
+                    }
+                };
+
                 mediaManager.switchToAlternativeContent(
                     parsedEvent.id,
                     parsedEvent.alternativeMPD.url,
-                    timeToSwitch
+                    timeToSwitch,
+                    onPlayerReady
                 );
-                
+
                 // Trigger content start event
                 if (eventBus){
-                    eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_START, { 
+                    eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_START, {
                         event: parsedEvent,
                         player: mediaManager.getAlternativePlayer()
                     });

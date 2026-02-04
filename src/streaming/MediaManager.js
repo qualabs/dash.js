@@ -148,7 +148,7 @@ function MediaManager() {
         }
     }
 
-    function initializeAlternativePlayer(alternativeMpdUrl) {
+    function createAlternativePlayer() {
         if (altPlayer) {
             altPlayer.off(Events.ERROR, onAlternativePlayerError, this);
         }
@@ -158,10 +158,16 @@ function MediaManager() {
                 cacheInitSegments: true
             }
         });
-        altPlayer.initialize(null, alternativeMpdUrl, false, NaN);
-        altPlayer.preload();
         altPlayer.setAutoPlay(false);
         altPlayer.on(Events.ERROR, onAlternativePlayerError, this);
+        return altPlayer;
+    }
+
+    function loadAlternativeManifest(alternativeMpdUrl) {
+        if (altPlayer) {
+            altPlayer.initialize(null, alternativeMpdUrl, false, NaN);
+            altPlayer.preload();
+        }
     }
 
     function onAlternativePlayerError(e) {
@@ -170,7 +176,7 @@ function MediaManager() {
         }
     }
 
-    function switchToAlternativeContent(playerId, alternativeMpdUrl, time = 0) {
+    function switchToAlternativeContent(playerId, alternativeMpdUrl, time = 0, onReady = null) {
         if (isSwitching) {
             logger.debug('Switch already in progress - ignoring request');
             return
@@ -185,8 +191,23 @@ function MediaManager() {
             logger.info(`Using prebuffered content for player ${playerId}`);
             altPlayer = prebufferedContent.player;
             prebufferedPlayers.delete(playerId);
+
+            // Call onReady callback - for prebuffered, manifest is already loaded
+            if (onReady && typeof onReady === 'function') {
+                onReady(altPlayer);
+            }
         } else {
-            initializeAlternativePlayer(alternativeMpdUrl);
+            // Create player first WITHOUT loading manifest
+            createAlternativePlayer();
+
+            // Call onReady callback BEFORE loading manifest
+            // This allows listeners to be registered before ON_RECEIVE events fire
+            if (onReady && typeof onReady === 'function') {
+                onReady(altPlayer);
+            }
+
+            // Now load the manifest - this will trigger ON_RECEIVE events
+            loadAlternativeManifest(alternativeMpdUrl);
         }
 
         if (!altVideoElement) {

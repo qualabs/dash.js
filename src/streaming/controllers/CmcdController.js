@@ -580,6 +580,15 @@ function CmcdController() {
         return cmcdModel.getCmcdParametersFromManifest();
     }
 
+    /**
+     * Returns the CmcdReporter instance for external access.
+     * This allows custom event recording and data updates from outside the player.
+     * @returns {CmcdReporter|null} The CmcdReporter instance or null if not initialized
+     */
+    function getReporter() {
+        return cmcdReporter;
+    }
+
     function reset() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, this);
         eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
@@ -605,6 +614,7 @@ function CmcdController() {
         getCmcdRequestInterceptors,
         getCmcdResponseInterceptors,
         getCmcdParametersFromManifest,
+        getReporter,
         initialize,
         isCmcdEnabled,
         reset,
