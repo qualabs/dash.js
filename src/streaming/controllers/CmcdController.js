@@ -243,7 +243,7 @@ function CmcdController() {
             });
         });
     }
-    
+
     function _onStateChange(state) {
         // Update CmcdReporter with the new player state
         if (cmcdReporter) {
@@ -534,25 +534,7 @@ function CmcdController() {
 
     function _addCmcdResponseReceivedData(response, cmcdData){
         const responseData = {};
-        const request = response.request.customData.request;
-        const requestType = request.type;
 
-        if (requestType === HTTPRequest.MEDIA_SEGMENT_TYPE){
-            responseData.rc = response.status;
-        }
-
-        if (request.startDate && request.firstByteDate){
-            responseData.ttfb = request.firstByteDate - request.startDate;
-        }
-
-        if (request.endDate && request.startDate){
-            responseData.ttlb = request.endDate - request.startDate
-        }
-
-        if (request.url) {
-            responseData.url = request.url.split('?')[0]
-        }
-    
         if (response.headers){
             try {
                 const cmsdStaticHeader = response.headers['cmsd-static'];
