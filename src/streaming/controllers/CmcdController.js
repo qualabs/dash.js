@@ -295,7 +295,7 @@ function CmcdController() {
 
         // For RESPONSE_RECEIVED, merge request CMCD data and response metrics
         if (event === Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED && response) {
-            cmcdData = { ...cmcdData, ...response.request.cmcd };
+            cmcdData = { ...cmcdData, ...response.request.customData?.cmcd };
             cmcdData = _addCmcdResponseReceivedData(response, cmcdData);
         }
 
@@ -324,13 +324,13 @@ function CmcdController() {
                 ...cmcdModel.calculateCmcdDataForRequest(request),
                 ...cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST),
             };
-            
-            request.cmcd = cmcdData; //TODO: wrong because cmcdData only has data from model, not complete data with reporter
+
             cmcdReporter.update(cmcdData);
 
             const decorated = cmcdReporter.applyRequestReport(request);
             request.url = decorated.url;
             request.headers = decorated.headers;
+            request.cmcd = decorated.customData?.cmcd || {};
 
             _triggerCMCDDataGeneratedEvent(request)
 
@@ -504,7 +504,6 @@ function CmcdController() {
         const requestType = commonMediaRequest.customData.request.type;
 
         if (!cmcdModel.isIncludedInRequestFilter(requestType)) {
-            commonMediaRequest.cmcd = commonMediaRequest.customData.request.cmcd;
             return commonMediaRequest;
         }
 
@@ -516,8 +515,7 @@ function CmcdController() {
             ...commonMediaRequest,
             url: request.url,
             headers: request.headers,
-            customData: { request },
-            cmcd: request.cmcd,
+            customData: { ...commonMediaRequest.customData, cmcd: request.cmcd },
         };
 
         return commonMediaRequest;
