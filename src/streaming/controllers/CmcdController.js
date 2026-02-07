@@ -306,7 +306,7 @@ function CmcdController() {
 
     /**
      * Applies CMCD data to a request by decorating its URL and/or headers.
-     * Delegates to CmcdReporter.applyRequestReport() which handles
+     * Delegates to CmcdReporter.createRequestReport() which handles
      * transmission mode (query vs header) internally.
      *
      * @param {object} request - The request object with at least { url, type }.
@@ -325,9 +325,7 @@ function CmcdController() {
                 ...cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST),
             };
 
-            cmcdReporter.update(cmcdData);
-
-            const decorated = cmcdReporter.applyRequestReport(request);
+            const decorated = cmcdReporter.createRequestReport(request, cmcdData);
             request.url = decorated.url;
             request.headers = decorated.headers;
             request.cmcd = decorated.customData?.cmcd || {};
