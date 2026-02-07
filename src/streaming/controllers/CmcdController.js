@@ -249,11 +249,7 @@ function CmcdController() {
         if (cmcdReporter) {
             cmcdReporter.update({ sta: state });
         }
-        _onEventChange(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
-    }
-
-    function _onEventChange(event, response){
-        triggerCmcdEventMode(event, response);
+        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
     }
 
     function _onPeriodSwitchComplete() {
@@ -281,27 +277,26 @@ function CmcdController() {
             }
         }
 
-        _onEventChange(Constants.CMCD_REPORTING_EVENTS.ERROR);
+        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.ERROR);
     }
 
-    function triggerCmcdEventMode(event, response) {
+    function triggerCmcdEventMode(event) {
         if (!cmcdReporter) {
             return;
         }
 
         _rebuildReporterIfNeeded();
 
-        let cmcdData = cmcdModel.triggerCmcdEventMode();
+        const cmcdData = cmcdModel.getEventModeData();
 
-        // For RESPONSE_RECEIVED, merge request CMCD data and response metrics
-        if (event === Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED && response) {
-            cmcdData = { ...cmcdData, ...response.request.customData?.cmcd };
-            cmcdData = _addCmcdResponseReceivedData(response, cmcdData);
+        // Route MSD through update() for the reporter's internal send-once tracking
+        const msdData = cmcdModel.calculateMsd();
+        if (msdData.msd !== undefined) {
+            cmcdReporter.update(msdData);
         }
 
-        // Update reporter with calculated data and record the event
-        cmcdReporter.update(cmcdData);
-        cmcdReporter.recordEvent(event);
+        // Pass event-mode data as transient per-event data (not persisted)
+        cmcdReporter.recordEvent(event, cmcdData);
     }
 
     /**
@@ -320,10 +315,13 @@ function CmcdController() {
         _rebuildReporterIfNeeded();
 
         try {
-            const cmcdData = {
-                ...cmcdModel.calculateCmcdDataForRequest(request),
-                ...cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST),
-            };
+            const cmcdData = cmcdModel.calculateCmcdDataForRequest(request);
+
+            // Route MSD through update() for the reporter's internal send-once tracking
+            const msdData = cmcdModel.calculateMsd();
+            if (msdData.msd !== undefined) {
+                cmcdReporter.update(msdData);
+            }
 
             const decorated = cmcdReporter.createRequestReport(request, cmcdData);
             request.url = decorated.url;
@@ -528,30 +526,46 @@ function CmcdController() {
         if (requestType === HTTPRequest.CMCD_EVENT) {
             return response;
         }
-        _onEventChange(Constants.CMCD_REPORTING_EVENTS.RESPONSE_RECEIVED, response)
+        _handleResponseReceived(response);
         return response;
     }
 
-    function _addCmcdResponseReceivedData(response, cmcdData){
-        const responseData = {};
+    function _handleResponseReceived(response) {
+        if (!cmcdReporter) {
+            return;
+        }
 
-        if (response.headers){
+        _rebuildReporterIfNeeded();
+
+        // Collect event-mode data from the model
+        const eventData = cmcdModel.getEventModeData();
+
+        // Route MSD through update() for the reporter's internal send-once tracking
+        const msdData = cmcdModel.calculateMsd();
+        if (msdData.msd !== undefined) {
+            cmcdReporter.update(msdData);
+        }
+
+        // Collect dash.js-specific additional data
+        const additionalData = {};
+
+        if (response.headers) {
             try {
                 const cmsdStaticHeader = response.headers['cmsd-static'];
                 if (cmsdStaticHeader) {
-                    responseData.cmsds = btoa(cmsdStaticHeader);
+                    additionalData.cmsds = btoa(cmsdStaticHeader);
                 }
 
                 const cmsdDynamicHeader = response.headers['cmsd-dynamic'];
                 if (cmsdDynamicHeader) {
-                    responseData.cmsdd = btoa(cmsdDynamicHeader);
+                    additionalData.cmsdd = btoa(cmsdDynamicHeader);
                 }
             } catch (e) {
                 logger.warn('Failed to base64 encode CMSD headers, ignoring.', e);
             }
         }
 
-        return {...cmcdData, ...responseData};
+        cmcdReporter.recordResponseReceived(response, { ...eventData, ...additionalData });
     }
 
     function getCmcdParametersFromManifest() {

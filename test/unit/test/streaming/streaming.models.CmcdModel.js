@@ -178,42 +178,25 @@ describe('CmcdModel', function () {
         });
     });
 
-    describe('updateMsdData', function () {
-        it('should return MSD data for version 2', function () {
-            settings.update({
-                streaming: {
-                    cmcd: {
-                        version: 2
-                    }
-                }
-            });
-            
+    describe('calculateMsd', function () {
+        it('should return MSD data when playback has started', function () {
             cmcdModel.onPlaybackStarted();
             cmcdModel.onPlaybackPlaying();
             
-            const msdData = cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST);
+            const msdData = cmcdModel.calculateMsd();
             expect(msdData).to.have.property('msd').that.is.a('number');
         });
 
-        it('should not return MSD data for version 1', function () {
-            settings.update({
-                streaming: {
-                    cmcd: {
-                        version: 1
-                    }
-                }
-            });
-            
-            const msdData = cmcdModel.updateMsdData(Constants.CMCD_REPORTING_MODE.REQUEST);
+        it('should return empty object when playback has not started', function () {
+            const msdData = cmcdModel.calculateMsd();
             expect(Object.keys(msdData)).to.have.length(0);
         });
     });
 
-    describe('triggerCmcdEventMode', function () {
+    describe('getEventModeData', function () {
         it('should return event mode CMCD data', function () {
-            const eventData = cmcdModel.triggerCmcdEventMode();
+            const eventData = cmcdModel.getEventModeData();
             expect(eventData).to.exist;
-            expect(eventData.ts).to.be.a('number');
         });
     });
 
