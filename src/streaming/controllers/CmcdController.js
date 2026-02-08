@@ -500,6 +500,7 @@ function CmcdController() {
         const requestType = commonMediaRequest.customData.request.type;
 
         if (!cmcdModel.isIncludedInRequestFilter(requestType)) {
+            commonMediaRequest.cmcd = commonMediaRequest.customData.request.cmcd;
             return commonMediaRequest;
         }
 
@@ -511,6 +512,7 @@ function CmcdController() {
             ...commonMediaRequest,
             url: request.url,
             headers: request.headers,
+            cmcd: request.cmcd,
             customData: { ...commonMediaRequest.customData, cmcd: request.cmcd },
         };
 
