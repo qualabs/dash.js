@@ -255,6 +255,7 @@ describe('CmcdController', function () {
                         targets: [{
                             url: 'https://cmcd.event.collector/api',
                             enabled: true,
+                            enabledKeys: ['sn'],
                             events: ['ps']
                         }]
                     }
@@ -548,6 +549,7 @@ describe('CmcdController', function () {
                         targets: [{
                             url: 'https://cmcd.event.collector/api',
                             enabled: true,
+                            enabledKeys: ['ab', 'tab', 'lab'],
                             events: ['ps'],
                             timeInterval: 0
                         }]
@@ -873,6 +875,7 @@ describe('CmcdController', function () {
                             url: 'https://cmcd.response.collector/api',
                             enabled: true,
                             includeOnRequests: ['segment'],
+                            enabledKeys: ['sn'],
                             events: ['rr']
                         }]
                     }
