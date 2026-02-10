@@ -169,8 +169,7 @@ function CmcdController() {
         // Reset flag only after confirming we will rebuild
         reporterNeedsRebuild = false;
 
-        cmcdReporter.stop();
-        cmcdReporter.flush();
+        cmcdReporter.stop(true);
         cmcdReporter = _createCmcdReporter();
         cmcdReporter.start();
     }
@@ -586,8 +585,7 @@ function CmcdController() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_WAITING, _onPlaybackWaiting, instance);
 
         if (cmcdReporter) {
-            cmcdReporter.stop();
-            cmcdReporter.flush();
+            cmcdReporter.stop(true);
             cmcdReporter = null;
         }
 
