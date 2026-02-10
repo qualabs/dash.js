@@ -104,7 +104,7 @@ describe('CmcdController', function () {
             expect(metrics).to.have.property('e', 'ps');
         });
 
-        it('should send all available keys and events if they are undefined', () => {
+        it('should not send any event if they are undefined', () => {
             settings.update({
                 streaming: {
                     cmcd: {
@@ -121,18 +121,7 @@ describe('CmcdController', function () {
 
             eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
 
-            expect(urlLoaderMock.load.calledOnce).to.be.true;
-            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
-            expect(requestSent.url).to.equal('https://cmcd.event.collector/api');
-            expect(requestSent.method).to.equal(HTTPRequest.POST);
-            expect(requestSent.body).to.be.a('string');
-
-            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
-            expect(metrics).to.have.property('e', 'ps');
-            expect(metrics).to.have.property('sta', 'p');
-            expect(metrics).to.have.property('ts');
-            expect(metrics).to.have.property('sid');
-            expect(metrics).to.have.property('v');
+            expect(urlLoaderMock.load.called).to.be.false;
         });
 
         it('should send a report with event mode available keys', () => {
@@ -288,7 +277,7 @@ describe('CmcdController', function () {
             expect(metrics2).to.have.property('sn', 1);
         });
 
-        it('should send mandatory keys if enabled keys is empty', () => {
+        it('should send mandatory keys if enabled keys is not defined', () => {
             settings.update({
                 streaming: {
                     cmcd: {
