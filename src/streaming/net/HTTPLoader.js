@@ -33,7 +33,6 @@ import FetchLoader from './FetchLoader.js';
 import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import DashJSError from '../vo/DashJSError.js';
-import CmcdModel from '../models/CmcdModel.js';
 import CmsdModel from '../models/CmsdModel.js';
 import Utils from '../../core/Utils.js';
 import Debug from '../../core/Debug.js';
@@ -43,7 +42,6 @@ import Settings from '../../core/Settings.js';
 import Constants from '../constants/Constants.js';
 import CustomParametersModel from '../models/CustomParametersModel.js';
 import CommonAccessTokenController from '../controllers/CommonAccessTokenController.js';
-import ClientDataReportingController from '../controllers/ClientDataReportingController.js';
 import ExtUrlQueryInfoController from '../controllers/ExtUrlQueryInfoController.js';
 import CommonMediaRequest from '../vo/CommonMediaRequest.js';
 import CommonMediaResponse from '../vo/CommonMediaResponse.js';
@@ -73,13 +71,11 @@ function HTTPLoader(cfg) {
         delayedRequests,
         retryRequests,
         downloadErrorToRequestTypeMap,
-        cmcdModel,
         cmsdModel,
         xhrLoader,
         fetchLoader,
         customParametersModel,
         commonAccessTokenController,
-        clientDataReportingController,
         extUrlQueryInfoController,
         logger;
 
@@ -88,8 +84,6 @@ function HTTPLoader(cfg) {
         httpRequests = [];
         delayedRequests = [];
         retryRequests = [];
-        cmcdModel = CmcdModel(context).getInstance();
-        clientDataReportingController = ClientDataReportingController(context).getInstance();
         cmsdModel = CmsdModel(context).getInstance();
         customParametersModel = CustomParametersModel(context).getInstance();
         commonAccessTokenController = CommonAccessTokenController(context).getInstance();
@@ -303,7 +297,8 @@ function HTTPLoader(cfg) {
         }
 
         const _updateResourceTimingInfo = function () {
-            commonMediaResponse.resourceTiming.responseEnd = Date.now();
+            commonMediaResponse.resourceTiming.responseEnd = performance.now();
+            commonMediaResponse.resourceTiming.duration = commonMediaResponse.resourceTiming.responseEnd - commonMediaResponse.resourceTiming.startTime;
 
             // If enabled the ResourceTimingApi we add the corresponding information to the request object.
             // These values are more accurate and can be used by the ThroughputController later
@@ -314,13 +309,13 @@ function HTTPLoader(cfg) {
             return new Promise((resolve) => {
                 _applyRequestInterceptors(httpRequest).then((_httpRequest) => {
                     httpRequest = _httpRequest;
-
+                    httpResponse.request = httpRequest;
                     httpRequest.customData.onloadend = _onloadend;
                     httpRequest.customData.onprogress = _onprogress;
                     httpRequest.customData.onabort = _onabort;
                     httpRequest.customData.ontimeout = _ontimeout;
 
-                    httpResponse.resourceTiming.startTime = Date.now();
+                    httpResponse.resourceTiming.startTime = performance.now();
                     loader.load(httpRequest, httpResponse);
                     resolve();
                 });
@@ -393,7 +388,7 @@ function HTTPLoader(cfg) {
         const loader = loaderInformation.loader;
         requestObject.fileLoaderType = loaderInformation.fileLoaderType;
 
-        requestObject.headers = {};
+        requestObject.headers = requestObject.headers || {};
         _updateRequestUrlAndHeaders(requestObject);
         if (requestObject.range) {
             requestObject.headers['Range'] = 'bytes=' + requestObject.range;
@@ -403,19 +398,19 @@ function HTTPLoader(cfg) {
 
         commonMediaRequest = new CommonMediaRequest({
             url: requestObject.url,
-            method: HTTPRequest.GET,
+            method: requestObject.method || HTTPRequest.GET,
             responseType: requestObject.responseType,
             headers: requestObject.headers,
             credentials: withCredentials ? 'include' : 'omit',
             timeout: requestTimeout,
-            cmcd: cmcdModel.getCmcdData(requestObject),
-            customData: { request: requestObject }
+            customData: { request: requestObject },
+            body: requestObject.body
         });
 
         commonMediaResponse = new CommonMediaResponse({
             request: commonMediaRequest,
             resourceTiming: {
-                startTime: Date.now(),
+                startTime: performance.now(),
                 encodedBodySize: 0
             },
             status: 0
@@ -584,7 +579,6 @@ function HTTPLoader(cfg) {
      * @private
      */
     function _updateRequestUrlAndHeaders(request) {
-        _updateRequestUrlAndHeadersWithCmcd(request);
         if (request.retryAttempts === 0) {
             _addExtUrlQueryParameters(request);
         }
@@ -617,51 +611,6 @@ function HTTPLoader(cfg) {
         const commonAccessToken = commonAccessTokenController.getCommonAccessTokenForUrl(request.url)
         if (commonAccessToken) {
             request.headers[Constants.COMMON_ACCESS_TOKEN_HEADER] = commonAccessToken
-        }
-    }
-
-    /**
-     * Updates the request url and headers with CMCD data
-     * @param request
-     * @private
-     */
-    function _updateRequestUrlAndHeadersWithCmcd(request) {
-        const currentServiceLocation = request?.serviceLocation;
-        const currentAdaptationSetId = request?.mediaInfo?.id?.toString();
-        const isIncludedFilters = clientDataReportingController.isServiceLocationIncluded(request.type, currentServiceLocation) &&
-            clientDataReportingController.isAdaptationsIncluded(currentAdaptationSetId);
-
-        if (isIncludedFilters && cmcdModel.isCmcdEnabled()) {
-            const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            if (cmcdMode === Constants.CMCD_MODE_QUERY) {
-                request.url = Utils.removeQueryParameterFromUrl(request.url, Constants.CMCD_QUERY_KEY);
-                const additionalQueryParameter = _getAdditionalQueryParameter(request);
-                request.url = Utils.addAdditionalQueryParameterToUrl(request.url, additionalQueryParameter);
-            } else if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                request.headers = Object.assign(request.headers, cmcdModel.getHeaderParameters(request));
-            }
-        }
-    }
-
-    /**
-     * Generates the additional query parameters to be appended to the request url
-     * @param {object} request
-     * @return {array}
-     * @private
-     */
-    function _getAdditionalQueryParameter(request) {
-        try {
-            const additionalQueryParameter = [];
-            const cmcdQueryParameter = cmcdModel.getQueryParameter(request);
-
-            if (cmcdQueryParameter) {
-                additionalQueryParameter.push(cmcdQueryParameter);
-            }
-
-            return additionalQueryParameter;
-        } catch (e) {
-            return [];
         }
     }
 

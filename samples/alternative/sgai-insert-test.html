@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>SGAI Insert Mode Test - Alternative MPD</title>
+
+    <script src="../../dist/modern/umd/dash.all.debug.js"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="../lib/main.css" rel="stylesheet">
+
+    <style>
+        video {
+            width: 640px;
+            height: 360px;
+        }
+
+        #alternative-video-element {
+            display: none;
+        }
+
+        #manifestViewer {
+            font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+            background: #1e1e1e;
+            color: #dcdcdc;
+            padding: 1em;
+            white-space: pre;
+            overflow: auto;
+            border: 1px solid #444;
+            font-size: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+        }
+        #manifestViewer .token\.tag { color: #569CD6; }
+        #manifestViewer .token\.attr-name { color: #9CDCFE; }
+        #manifestViewer .token\.attr-value { color: #CE9178; }
+        #manifestViewer .token\.text { color: #D4D4D4; }
+        #manifestViewer .token\.altmpd { color: #06ff06; }
+        #manifestViewer .token\.altmpd-bg { background-color: rgb(36, 179, 36); }
+
+        .event-config {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .form-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<main>
+    <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom">
+            <img class=""
+                 src="../lib/img/dashjs-logo.png"
+                 width="200">
+        </header>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="h-100 p-5 bg-light border rounded-3">
+                    <h3>SGAI Insert Mode Test</h3>
+                    <p>Testing SGAI with alternative MPD and list MPDs using insert mode only. The alternative content is inserted and then returns to the same point in the main content.</p>
+
+                    <div class="event-config">
+                        <h5>Configuration</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Main VOD URL:</label>
+                            <input type="text" id="manifestUrl" class="form-control" value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" />
+                            <small class="text-muted">Main content URL</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Alternative URL (List MPD):</label>
+                            <input type="text" id="alternativeUrl" class="form-control" value="https://comcast-dash-6-assets.s3.us-east-2.amazonaws.com/ListMPDs/bbb/list0.mpd" />
+                            <small class="text-muted">Alternative content to insert (List MPD)</small>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong>Insert Mode:</strong> Alternative content is inserted at the specified time, then playback returns to the same point in the main content.
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Presentation Time (seconds):</label>
+                                <input type="number" id="presentationTime" class="form-control" value="5" min="0" step="0.1" />
+                                <small class="text-muted">Time in main video to trigger insert</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Duration (ms):</label>
+                                <input type="number" id="duration" class="form-control" value="15000" min="1000" max="120000" />
+                                <small class="text-muted">Maximum duration for insert</small>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Max Duration (ms):</label>
+                                <input type="number" id="maxDuration" class="form-control" value="5000" min="1000" />
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="clipEnabled">
+                                    <label class="form-check-label" for="clipEnabled">Enable Clip</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="startAtPlayhead" checked>
+                                    <label class="form-check-label" for="startAtPlayhead">Start at Playhead</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button id="addEvent" class="btn btn-primary me-2">Add Insert Event</button>
+                            <button id="loadPlayer" class="btn btn-success">Load Player</button>
+                        </div>
+
+                        <div id="eventsContainer" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <video id="video-element" controls="true"></video>
+                <video id="alternative-video-element" controls="true"></video>
+
+                <div class="mt-3">
+                    <h6>Generated Manifest Events:</h6>
+                    <div id="manifestViewer">No events configured yet...</div>
+                </div>
+            </div>
+        </div>
+        <footer class="pt-3 mt-4 text-muted border-top">
+            &copy; DASH-IF
+        </footer>
+    </div>
+</main>
+
+<script class="code">
+    let player;
+    let events = [];
+    let eventCounter = 0;
+
+    function init() {
+        var video = document.getElementById('video-element');
+        var alternativeVideo = document.getElementById('alternative-video-element');
+
+        // Initialize with basic setup, player will be created when loading
+        setupEventListeners();
+    }
+
+    function setupEventListeners() {
+        const addEventBtn = document.getElementById('addEvent');
+        const loadPlayerBtn = document.getElementById('loadPlayer');
+
+        addEventBtn.addEventListener('click', addEvent);
+        loadPlayerBtn.addEventListener('click', loadPlayer);
+    }
+
+    function addEvent() {
+        const presentationTime = parseFloat(document.getElementById('presentationTime').value);
+        const duration = parseInt(document.getElementById('duration').value);
+        const maxDuration = parseInt(document.getElementById('maxDuration').value);
+        const clipEnabled = document.getElementById('clipEnabled').checked;
+        const startAtPlayhead = document.getElementById('startAtPlayhead').checked;
+        const alternativeUrl = document.getElementById('alternativeUrl').value;
+
+        const event = {
+            id: eventCounter++,
+            type: 'insert', // Always insert mode for this test
+            presentationTime: presentationTime * 1000, // Convert to milliseconds for consistency with timescale
+            duration: duration,
+            alternativeUrl: alternativeUrl,
+            maxDuration: maxDuration,
+            clip: clipEnabled,
+            startAtPlayhead: startAtPlayhead
+        };
+
+        events.push(event);
+        updateEventsDisplay();
+        updateManifestViewer();
+    }
+
+    function removeEvent(index) {
+        events.splice(index, 1);
+        updateEventsDisplay();
+        updateManifestViewer();
+    }
+
+    function updateEventsDisplay() {
+        const container = document.getElementById('eventsContainer');
+        container.innerHTML = '';
+
+        if (events.length === 0) {
+            container.innerHTML = '<p class="text-muted">No events configured</p>';
+            return;
+        }
+
+        events.forEach((event, index) => {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'alert alert-info d-flex justify-content-between align-items-center';
+
+            const presentationTimeSec = (event.presentationTime / 1000).toFixed(1);
+
+            eventDiv.innerHTML = `
+                <div>
+                    <strong>Insert Event #${event.id + 1}</strong><br>
+                    <small>Presentation Time: ${presentationTimeSec}s<br>
+                    Duration: ${event.duration}ms | Max Duration: ${event.maxDuration}ms</small>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="removeEvent(${index})">Remove</button>
+            `;
+
+            container.appendChild(eventDiv);
+        });
+    }
+
+    function updateManifestViewer() {
+        const viewer = document.getElementById('manifestViewer');
+
+        if (events.length === 0) {
+            viewer.textContent = 'No events configured yet...';
+            return;
+        }
+
+        let manifestXml = '';
+        events.forEach(event => {
+            const schemeIdUri = 'urn:mpeg:dash:event:alternativeMPD:insert:2025';
+
+            manifestXml += `
+<EventStream schemeIdUri="${schemeIdUri}" timescale="1000">
+  <Event presentationTime="${event.presentationTime}" duration="${event.duration}">
+    <InsertPresentation
+      url="${event.alternativeUrl}"
+      earliestResolutionTimeOffset="5000"
+      maxDuration="${event.maxDuration}"
+      clip="${event.clip}"
+      startAtPlayhead="${event.startAtPlayhead}" />
+  </Event>
+</EventStream>`;
+        });
+
+        // Format and highlight the XML
+        let highlighted = manifestXml
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/(&lt;\/?)(\w+)(.*?)(\/?&gt;)/g, (match, open, tagName, attrs, close) => {
+                let isAltMpd = (tagName === "InsertPresentation");
+                let coloredTag = `<span class="token.tag${isAltMpd ? ' token.altmpd' : ''}">${open}${tagName}</span>`;
+                if (attrs.trim().length > 0) {
+                    attrs = attrs.replace(/(\w+)="(.*?)"/g, `<span class="token.attr-name">$1</span>="<span class="token.attr-value">$2</span>"`);
+                    coloredTag += attrs;
+                }
+                coloredTag += `<span class="token.tag${isAltMpd ? ' token.altmpd' : ''}">${close}</span>`;
+                return coloredTag;
+            });
+
+        viewer.innerHTML = highlighted;
+    }
+
+    function loadPlayer() {
+        const manifestUrl = document.getElementById('manifestUrl').value;
+        const video = document.getElementById('video-element');
+        const alternativeVideo = document.getElementById('alternative-video-element');
+
+        // Clean up existing player
+        if (player) {
+            player.reset();
+        }
+
+        // Set video attributes
+        video.setAttribute('controls', 'true');
+        video.setAttribute('autoplay', '');
+        video.setAttribute('muted', '');
+
+        // Create new player following the correct sequence
+        player = dashjs.MediaPlayer().create();
+        window.player = player;
+
+        // Initialize first (without parameters)
+        player.initialize();
+
+        // Set alternative video element
+        player.setAlternativeVideoElement(alternativeVideo);
+
+        // Attach the main video view
+        player.attachView(video);
+
+        // Configure settings if needed
+        player.updateSettings({
+            streaming: {
+                text: {
+                    dispatchForManualRendering: true
+                }
+            }
+        });
+
+        if (events.length > 0) {
+            // Load manifest and inject events
+            player.retrieveManifest(manifestUrl, (manifest) => {
+                // Clear existing event streams
+                manifest.Period[0].EventStream = [];
+
+                // Add insert events
+                events.forEach(event => {
+                    const eventData = {
+                        id: event.id,
+                        presentationTime: event.presentationTime,
+                        duration: event.duration,
+                        InsertPresentation: {
+                            url: event.alternativeUrl,
+                            earliestResolutionTimeOffset: 5000,
+                            maxDuration: event.maxDuration,
+                            clip: event.clip.toString(),
+                            startAtPlayhead: event.startAtPlayhead.toString()
+                        }
+                    };
+
+                    const eventStream = {
+                        schemeIdUri: 'urn:mpeg:dash:event:alternativeMPD:insert:2025',
+                        timescale: 1000,
+                        Event: [eventData]
+                    };
+
+                    manifest.Period[0].EventStream.push(eventStream);
+                });
+
+                // Attach the modified manifest as source
+                player.attachSource(manifest);
+            });
+        } else {
+            // Load without events - use attachSource with the URL
+            player.attachSource(manifestUrl);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        init();
+    });
+</script>
+<script src="../highlighter.js"></script>
+</body>
+</html>

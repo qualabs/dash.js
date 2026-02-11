@@ -29,23 +29,24 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 import AbrController from './controllers/AbrController.js';
+import AlternativeMediaController from './controllers/AlternativeMediaController.js';
 import BASE64 from '../../externals/base64.js';
 import BaseURLController from './controllers/BaseURLController.js';
 import BoxParser from './utils/BoxParser.js';
 import Capabilities from './utils/Capabilities.js';
 import CapabilitiesFilter from './utils/CapabilitiesFilter.js';
+import CmcdController from './controllers/CmcdController.js';
 import CatchupController from './controllers/CatchupController.js';
 import ClientDataReportingController from './controllers/ClientDataReportingController.js';
-import CmcdModel from './models/CmcdModel.js';
 import CmsdModel from './models/CmsdModel.js';
 import Constants from './constants/Constants.js';
 import ContentSteeringController from '../dash/controllers/ContentSteeringController.js';
 import CustomParametersModel from './models/CustomParametersModel.js';
-import DOMStorage from './utils/DOMStorage.js';
 import DashAdapter from '../dash/DashAdapter.js';
 import DashConstants from '../dash/constants/DashConstants.js';
 import DashJSError from './vo/DashJSError.js';
 import DashMetrics from '../dash/DashMetrics.js';
+import DOMStorage from './utils/DOMStorage.js';
 import Debug from './../core/Debug.js';
 import ErrorHandler from './utils/ErrorHandler.js';
 import Errors from './../core/errors/Errors.js';
@@ -55,6 +56,7 @@ import ExternalSubtitle from './vo/ExternalSubtitle.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import GapController from './controllers/GapController.js';
 import ISOBoxer from 'codem-isoboxer';
+import ListMpdController from './controllers/ListMpdController.js';
 import ManifestLoader from './ManifestLoader.js';
 import ManifestModel from './models/ManifestModel.js';
 import ManifestUpdater from './ManifestUpdater.js';
@@ -140,6 +142,7 @@ function MediaPlayer() {
         throughputController,
         schemeLoaderFactory,
         timelineConverter,
+        alternativeMediaController,
         mediaController,
         protectionController,
         metricsReportingController,
@@ -159,9 +162,10 @@ function MediaPlayer() {
         serviceDescriptionController,
         contentSteeringController,
         catchupController,
+        listMpdController,
         dashMetrics,
         manifestModel,
-        cmcdModel,
+        cmcdController,
         cmsdModel,
         videoModel,
         uriFragmentModel,
@@ -220,6 +224,9 @@ function MediaPlayer() {
         }
         if (config.gapController) {
             gapController = config.gapController;
+        }
+        if (config.alternativeMediaController) {
+            alternativeMediaController = config.alternativeMediaController;
         }
         if (config.throughputController) {
             throughputController = config.throughputController
@@ -317,6 +324,10 @@ function MediaPlayer() {
                 schemeLoaderFactory = SchemeLoaderFactory(context).getInstance();
             }
 
+            if (!alternativeMediaController) {
+                alternativeMediaController = AlternativeMediaController(context).getInstance();
+            }
+
             if (!playbackController) {
                 playbackController = PlaybackController(context).getInstance();
             }
@@ -353,7 +364,7 @@ function MediaPlayer() {
 
             manifestModel = ManifestModel(context).getInstance();
 
-            cmcdModel = CmcdModel(context).getInstance();
+            cmcdController = CmcdController(context).getInstance();
 
             cmsdModel = CmsdModel(context).getInstance();
 
@@ -385,6 +396,15 @@ function MediaPlayer() {
 
             serviceDescriptionController.setConfig({
                 adapter
+            });
+
+            alternativeMediaController.setConfig({
+                videoModel,
+                DashConstants,
+                mediaPlayerFactory: FactoryMaker.getClassFactory(MediaPlayer)(),
+                playbackController,
+                alternativeContext: context,
+                logger
             });
 
             if (!segmentBaseController) {
@@ -454,8 +474,12 @@ function MediaPlayer() {
      * @memberof module:MediaPlayer
      * @instance
      */
-    function reset() {
-        attachSource(null);
+    function reset(onlyControllers) {
+
+        if (!onlyControllers) {
+            attachSource(null);
+        }
+
         attachView(null);
         protectionData = null;
         if (protectionController) {
@@ -582,12 +606,13 @@ function MediaPlayer() {
      * @throws {@link module:MediaPlayer~SOURCE_NOT_ATTACHED_ERROR SOURCE_NOT_ATTACHED_ERROR} if called before attachSource function
      * @instance
      */
-    function preload() {
-        if (videoModel.getElement() || streamingInitialized) {
+    function preload(time) {
+        if (videoModel.getElement() || (streamingInitialized && !time)) {
             return;
         }
         if (source) {
-            _initializePlayback(providedStartTime);
+            const playbackTime = time ? time : providedStartTime;
+            _initializePlayback(playbackTime);
         } else {
             throw SOURCE_NOT_ATTACHED_ERROR;
         }
@@ -2126,6 +2151,16 @@ function MediaPlayer() {
         streamController.load(source);
     }
 
+    function setAlternativeVideoElement(element) {
+        if (!mediaPlayerInitialized) {
+            throw MEDIA_PLAYER_NOT_INITIALIZED_ERROR;
+        }
+
+        if (alternativeMediaController) {
+            alternativeMediaController.setAlternativeVideoElement(element);
+        }
+    }
+
     /**
      * Use this method to set a source URL to a valid MPD manifest file OR
      * a previously downloaded and parsed manifest object.  Optionally, can
@@ -2424,6 +2459,7 @@ function MediaPlayer() {
         throughputController.reset();
         mediaController.reset();
         segmentBaseController.reset();
+        listMpdController.reset();
         if (protectionController) {
             if (settings.get().streaming.protection.keepProtectionMediaKeys) {
                 protectionController.stop();
@@ -2434,7 +2470,8 @@ function MediaPlayer() {
             }
         }
         textController.reset();
-        cmcdModel.reset();
+        alternativeMediaController.reset();
+        cmcdController.reset();
         cmsdModel.reset();
     }
 
@@ -2450,6 +2487,10 @@ function MediaPlayer() {
             streamController = StreamController(context).getInstance();
         }
 
+        if (!listMpdController) {
+            listMpdController = ListMpdController(context).getInstance();
+        }
+
         if (!textController) {
             textController = TextController(context).create({
                 errHandler,
@@ -2461,6 +2502,12 @@ function MediaPlayer() {
                 settings
             });
         }
+
+        listMpdController.setConfig({
+            settings: settings,
+            dashAdapter: adapter,
+            manifestLoader: manifestLoader
+        });
 
         capabilitiesFilter.setConfig({
             capabilities,
@@ -2544,12 +2591,14 @@ function MediaPlayer() {
             settings
         });
 
-        cmcdModel.setConfig({
+        cmcdController.setConfig({
             abrController,
             dashMetrics,
             playbackController,
             serviceDescriptionController,
             throughputController,
+            mediaPlayerModel,
+            errHandler
         });
 
         clientDataReportingController.setConfig({
@@ -2559,6 +2608,7 @@ function MediaPlayer() {
         cmsdModel.setConfig({});
 
         // initializes controller
+        listMpdController.initialize();
         mediaController.initialize();
         throughputController.initialize();
         abrController.initialize();
@@ -2566,7 +2616,8 @@ function MediaPlayer() {
         textController.initialize();
         gapController.initialize();
         catchupController.initialize();
-        cmcdModel.initialize(autoPlay);
+        alternativeMediaController.initialize();
+        cmcdController.initialize(autoPlay);
         cmsdModel.initialize();
         contentSteeringController.initialize();
         segmentBaseController.initialize();
@@ -2611,7 +2662,7 @@ function MediaPlayer() {
                 events: Events,
                 BASE64,
                 constants: Constants,
-                cmcdModel,
+                cmcdController,
                 settings
             });
 
@@ -2925,6 +2976,7 @@ function MediaPlayer() {
         setProtectionData,
         setRepresentationForTypeById,
         setRepresentationForTypeByIndex,
+        setAlternativeVideoElement,
         setTextTrack,
         setVolume,
         setXHRWithCredentialsForType,

@@ -38,7 +38,6 @@ import LicenseRequest from '../vo/LicenseRequest.js';
 import LicenseResponse from '../vo/LicenseResponse.js';
 import {HTTPRequest} from '../../vo/metrics/HTTPRequest.js';
 import Utils from '../../../core/Utils.js';
-import Constants from '../../constants/Constants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
 
@@ -68,7 +67,7 @@ function ProtectionController(config) {
 
     config = config || {};
     const BASE64 = config.BASE64;
-    const cmcdModel = config.cmcdModel;
+    const cmcdController = config.cmcdController;
     const constants = config.constants;
     const customParametersModel = config.customParametersModel;
     const debug = config.debug;
@@ -870,21 +869,17 @@ function ProtectionController(config) {
      */
     function _doLicenseRequest(request, retriesCount, timeout, onLoad, onAbort, onError) {
         const xhr = new XMLHttpRequest();
-        const cmcdParameters = cmcdModel.getCmcdParametersFromManifest();
 
-        if (cmcdModel.isCmcdEnabled()) {
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            if (cmcdMode === Constants.CMCD_MODE_QUERY) {
-                const cmcdParams = cmcdModel.getQueryParameter({
-                    url: request.url,
-                    type: HTTPRequest.LICENSE
-                });
-
-                if (cmcdParams) {
-                    request.url = Utils.addAdditionalQueryParameterToUrl(request.url, [cmcdParams]);
-                }
-            }
-        }
+        // Apply CMCD data to the license request (handles both query and header modes)
+        const cmcdRequest = {
+            url: request.url,
+            type: HTTPRequest.LICENSE,
+            method: request.method,
+            headers: request.headers || {},
+        };
+        cmcdController.applyCmcdToRequest(cmcdRequest)
+        request.url = cmcdRequest.url;
+        request.headers = cmcdRequest.headers;
 
         xhr.open(request.method, request.url, true);
         xhr.responseType = request.responseType;
@@ -894,25 +889,6 @@ function ProtectionController(config) {
         }
         for (const key in request.headers) {
             xhr.setRequestHeader(key, request.headers[key]);
-        }
-
-        if (cmcdModel.isCmcdEnabled()) {
-            const cmcdMode = cmcdParameters.mode ? cmcdParameters.mode : settings.get().streaming.cmcd.mode;
-            if (cmcdMode === Constants.CMCD_MODE_HEADER) {
-                const cmcdHeaders = cmcdModel.getHeaderParameters({
-                    url: request.url,
-                    type: HTTPRequest.LICENSE
-                });
-
-                if (cmcdHeaders) {
-                    for (const header in cmcdHeaders) {
-                        let value = cmcdHeaders[header];
-                        if (value) {
-                            xhr.setRequestHeader(header, value);
-                        }
-                    }
-                }
-            }
         }
 
         const _retryRequest = function () {

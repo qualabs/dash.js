@@ -343,6 +343,9 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  *                audioChannelConfiguration: 'urn:mpeg:mpegB:cicp:ChannelConfiguration',
  *                role: 'urn:mpeg:dash:role:2011',
  *                accessibility: 'urn:mpeg:dash:role:2011'
+ *            },
+ *            listMpds: {
+ *                minEarliestResolutionTimeOffset: 0,
  *            }
  *          },
  *          errors: {
@@ -940,7 +943,31 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * The version of the CMCD to use.
  *
  * If not specified this value defaults to 1.
+ * @property {Array.<CmcdTarget>} [targets]
+ * List of CMCD reporting targets.
  */
+
+/**
+ * @typedef {Object} CmcdTarget
+ * @property {string} [mode]
+ * Mode of the CMCD reporting.
+ * @property {boolean} [enabled]
+ * Whether the CMCD reporting is enabled for this target.
+ * @property {string} [url]
+ * The reporting endpoint URL.
+ * @property {string} [events]
+ * The events that should trigger the CMCD reporting.
+ * @property {string} [timeInterval]
+ * The time interval for the CMCD reporting in event mode. The 't' event should be set in the events array to use this parameter.
+ * @property {Array.<string>} [enabledKeys]
+ * CMCD keys to include in the report.
+ * @property {Array.<string>} [includeOnRequests]
+ * Types of requests CMCD should be included on (e.g., 'mpd', 'segment').
+ * @property {Array.<number>} [batchRetryDelays]
+ * Array of retry delay values in milliseconds for batched CMCD reporting failures.
+ * Each value represents the delay before the next retry attempt.
+ * If not specified, defaults to Constants.CMCD_DEFAULT_BATCH_RETRY_DELAYS.
+*/
 
 /**
  * @typedef {Object} module:Settings~CmsdSettings
@@ -972,6 +999,16 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * @typedef {Object} Metrics
  * @property {number} [metricsMaxListDepth=100]
  * Maximum number of metrics that are persisted per type.
+ */
+
+/**
+ * @typedef {Object} listMpdSettings
+ * @property {boolean} [minEarliestResolutionTimeOffset=0]
+ * Min earliest resolution time offset available for imported periods.
+ *
+ * If playback stalled during a period switch, setting this number can help fix a conflict with the GapController.
+ * It avoids a race condition between resolving linked periods and the GapController's gap jump logic.
+ * Set to 0 by default to be specification compliant. Adjust if you encounter issues with gap handling at period boundaries.
  */
 
 /**
@@ -1099,6 +1136,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * @property {module:Settings~defaultSchemeIdUri} defaultSchemeIdUri
  * Default schemeIdUri for descriptor type elements
  * These strings are used when not provided with setInitialMediaSettingsFor()
+ * @property {module:Settings~listMpdSettings} listMpd
+ * Settings related to List Mpd configuration
  */
 
 
@@ -1428,9 +1467,10 @@ function Settings() {
                 rtp: null,
                 rtpSafetyFactor: 5,
                 mode: Constants.CMCD_MODE_QUERY,
-                enabledKeys: Constants.CMCD_AVAILABLE_KEYS,
+                enabledKeys: Constants.CMCD_KEYS,
                 includeInRequests: ['segment', 'mpd'],
-                version: 1
+                version: 1,
+                targets: []
             },
             cmsd: {
                 enabled: false,
@@ -1448,6 +1488,9 @@ function Settings() {
                 audioChannelConfiguration: 'urn:mpeg:mpegB:cicp:ChannelConfiguration',
                 role: 'urn:mpeg:dash:role:2011',
                 accessibility: 'urn:mpeg:dash:role:2011'
+            },
+            listMpd: {
+                minEarliestResolutionTimeOffset: 0
             }
         },
         errors: {
