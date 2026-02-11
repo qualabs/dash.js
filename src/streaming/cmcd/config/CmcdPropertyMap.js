@@ -356,12 +356,6 @@ const CmcdPropertyMap = {
                 path: 'settings.streaming.cmcd.targets[{targetIndex}].enabledKeys',
                 priority: 2,
                 type: 'array'
-            },
-            {
-                path: 'settings.streaming.cmcd.enabledKeys',
-                priority: 3,
-                type: 'array',
-                default: Constants.CMCD_KEYS
             }
         ]
     },
@@ -388,7 +382,7 @@ const CmcdPropertyMap = {
                 path: 'settings.streaming.cmcd.targets[{targetIndex}].events',
                 priority: 2,
                 type: 'array',
-                default: Object.values(Constants.CMCD_REPORTING_EVENTS)
+                default: []
             }
         ]
     },
