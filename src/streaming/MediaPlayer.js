@@ -55,6 +55,7 @@ import ExternalSubtitle from './vo/ExternalSubtitle.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import GapController from './controllers/GapController.js';
 import ISOBoxer from 'codem-isoboxer';
+import ListMpdController from './controllers/ListMpdController.js';
 import ManifestLoader from './ManifestLoader.js';
 import ManifestModel from './models/ManifestModel.js';
 import ManifestUpdater from './ManifestUpdater.js';
@@ -159,6 +160,7 @@ function MediaPlayer() {
         serviceDescriptionController,
         contentSteeringController,
         catchupController,
+        listMpdController,
         dashMetrics,
         manifestModel,
         cmcdModel,
@@ -2424,6 +2426,7 @@ function MediaPlayer() {
         throughputController.reset();
         mediaController.reset();
         segmentBaseController.reset();
+        listMpdController.reset();
         if (protectionController) {
             if (settings.get().streaming.protection.keepProtectionMediaKeys) {
                 protectionController.stop();
@@ -2450,6 +2453,10 @@ function MediaPlayer() {
             streamController = StreamController(context).getInstance();
         }
 
+        if (!listMpdController) {
+            listMpdController = ListMpdController(context).getInstance();
+        }
+
         if (!textController) {
             textController = TextController(context).create({
                 errHandler,
@@ -2461,6 +2468,12 @@ function MediaPlayer() {
                 settings
             });
         }
+
+        listMpdController.setConfig({
+            settings: settings,
+            dashAdapter: adapter,
+            manifestLoader: manifestLoader
+        });
 
         capabilitiesFilter.setConfig({
             capabilities,
@@ -2559,6 +2572,7 @@ function MediaPlayer() {
         cmsdModel.setConfig({});
 
         // initializes controller
+        listMpdController.initialize();
         mediaController.initialize();
         throughputController.initialize();
         abrController.initialize();

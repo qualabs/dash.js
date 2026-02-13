@@ -389,10 +389,11 @@ function DashManifestModel() {
         let i,
             len;
         const adaptations = [];
-
-        for (i = 0, len = realAdaptations.length; i < len; i++) {
-            if (getIsTypeOf(realAdaptations[i], type)) {
-                adaptations.push(processAdaptation(realAdaptations[i]));
+        if (realAdaptations) {
+            for (i = 0, len = realAdaptations.length; i < len; i++) {
+                if (getIsTypeOf(realAdaptations[i], type)) {
+                    adaptations.push(processAdaptation(realAdaptations[i]));
+                }
             }
         }
 
@@ -1133,7 +1134,7 @@ function DashManifestModel() {
             // If the attribute @start is present in the Period, then the
             // Period is a regular Period and the PeriodStart is equal
             // to the value of this attribute.
-            if (realPeriod.hasOwnProperty(DashConstants.START)) {
+            if (realPeriod.hasOwnProperty(DashConstants.START) && !isNaN(realPeriod.start)) {
                 voPeriod = new Period();
                 voPeriod.start = realPeriod.start;
             }
@@ -1194,6 +1195,30 @@ function DashManifestModel() {
         }
 
         return voPeriods;
+    }
+
+    function getLinkedPeriods(mpd) {
+        const linkedPeriods = []
+
+        if (!mpd || !mpd.manifest || !mpd.manifest.Period) {
+            return linkedPeriods;
+        }
+
+        let currentPeriod = null;
+        for (let i = 0, len = mpd.manifest.Period.length; i < len; i++) {
+            currentPeriod = mpd.manifest.Period[i];
+            if (currentPeriod.ImportedMPD) {
+                linkedPeriods.push(currentPeriod);
+            }
+        }
+
+        if (linkedPeriods.length > 0) {
+            if (mpd.manifest.type !== DashConstants.MPD_LIST) {
+                throw new Error(`Linked periods are only allowed in an MPD with profile ${DashConstants.MPD_LIST}`);
+            }
+        }
+
+        return linkedPeriods
     }
 
     function getPeriodId(realPeriod, i) {
@@ -1746,6 +1771,7 @@ function DashManifestModel() {
         getIsTypeOf,
         getLabelsForAdaptation,
         getLanguageForAdaptation,
+        getLinkedPeriods,
         getLocation,
         getMainAdaptationSetForPreselection,
         getCommonRepresentationForPreselection,

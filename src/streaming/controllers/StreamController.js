@@ -48,6 +48,7 @@ import ConformanceViolationConstants from '../constants/ConformanceViolationCons
 import ExtUrlQueryInfoController from './ExtUrlQueryInfoController.js';
 import ProtectionEvents from '../protection/ProtectionEvents.js';
 import ProtectionErrors from '../protection/errors/ProtectionErrors.js';
+import ListMpdController from './ListMpdController.js';
 
 const PLAYBACK_ENDED_TIMER_INTERVAL = 200;
 const DVR_WAITING_OFFSET = 2;
@@ -61,7 +62,7 @@ function StreamController() {
         dashMetrics, mediaSourceController, timeSyncController, contentSteeringController, baseURLController,
         segmentBaseController, uriFragmentModel, abrController, throughputController, mediaController, eventController,
         initCache, errHandler, timelineConverter, streams, activeStream, protectionController, textController,
-        protectionData, extUrlQueryInfoController,
+        protectionData, extUrlQueryInfoController, listMpdController,
         autoPlay, isStreamSwitchingInProgress, hasMediaError, hasInitialisationError, mediaSource, videoModel,
         playbackController, serviceDescriptionController, mediaPlayerModel, customParametersModel, isPaused,
         initialPlayback, initialSteeringRequest, playbackEndedTimerInterval, preloadingStreams, settings,
@@ -101,6 +102,7 @@ function StreamController() {
         eventController.start();
 
         extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
+        listMpdController = ListMpdController(context).getInstance();
 
         timeSyncController.setConfig({
             dashMetrics, baseURLController, errHandler, settings
@@ -662,10 +664,24 @@ function StreamController() {
 
         Promise.all(promises)
             .then(() => {
+                const periodId = seekToStream.getId();
+                if (!periodId) {
+                    throw new Error('Stream does not have a valid period id');
+                }
+                const seekToPeriod = manifestModel.getValue().Period.find((periodInfo) => periodInfo.id === periodId);
+                if (seekToPeriod.ImportedMPD) {
+                    return listMpdController
+                        .loadImportedMpd(manifestModel.getValue(), seekToPeriod)
+                        .then(updatedManifest => {
+                            baseURLController.update(updatedManifest);
+                        });
+                }
+            })
+            .then(() => {
                 _switchStream(seekToStream, activeStream, seekTime);
             })
-            .catch((e) => {
-                errHandler.error(e);
+            .catch(error => {
+                errHandler.error(error);
             });
     }
 
@@ -936,7 +952,10 @@ function StreamController() {
             const previousStream = i === 0 ? activeStream : upcomingStreams[i - 1];
 
             // If the preloading for the current stream is not scheduled, but its predecessor has finished buffering we can start prebuffering this stream
-            if (!stream.getPreloaded() && previousStream.getHasFinishedBuffering()) {
+            const periodId = stream.getId()
+            const linkedPeriod = manifestModel.getValue().Period.find((periodInfo => periodInfo.id === periodId));
+            const isLinkedPeriod = linkedPeriod && linkedPeriod.ImportedMPD;
+            if (!stream.getPreloaded() && previousStream.getHasFinishedBuffering() && !isLinkedPeriod) {
                 _onStreamCanLoadNext(stream, previousStream);
             }
             i += 1;
@@ -1021,8 +1040,12 @@ function StreamController() {
             activeStream.setIsEndedEventSignaled(true);
             const nextStream = _getNextStream();
             if (nextStream) {
-                logger.debug(`StreamController onEnded, found next stream with id ${nextStream.getStreamInfo().id}. Switching from ${activeStream.getStreamInfo().id} to ${nextStream.getStreamInfo().id}`);
-                _switchStream(nextStream, activeStream, NaN);
+                const streamId = nextStream.getStreamInfo().id;
+                logger.debug(`StreamController onEnded, found next stream with id ${streamId}. Switching from ${activeStream.getStreamInfo().id} to ${nextStream.getStreamInfo().id}`);
+                const nextPeriod = manifestModel.getValue().Period.find((periodInfo) => periodInfo.id == streamId);
+                if (!nextPeriod.ImportedMPD) {
+                    _switchStream(nextStream, activeStream, NaN);
+                }
             } else {
                 logger.debug('StreamController no next stream found');
                 activeStream.setIsEndedEventSignaled(false);

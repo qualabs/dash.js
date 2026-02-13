@@ -821,6 +821,18 @@
           "Video",
           "Audio"
         ]
+      },
+      {
+        "title": "List MPD",
+        "description": "This sample demonstrates the List MPD implementation in dash.js",
+        "href": "advanced/list-mpds.html",
+        "image": "lib/img/bbb-1.jpg",
+        "labels": [
+          "VoD",
+          "Video",
+          "Audio",
+          "List MPD"
+        ]
       }
     ]
   },

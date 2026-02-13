@@ -343,6 +343,9 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  *                audioChannelConfiguration: 'urn:mpeg:mpegB:cicp:ChannelConfiguration',
  *                role: 'urn:mpeg:dash:role:2011',
  *                accessibility: 'urn:mpeg:dash:role:2011'
+ *            },
+ *            listMpds: {
+ *                minEarliestResolutionTimeOffset: 0,
  *            }
  *          },
  *          errors: {
@@ -975,6 +978,16 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  */
 
 /**
+ * @typedef {Object} listMpdSettings
+ * @property {boolean} [minEarliestResolutionTimeOffset=0]
+ * Min earliest resolution time offset available for imported periods.
+ *
+ * If playback stalled during a period switch, setting this number can help fix a conflict with the GapController.
+ * It avoids a race condition between resolving linked periods and the GapController's gap jump logic.
+ * Set to 0 by default to be specification compliant. Adjust if you encounter issues with gap handling at period boundaries.
+ */
+
+/**
  * @typedef {Object} StreamingSettings
  * @property {number} [abandonLoadTimeout=10000]
  * A timeout value in seconds, which during the ABRController will block switch-up events.
@@ -1099,6 +1112,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * @property {module:Settings~defaultSchemeIdUri} defaultSchemeIdUri
  * Default schemeIdUri for descriptor type elements
  * These strings are used when not provided with setInitialMediaSettingsFor()
+ * @property {module:Settings~listMpdSettings} listMpd
+ * Settings related to List Mpd configuration
  */
 
 
@@ -1448,6 +1463,9 @@ function Settings() {
                 audioChannelConfiguration: 'urn:mpeg:mpegB:cicp:ChannelConfiguration',
                 role: 'urn:mpeg:dash:role:2011',
                 accessibility: 'urn:mpeg:dash:role:2011'
+            },
+            listMpd: {
+                minEarliestResolutionTimeOffset: 0
             }
         },
         errors: {
