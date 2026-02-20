@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CMCD E2E Test Page</title>
+    <script src="/dist/modern/umd/dash.all.debug.js"></script>
+</head>
+<body>
+    <video muted autoplay></video>
+    <script>
+        (function () {
+            var config = window.__CMCD_TEST_CONFIG__ || {};
+            var sourceUrl = config.sourceUrl || 'https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd';
+            var cmcdConfig = config.cmcd || { version: 2, enabled: true, mode: 'query' };
+
+            var video = document.querySelector('video');
+            var player = dashjs.MediaPlayer().create();
+            player.initialize();
+
+            player.updateSettings({
+                streaming: {
+                    cmcd: cmcdConfig
+                }
+            });
+
+            player.setAutoPlay(true);
+            player.attachView(video);
+            player.attachSource(sourceUrl);
+
+            window.__dashjs_player__ = player;
+            window.__PLAYER_READY__ = true;
+        })();
+    </script>
+</body>
+</html>
