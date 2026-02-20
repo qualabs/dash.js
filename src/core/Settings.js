@@ -65,6 +65,7 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  *            manifestUpdateRetryInterval: 100,
  *            liveUpdateTimeThresholdInMilliseconds: 0,
  *            cacheInitSegments: false,
+ *            cacheInitSegmentsLimit: 50,
  *            applyServiceDescription: true,
  *            applyProducerReferenceTime: true,
  *            applyContentSteering: true,
@@ -83,8 +84,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  *                   ...Constants.THUMBNAILS_SCHEME_ID_URIS.map(ep => { return { 'schemeIdUri': ep }; })
  *               ],
  *               useMediaCapabilitiesApi: true,
- *               filterVideoColorimetryEssentialProperties: false,
- *               filterHDRMetadataFormatEssentialProperties: false,
+ *               filterVideoColorimetryEssentialProperties: true,
+ *               filterHDRMetadataFormatEssentialProperties: true,
  *               filterAudioChannelConfiguration: false
  *            },
  *            events: {
@@ -561,6 +562,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * Value to be used in case enableStallFix is set to true
  * @property {number} [seekOffset=0]
  * An additional offset in seconds that is applied when performing a seek to jump a gap.
+ * @property {number} [checkInterval=250]
+ * The interval in milliseconds at which the gap handler checks for gaps in the buffer. Lower values detect gaps faster but increase CPU usage. Default is 250ms.
  */
 
 /**
@@ -731,10 +734,10 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * List of supported \<EssentialProperty\> elements
  * @property {boolean} [useMediaCapabilitiesApi=true]
  * Enable to use the MediaCapabilities API to check whether codecs are supported. If disabled MSE.isTypeSupported will be used instead.
- * @property {boolean} [filterVideoColorimetryEssentialProperties=false]
+ * @property {boolean} [filterVideoColorimetryEssentialProperties=true]
  * Enable dash.js to query MediaCapabilities API for signalled Colorimetry EssentialProperties (per schemeIdUris: 'urn:mpeg:mpegB:cicp:ColourPrimaries', 'urn:mpeg:mpegB:cicp:TransferCharacteristics').
  * If disabled, registered properties per supportedEssentialProperties will be allowed without any further checking (including 'urn:mpeg:mpegB:cicp:MatrixCoefficients').
- * @property {boolean} [filterHDRMetadataFormatEssentialProperties=false]
+ * @property {boolean} [filterHDRMetadataFormatEssentialProperties=true]
  * Enable dash.js to query MediaCapabilities API for signalled HDR-MetadataFormat EssentialProperty (per schemeIdUri:'urn:dvb:dash:hdr-dmi').
  * @property {boolean} [filterAudioChannelConfiguration=false]
  * Enable dash.js to query MediaCapabilities API for signalled AudioChannelConfiguration.
@@ -746,6 +749,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * If true, the size of the video portal will limit the max chosen video resolution.
  * @property {boolean} [usePixelRatioInLimitBitrateByPortal=false]
  * Sets whether to take into account the device's pixel ratio when defining the portal dimensions.
+ * @property {number} [limitBitrateByPortalMinimum=0]
+ * Sets a minimum bitrate in kbps for limitBitrateByPortal. Representations at this bitrate or below it will not be limited by the portal size. Useful if the player can be resized.
  *
  * Useful on, for example, retina displays.
  * @property {module:Settings~AbrRules} [rules]
@@ -988,6 +993,8 @@ import SwitchRequest from '../streaming/rules/SwitchRequest.js';
  * For live streams, postpone syncing time updates until the threshold is passed. Increase if problems occurs during live streams on low end devices.
  * @property {boolean} [cacheInitSegments=false]
  * Enables the caching of init segments to avoid requesting the init segments before each representation switch.
+ * @property {number} [cacheInitSegmentsLimit=50]
+ * Maximum number of entries to keep in the init segment cache. When the cache exceeds this limit, the least recently used entries are evicted.
  * @property {boolean} [applyServiceDescription=true]
  * Set to true if dash.js should use the parameters defined in ServiceDescription elements
  * @property {boolean} [applyProducerReferenceTime=true]
@@ -1145,6 +1152,7 @@ function Settings() {
             manifestUpdateRetryInterval: 100,
             liveUpdateTimeThresholdInMilliseconds: 0,
             cacheInitSegments: false,
+            cacheInitSegmentsLimit: 50,
             applyServiceDescription: true,
             applyProducerReferenceTime: true,
             applyContentSteering: true,
@@ -1166,8 +1174,8 @@ function Settings() {
                     })
                 ],
                 useMediaCapabilitiesApi: true,
-                filterVideoColorimetryEssentialProperties: false,
-                filterHDRMetadataFormatEssentialProperties: false,
+                filterVideoColorimetryEssentialProperties: true,
+                filterHDRMetadataFormatEssentialProperties: true,
                 filterAudioChannelConfiguration: false
             },
             events: {
@@ -1226,7 +1234,8 @@ function Settings() {
                 enableSeekFix: true,
                 enableStallFix: false,
                 stallSeek: 0.1,
-                seekOffset: 0
+                seekOffset: 0,
+                checkInterval: 250
             },
             utcSynchronization: {
                 enabled: true,
@@ -1324,6 +1333,7 @@ function Settings() {
             abr: {
                 limitBitrateByPortal: false,
                 usePixelRatioInLimitBitrateByPortal: false,
+                limitBitrateByPortalMinimum: 0,
                 enableSupplementalPropertyAdaptationSetSwitching: true,
                 rules: {
                     throughputRule: {
