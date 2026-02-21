@@ -1,6 +1,9 @@
-import { decodeCmcd, fromCmcdHeaders, CMCD_HEADER_FIELDS } from '@svta/cml-cmcd';
-
-const CMCD_HEADER_NAMES = CMCD_HEADER_FIELDS.map(f => f.toLowerCase());
+const CMCD_HEADER_NAMES = [
+    'cmcd-object',
+    'cmcd-request',
+    'cmcd-session',
+    'cmcd-status',
+];
 
 function isManifestRequest(url) {
     return /\.mpd/i.test(url);
@@ -18,39 +21,23 @@ function isMediaRequest(url) {
     return isManifestRequest(url) || isSegmentRequest(url);
 }
 
-function decodeCmcdFromUrl(url) {
+function extractCmcdParam(url) {
     try {
         const urlObj = new URL(url);
-        const cmcdParam = urlObj.searchParams.get('CMCD');
-        if (!cmcdParam) return null;
-        return decodeCmcd(cmcdParam);
-    } catch {
-        return null;
-    }
-}
-
-function decodeCmcdFromHeaders(headers) {
-    try {
-        return fromCmcdHeaders(headers);
-    } catch {
-        return null;
-    }
-}
-
-function decodeCmcdFromBody(body) {
-    try {
-        return decodeCmcd(body);
+        return urlObj.searchParams.get('CMCD');
     } catch {
         return null;
     }
 }
 
 /**
- * Collects CMCD data from outgoing XHR requests by monkey-patching
- * XMLHttpRequest prototype methods. Supports query, header, and event modes.
+ * Collects raw CMCD data from outgoing XHR requests by monkey-patching
+ * XMLHttpRequest prototype methods. Stores raw strings/headers without
+ * parsing — validation functions in the tests handle both parsing and
+ * validation in a single pass.
  *
- * For event target URLs, intercepts POST requests and simulates a 200 response
- * to prevent actual network calls.
+ * For event target URLs, intercepts POST requests and simulates a 200
+ * response to prevent actual network calls.
  */
 class CmcdRequestCollector {
 
@@ -105,10 +92,8 @@ class CmcdRequestCollector {
 
             if (isEventTarget && method === 'POST') {
                 const contentType = headers['content-type'] || '';
-                const cmcd = decodeCmcdFromBody(body);
                 self.eventPosts.push({
                     url,
-                    cmcd,
                     body,
                     contentType,
                     timestamp: Date.now(),
@@ -142,16 +127,16 @@ class CmcdRequestCollector {
 
             // Passive collection for media requests
             if (isMediaRequest(url)) {
-                // Query mode
+                // Query mode — store raw CMCD param string
                 if (url.includes('CMCD=')) {
-                    const cmcd = decodeCmcdFromUrl(url);
-                    if (cmcd && Object.keys(cmcd).length > 0) {
-                        self.queryRequests.push({ url, cmcd, timestamp: Date.now() });
+                    const cmcdParam = extractCmcdParam(url);
+                    if (cmcdParam) {
+                        self.queryRequests.push({ url, cmcdParam, timestamp: Date.now() });
                         self._notifyResolvers('query');
                     }
                 }
 
-                // Header mode
+                // Header mode — store raw CMCD header strings
                 const cmcdHeaders = {};
                 for (const name of CMCD_HEADER_NAMES) {
                     if (headers[name]) {
@@ -159,16 +144,12 @@ class CmcdRequestCollector {
                     }
                 }
                 if (Object.keys(cmcdHeaders).length > 0) {
-                    const cmcd = decodeCmcdFromHeaders(cmcdHeaders);
-                    if (cmcd && Object.keys(cmcd).length > 0) {
-                        self.headerRequests.push({
-                            url,
-                            cmcd,
-                            headers: cmcdHeaders,
-                            timestamp: Date.now(),
-                        });
-                        self._notifyResolvers('header');
-                    }
+                    self.headerRequests.push({
+                        url,
+                        headers: cmcdHeaders,
+                        timestamp: Date.now(),
+                    });
+                    self._notifyResolvers('header');
                 }
             }
 

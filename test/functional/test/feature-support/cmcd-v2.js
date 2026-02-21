@@ -31,6 +31,10 @@ const TIMEOUTS = {
     PLAYBACK_DURATION: 5000,
 };
 
+function formatIssues(result) {
+    return result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n');
+}
+
 Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
     const mpd = item.url;
 
@@ -72,11 +76,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             const manifests = collector.getQueryManifestRequests();
             expect(manifests.length).to.be.greaterThan(0);
 
-            const cmcd = manifests[0].cmcd;
-            expect(cmcd.v).to.equal(2);
-            expect(cmcd.ot).to.not.be.undefined;
-            expect(cmcd.sid).to.equal('test-session-id');
-            expect(cmcd.cid).to.equal('test-content-id');
+            const result = validateCmcd(manifests[0].cmcdParam, { version: 2, reportingMode: 'request' });
+            expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
+            expect(result.data.v).to.equal(2);
+            expect(result.data.ot).to.not.be.undefined;
+            expect(result.data.sid).to.equal('test-session-id');
+            expect(result.data.cid).to.equal('test-content-id');
         });
 
         it('Init segment requests carry CMCD query params with ot, sid, cid, v=2', async () => {
@@ -85,42 +90,46 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             const initSegments = collector.getQueryInitSegmentRequests();
             expect(initSegments.length).to.be.greaterThan(0);
 
-            const cmcd = initSegments[0].cmcd;
-            expect(cmcd.ot).to.not.be.undefined;
-            expect(cmcd.sid).to.equal('test-session-id');
-            expect(cmcd.cid).to.equal('test-content-id');
+            const result = validateCmcd(initSegments[0].cmcdParam, { version: 2, reportingMode: 'request' });
+            expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
+            expect(result.data.ot).to.not.be.undefined;
+            expect(result.data.sid).to.equal('test-session-id');
+            expect(result.data.cid).to.equal('test-content-id');
         });
 
         it('sn increments across successive requests', async () => {
             await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const withSn = collector.queryRequests.filter((r) => r.cmcd.sn !== undefined);
+            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const withSn = parsed.filter((d) => d.sn !== undefined);
             expect(withSn.length).to.be.at.least(2);
 
             for (let i = 1; i < withSn.length; i++) {
-                expect(withSn[i].cmcd.sn).to.be.greaterThan(withSn[i - 1].cmcd.sn);
+                expect(withSn[i].sn).to.be.greaterThan(withSn[i - 1].sn);
             }
         });
 
         it('sf is d (DASH)', async () => {
             await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const withSf = collector.queryRequests.filter((r) => r.cmcd.sf !== undefined);
+            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const withSf = parsed.filter((d) => d.sf !== undefined);
             expect(withSf.length).to.be.greaterThan(0);
 
-            for (const req of withSf) {
-                expect(req.cmcd.sf).to.equal('d');
+            for (const data of withSf) {
+                expect(data.sf).to.equal('d');
             }
         });
 
         it('st is v for VOD', async () => {
             await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const withSt = collector.queryRequests.filter((r) => r.cmcd.st !== undefined);
+            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const withSt = parsed.filter((d) => d.st !== undefined);
             expect(withSt.length).to.be.greaterThan(0);
 
-            for (const req of withSt) {
-                expect(req.cmcd.st).to.equal('v');
+            for (const data of withSt) {
+                expect(data.st).to.equal('v');
             }
         });
 
@@ -130,11 +139,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             expect(collector.queryRequests.length).to.be.greaterThan(0);
 
             for (const req of collector.queryRequests) {
-                const result = validateCmcd(req.cmcd, { version: 2, reportingMode: 'request' });
-                expect(
-                    result.valid,
-                    `CMCD validation failed for ${req.url}:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                ).to.be.true;
+                const result = validateCmcd(req.cmcdParam, { version: 2, reportingMode: 'request' });
+                expect(result.valid, `CMCD validation failed for ${req.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
@@ -177,17 +183,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             const manifests = collector.getHeaderManifestRequests();
             expect(manifests.length).to.be.greaterThan(0);
 
-            const cmcd = manifests[0].cmcd;
-            expect(cmcd.v).to.equal(2);
-
             const headers = manifests[0].headers;
             expect(Object.keys(headers).length).to.be.greaterThan(0);
 
-            const result = validateCmcd(cmcd, { version: 2, reportingMode: 'request' });
-            expect(
-                result.valid,
-                `CMCD spec validation failed:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-            ).to.be.true;
+            const result = validateCmcdHeaders(headers, { version: 2 });
+            expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
+            expect(result.data.v).to.equal(2);
         });
 
         it('CMCD headers present on init segment requests', async () => {
@@ -196,9 +197,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             const initSegments = collector.getHeaderInitSegmentRequests();
             expect(initSegments.length).to.be.greaterThan(0);
 
-            const cmcd = initSegments[0].cmcd;
-            expect(cmcd.ot).to.not.be.undefined;
-            expect(cmcd.sid).to.equal('test-session-id');
+            const result = validateCmcdHeaders(initSegments[0].headers, { version: 2 });
+            expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
+            expect(result.data.ot).to.not.be.undefined;
+            expect(result.data.sid).to.equal('test-session-id');
         });
 
         it('Keys distributed across correct header shards (validateCmcdHeaders)', async () => {
@@ -208,10 +210,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             for (const req of collector.headerRequests) {
                 const result = validateCmcdHeaders(req.headers, { version: 2 });
-                expect(
-                    result.valid,
-                    `CMCD header validation failed for ${req.url}:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                ).to.be.true;
+                expect(result.valid, `CMCD header validation failed for ${req.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
@@ -278,8 +277,9 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 const posts = collector.eventPosts;
                 expect(posts.length).to.be.at.least(1);
 
-                const rrPosts = posts.filter((p) => p.cmcd && p.cmcd.e === 'rr');
-                expect(rrPosts.length).to.be.at.least(1);
+                const parsed = posts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const rrResults = parsed.filter((r) => r.data && r.data.e === 'rr');
+                expect(rrResults.length).to.be.at.least(1);
             });
         });
 
@@ -329,19 +329,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 const posts = collector.eventPosts;
                 expect(posts.length).to.be.at.least(1);
 
-                const psPosts = posts.filter((p) => p.cmcd && p.cmcd.e === 'ps');
-                expect(psPosts.length).to.be.at.least(1);
+                const results = posts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const psResults = results.filter((r) => r.data && r.data.e === 'ps');
+                expect(psResults.length).to.be.at.least(1);
 
-                for (const post of psPosts) {
-                    expect(post.cmcd.sta).to.not.be.undefined;
-
-                    if (post.body) {
-                        const result = validateCmcdEvent(post.body, { version: 2 });
-                        expect(
-                            result.valid,
-                            `Play-state event validation failed:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                        ).to.be.true;
-                    }
+                for (const result of psResults) {
+                    expect(result.data.sta).to.not.be.undefined;
+                    expect(result.valid, `Play-state event validation failed:\n${formatIssues(result)}`).to.be.true;
                 }
             });
         });
@@ -392,8 +386,9 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 await playerAdapter.sleep(8000);
                 await collector.waitForRequests('event', 2, 20000);
 
-                const tiPosts = collector.eventPosts.filter((p) => p.cmcd && p.cmcd.e === 't');
-                expect(tiPosts.length).to.be.at.least(2);
+                const results = collector.eventPosts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const tiResults = results.filter((r) => r.data && r.data.e === 't');
+                expect(tiResults.length).to.be.at.least(2);
             });
         });
 
@@ -457,13 +452,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 expect(posts.length).to.be.at.least(1);
 
                 for (const post of posts) {
-                    if (post.body) {
-                        const result = validateCmcdEvent(post.body, { version: 2 });
-                        expect(
-                            result.valid,
-                            `CMCD event validation failed for POST to ${post.url}:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                        ).to.be.true;
-                    }
+                    const result = validateCmcdEvent(post.body, { version: 2 });
+                    expect(result.valid, `CMCD event validation failed for POST to ${post.url}:\n${formatIssues(result)}`).to.be.true;
                 }
             });
 
@@ -471,11 +461,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-                const posts = collector.eventPosts.filter((p) => p.cmcd && p.cmcd.sn !== undefined);
-                expect(posts.length).to.be.at.least(2);
+                const parsed = collector.eventPosts
+                    .map((p) => validateCmcdEvent(p.body, { version: 2 }).data)
+                    .filter((d) => d && d.sn !== undefined);
+                expect(parsed.length).to.be.at.least(2);
 
-                for (let i = 1; i < posts.length; i++) {
-                    expect(posts[i].cmcd.sn).to.be.greaterThan(posts[i - 1].cmcd.sn);
+                for (let i = 1; i < parsed.length; i++) {
+                    expect(parsed[i].sn).to.be.greaterThan(parsed[i - 1].sn);
                 }
             });
         });
@@ -522,7 +514,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 expect(collector.queryRequests.length).to.be.greaterThan(0);
 
                 for (const req of collector.queryRequests) {
-                    const keys = Object.keys(req.cmcd);
+                    const result = validateCmcd(req.cmcdParam, { version: 2 });
+                    const keys = Object.keys(result.data);
                     for (const key of keys) {
                         expect(
                             enabledKeys.includes(key),
@@ -603,7 +596,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
                 const allSeenKeys = new Set();
                 for (const req of collector.queryRequests) {
-                    for (const key of Object.keys(req.cmcd)) {
+                    const result = validateCmcd(req.cmcdParam, { version: 2 });
+                    for (const key of Object.keys(result.data)) {
                         allSeenKeys.add(key);
                     }
                 }
@@ -621,11 +615,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
 
                 for (const req of collector.queryRequests) {
-                    const result = validateCmcdKeys(req.cmcd, { version: 2 });
-                    expect(
-                        result.valid,
-                        `Unrecognized keys found:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                    ).to.be.true;
+                    const result = validateCmcdKeys(req.cmcdParam, { version: 2 });
+                    expect(result.valid, `Unrecognized keys found:\n${formatIssues(result)}`).to.be.true;
                 }
             });
         });
@@ -668,13 +659,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
                 const manifests = collector.getQueryManifestRequests();
                 expect(manifests.length).to.be.greaterThan(0);
-                expect(manifests[0].cmcd.v).to.equal(2);
 
-                const result = validateCmcd(manifests[0].cmcd, { version: 2, reportingMode: 'request' });
-                expect(
-                    result.valid,
-                    `CMCD v2 query validation failed:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                ).to.be.true;
+                const result = validateCmcd(manifests[0].cmcdParam, { version: 2, reportingMode: 'request' });
+                expect(result.valid, `CMCD v2 query validation failed:\n${formatIssues(result)}`).to.be.true;
+                expect(result.data.v).to.equal(2);
             });
         });
 
@@ -711,13 +699,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
                 const manifests = collector.getHeaderManifestRequests();
                 expect(manifests.length).to.be.greaterThan(0);
-                expect(manifests[0].cmcd.v).to.equal(2);
 
-                const result = validateCmcd(manifests[0].cmcd, { version: 2, reportingMode: 'request' });
-                expect(
-                    result.valid,
-                    `CMCD v2 header validation failed:\n${result.issues.map((i) => `  [${i.severity}] ${i.key ? i.key + ': ' : ''}${i.message}`).join('\n')}`
-                ).to.be.true;
+                const result = validateCmcdHeaders(manifests[0].headers, { version: 2 });
+                expect(result.valid, `CMCD v2 header validation failed:\n${formatIssues(result)}`).to.be.true;
+                expect(result.data.v).to.equal(2);
             });
         });
 
@@ -763,9 +748,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 expect(collector.queryRequests.length).to.be.greaterThan(0);
 
                 for (const req of collector.queryRequests) {
+                    const result = validateCmcd(req.cmcdParam, { version: 1 });
                     expect(
-                        req.cmcd.v === undefined || req.cmcd.v === 1,
-                        `Expected v to be undefined or 1, got ${req.cmcd.v}`
+                        result.data.v === undefined || result.data.v === 1,
+                        `Expected v to be undefined or 1, got ${result.data.v}`
                     ).to.be.true;
                 }
             });
