@@ -119,7 +119,8 @@ class CmcdRequestCollector {
                             xhr.onloadend.call(xhr);
                         }
                     } catch (e) {
-                        // Silently ignore simulation errors
+                        // Log simulation errors to aid debugging
+                        console.error('Failed to simulate XHR response:',e);
                     }
                 }, 0);
                 return;
