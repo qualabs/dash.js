@@ -181,6 +181,13 @@ function AlternativeMediaController() {
                 return;
             }
 
+            // maxDuration=0 means the event was cancelled before it started - skip entirely
+            if (parsedEvent.maxDuration === 0) {
+                mediaManager.cleanupPrebufferedContent(parsedEvent.id);
+                logger.info(`Alternative event ${parsedEvent.id} cancelled (maxDuration=0) - skipping switch`);
+                return;
+            }
+
             // Try to prebuffer if not already done
             mediaManager.prebufferAlternativeContent(
                 parsedEvent.id, 
@@ -295,14 +302,17 @@ function AlternativeMediaController() {
                 switchTime = switchTime ? switchTime : adjustedTime;
                 calculatedMaxDuration = altPlayer.isDynamic() ? switchTime + maxDuration : maxDuration;
             }
+            // maxDuration === 0 signals immediate termination per spec:
+            // presentationTime + 0 <= currentPlayhead is always true once alt content is playing
             const shouldSwitchBack =
-                calculatedMaxDuration > 0 && (
+                maxDuration === 0 ||
+                (calculatedMaxDuration > 0 && (
                     // Check if the alternative content has finished playing (only for non-dynamic content)
                     (!altPlayer.isDynamic() && Math.round(altPlayer.duration() - e.time) === 0) ||
                     // Check if the alternative content reached the max duration
                     (clip && actualEventPresentationTime + adjustedTime >= presentationTime + calculatedMaxDuration) ||
                     (calculatedMaxDuration && calculatedMaxDuration <= adjustedTime)
-                );
+                ));
             if (shouldSwitchBack) {
                 _switchBackToMainContent(altPlayer, event);
             }
