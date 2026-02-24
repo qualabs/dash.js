@@ -103,7 +103,7 @@ function MediaManager() {
     function _applyMainPlayerCmcdData(player) {
         const cmcdSettings = {};
         
-        const sid = cmcdSessionIdProvider();
+        const sid = typeof cmcdSessionIdProvider === 'function' ? cmcdSessionIdProvider() : null;
         if (sid) {
             cmcdSettings.sid = sid;
         }
@@ -119,7 +119,7 @@ function MediaManager() {
         function onManifestLoaded(e) {
             player.off(Events.MANIFEST_LOADED, onManifestLoaded);
 
-            const mainCid = cmcdContentIdProvider()
+            const mainCid = typeof cmcdContentIdProvider === 'function' ? cmcdContentIdProvider() : null;
             const isMainCidValid = mainCid && mainCid !== 'null' && mainCid !== 'undefined';
 
             // Extract CMCD parameters from manifest loaded event
