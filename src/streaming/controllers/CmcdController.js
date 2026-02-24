@@ -127,6 +127,14 @@ function CmcdController() {
 
         _initializeEvenModeListeners();
         _initializePlaybackStateListeners();
+        _initializeAlternativeContentListeners();
+    }
+
+    function _initializeAlternativeContentListeners() {
+        eventBus.on(Constants.ALTERNATIVE_MPD.CONTENT_START, () => triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.AD_BREAK_START));
+        eventBus.on(Constants.ALTERNATIVE_MPD.CONTENT_END, () => triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.AD_BREAK_END));
+        eventBus.on(Constants.ALTERNATIVE_MPD.AD_START, () => triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.AD_START));
+        eventBus.on(Constants.ALTERNATIVE_MPD.AD_END, () => triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.AD_END));
     }
 
     function _initializePlaybackStateListeners() {
@@ -194,7 +202,7 @@ function CmcdController() {
         if (cid) {
             config.cid = cid;
         }
-
+        
         return new CmcdReporter(config, _customRequester);
     }
 
