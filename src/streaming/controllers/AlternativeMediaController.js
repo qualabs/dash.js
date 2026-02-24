@@ -56,7 +56,12 @@ function AlternativeMediaController() {
         videoModel = null,
         alternativeContext = null,
         hideAlternativePlayerControls = false,
-        alternativeVideoElement = null;
+        adPlaybackStarted = false,
+        adEndSent = false,
+        isSeekingInAltPlayer = false,
+        alternativeVideoElement = null,
+        cmcdSessionIdProvider = null,
+        cmcdContentIdProvider = null;
 
     function setConfig(config) {
         if (!config) {
@@ -86,6 +91,12 @@ function AlternativeMediaController() {
         if (config.hideAlternativePlayerControls) {
             hideAlternativePlayerControls = config.hideAlternativePlayerControls;
         }
+        if (config.cmcdSessionIdProvider) {
+            cmcdSessionIdProvider = config.cmcdSessionIdProvider;
+        }
+        if (config.cmcdContentIdProvider) {
+            cmcdContentIdProvider = config.cmcdContentIdProvider;
+        }
     }
 
     function initialize() {
@@ -104,7 +115,9 @@ function AlternativeMediaController() {
             logger,
             playbackController,
             alternativeContext,
-            hideAlternativePlayerControls
+            hideAlternativePlayerControls,
+            cmcdSessionIdProvider,
+            cmcdContentIdProvider
         });
 
         mediaManager.initialize();
@@ -183,13 +196,13 @@ function AlternativeMediaController() {
 
             // Try to prebuffer if not already done
             mediaManager.prebufferAlternativeContent(
-                parsedEvent.id, 
+                parsedEvent.id,
                 parsedEvent.alternativeMPD.url
             );
 
             // Set current event and timing variables
             currentEvent = parsedEvent;
-            
+
             // Handle switching to alternative content (need to determine timing)
             // This logic was previously in handleAlternativeEventTriggered
             if (playbackController) {
@@ -201,10 +214,10 @@ function AlternativeMediaController() {
                     parsedEvent.alternativeMPD.url,
                     timeToSwitch
                 );
-                
+
                 // Trigger content start event
-                if (eventBus){
-                    eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_START, { 
+                if (eventBus) {
+                    eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_START, {
                         event: parsedEvent,
                         player: mediaManager.getAlternativePlayer()
                     });
@@ -216,11 +229,87 @@ function AlternativeMediaController() {
             const altPlayer = mediaManager.getAlternativePlayer();
             if (altPlayer) {
                 altPlayer.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
-                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onAlternativeDynamicToStatic, this)
-                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onAlternativePlaybackEnded, this)
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_PLAYING, _onAlternativePlaybackPlaying, this);
+                altPlayer.on(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onAlternativeDynamicToStatic, this);
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_ENDED, _onAlternativePlaybackEnded, this);
+                altPlayer.on(MediaPlayerEvents.PERIOD_SWITCH_STARTED, _onAlternativePeriodSwitchStarted, this);
+                altPlayer.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onAlternativePeriodSwitchCompleted, this);
+                altPlayer.on(MediaPlayerEvents.PLAYBACK_SEEKING, _onAlternativePlaybackSeeking, this);
             }
         } catch (err) {
             logger.error('Error handling alternative event:', err);
+        }
+    }
+
+
+    function _onAlternativePlaybackPlaying() {
+        if (!adPlaybackStarted) {
+            adPlaybackStarted = true;
+            adEndSent = false;
+            _triggerAltEvent(Constants.ALTERNATIVE_MPD.AD_START);
+        }
+    }
+
+    function _onAlternativePeriodSwitchStarted(e) {
+        const altPlayer = mediaManager.getAlternativePlayer();
+        const fromStreamInfo = e.fromStreamInfo;
+
+        if (fromStreamInfo && adPlaybackStarted && !adEndSent) {
+            // If it's a seek/skip in the alternative player, it's not a "natural" completion
+            const isCompleted = !isSeekingInAltPlayer;
+            _triggerAdEnd(altPlayer, isCompleted);
+        }
+
+        if (altPlayer && e.toStreamInfo) {
+            const baseCid = altPlayer.__cmcdBaseCid;
+            if (baseCid && baseCid !== 'null' && baseCid !== 'undefined') {
+                const newCid = `${baseCid}-${e.toStreamInfo.id}`;
+                altPlayer.updateSettings({
+                    streaming: {
+                        cmcd: {
+                            cid: newCid
+                        }
+                    }
+                });
+                altPlayer.refreshCmcdReporter();
+            } else {
+                logger.warn('[AlternativeMediaController] baseCid is falsy');
+            }
+        }
+    }
+
+    function _onAlternativePeriodSwitchCompleted(e) {
+        logger.debug('Alternative player period switch completed:', e.toStreamInfo?.id);
+        // Reset flags for the next ad in the timeline
+        adPlaybackStarted = false;
+        adEndSent = false;
+        isSeekingInAltPlayer = false;
+    }
+
+    function _onAlternativePlaybackSeeking() {
+        isSeekingInAltPlayer = true;
+    }
+
+    function _triggerAdEnd(altPlayer, completedOverride) {
+        if (adEndSent) {
+            return;
+        }
+
+        const isCompleted = completedOverride !== undefined ? completedOverride : (altPlayer && (altPlayer.duration() - altPlayer.time() < 0.5));
+
+        _triggerAltEvent(Constants.ALTERNATIVE_MPD.AD_END, {
+            event: currentEvent,
+            completed: !!isCompleted
+        });
+        adEndSent = true;
+    }
+
+    function _triggerAltEvent(type, payload) {
+        // Trigger only on alternative player's internal bus for its own CmcdController
+        const altPlayer = mediaManager.getAlternativePlayer();
+        if (altPlayer && typeof altPlayer.trigger === 'function') {
+            const altPayload = payload ? { ...payload } : {};
+            altPlayer.trigger(type, altPayload);
         }
     }
 
@@ -276,6 +365,18 @@ function AlternativeMediaController() {
                 return;
             }
 
+            if (!adPlaybackStarted && e.time > 0) {
+                adPlaybackStarted = true;
+                adEndSent = false;
+                _triggerAltEvent(Constants.ALTERNATIVE_MPD.AD_START);
+            }
+
+            const altPlayer = mediaManager.getAlternativePlayer();
+
+            if (!adEndSent && altPlayer && (altPlayer.duration() - e.time < 0.5)) {
+                _triggerAdEnd(altPlayer);
+            }
+
             const event = { ...currentEvent };
 
             if (event.type == DashConstants.DYNAMIC) {
@@ -286,9 +387,7 @@ function AlternativeMediaController() {
             if (Math.round(e.time - actualEventPresentationTime) === 0) {
                 return;
             }
-            
-            const altPlayer = mediaManager.getAlternativePlayer();
-            
+
             const adjustedTime = e.time - timeToSwitch;
             if (!alternativeSwitched && adjustedTime > 0) {
                 alternativeSwitched = true;
@@ -311,20 +410,20 @@ function AlternativeMediaController() {
         }
     }
 
-    function _onAlternativePlaybackEnded(e){
-        if (e.isLast){
+    function _onAlternativePlaybackEnded(e) {
+        if (e.isLast) {
             const event = { ...currentEvent };
             const altPlayer = mediaManager.getAlternativePlayer();
-            if (altPlayer.isDynamic()){
+            if (altPlayer.isDynamic()) {
                 _switchBackToMainContent(altPlayer, event);
             }
         }
     }
 
-    function _onAlternativeDynamicToStatic(){
+    function _onAlternativeDynamicToStatic() {
         const event = { ...currentEvent };
         const altPlayer = mediaManager.getAlternativePlayer();
-        if (altPlayer.isDynamic()){
+        if (altPlayer.isDynamic()) {
             _switchBackToMainContent(altPlayer, event);
         }
     }
@@ -335,10 +434,15 @@ function AlternativeMediaController() {
         }
 
         const seekTime = _calculateSeekTime(event, altPlayer);
+
+        // Individual ad ends (if not already triggered by completion)
+        // Must be called BEFORE switchBackToMainContent to ensure the altPlayer is still alive to receive it
+        _triggerAdEnd(altPlayer);
+
         mediaManager.switchBackToMainContent(seekTime);
 
-        // Trigger content end event
-        if (eventBus){
+        // Trigger ad break end event
+        if (eventBus) {
             eventBus.trigger(Constants.ALTERNATIVE_MPD.CONTENT_END, { event });
         }
 
@@ -371,6 +475,8 @@ function AlternativeMediaController() {
         switchTime = null;
         alternativeSwitched = false;
         calculatedMaxDuration = 0;
+        adPlaybackStarted = false;
+        adEndSent = false;
     }
 
     function reset() {
@@ -380,6 +486,12 @@ function AlternativeMediaController() {
         if (altPlayer) {
             _switchBackToMainContent(altPlayer, currentEvent);
             altPlayer.off(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onAlternativePlaybackTimeUpdated, this);
+            altPlayer.off(MediaPlayerEvents.PLAYBACK_PLAYING, _onAlternativePlaybackPlaying, this);
+            altPlayer.off(MediaPlayerEvents.DYNAMIC_TO_STATIC, _onAlternativeDynamicToStatic, this);
+            altPlayer.off(MediaPlayerEvents.PLAYBACK_ENDED, _onAlternativePlaybackEnded, this);
+            altPlayer.off(MediaPlayerEvents.PERIOD_SWITCH_STARTED, _onAlternativePeriodSwitchStarted, this);
+            altPlayer.off(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onAlternativePeriodSwitchCompleted, this);
+            altPlayer.off(MediaPlayerEvents.PLAYBACK_SEEKING, _onAlternativePlaybackSeeking, this);
         }
 
         if (mediaManager) {

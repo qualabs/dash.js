@@ -429,7 +429,9 @@ export default {
         },
         CONTENT_START: 'alternativeContentStart',
         CONTENT_END: 'alternativeContentEnd',
-        EVENT_UPDATED: 'alternativeEventUpdated'
+        EVENT_UPDATED: 'alternativeEventUpdated',
+        AD_START: 'alternativeAdStart',
+        AD_END: 'alternativeAdEnd'
 
     },
 
