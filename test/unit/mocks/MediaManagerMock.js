@@ -66,7 +66,15 @@ class MediaManagerMock {
                 this.eventHandlers.set(eventName, { handler, context });
             }),
             off: sinon.spy(),
+            time: () => this.altPlayerTime || 0,
+            trigger: (eventName, data) => {
+                const eventData = this.eventHandlers.get(eventName);
+                if (eventData) {
+                    eventData.handler.call(eventData.context, data);
+                }
+            },
             triggerTimeUpdate: (time) => {
+                this.altPlayerTime = time;
                 const eventData = this.eventHandlers.get('playbackTimeUpdated');
                 if (eventData) {
                     eventData.handler.call(eventData.context, { time });

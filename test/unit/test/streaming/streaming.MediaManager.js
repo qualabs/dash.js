@@ -3,6 +3,7 @@ import VideoModelMock from '../../mocks/VideoModelMock.js';
 import PlaybackControllerMock from '../../mocks/PlaybackControllerMock.js';
 import DebugMock from '../../mocks/DebugMock.js';
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 describe('MediaManager', function () {
     let mediaManager;
@@ -123,6 +124,23 @@ describe('MediaManager', function () {
             const result = mediaManager.getAlternativePlayer();
             expect(result).to.not.be.undefined;
             expect(result).to.be.an('object');
+        });
+
+        it('should apply main player SID to alternative player', function () {
+            const testUrl = 'http://test.mpd';
+            const testPlayerId = 'testPlayer';
+            const testSid = 'test-inherited-sid';
+            const sidProvider = sinon.stub().returns(testSid);
+
+            mediaManager.setConfig({
+                cmcdSessionIdProvider: sidProvider
+            });
+
+            mediaManager.switchToAlternativeContent(testPlayerId, testUrl, 0);
+
+            const altPlayer = mediaManager.getAlternativePlayer();
+            expect(sidProvider.calledOnce).to.be.true;
+            expect(altPlayer.getSettings().streaming.cmcd.sid).to.equal(testSid);
         });
     });
 

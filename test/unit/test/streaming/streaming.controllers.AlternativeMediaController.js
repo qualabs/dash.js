@@ -99,6 +99,21 @@ describe('AlternativeMediaController', function () {
 
             expect(() => alternativeMediaController.initialize()).to.not.throw();
         });
+
+        it('should pass cmcdSessionIdProvider and cmcdContentIdProvider to MediaManager', function () {
+            const sidProvider = () => 'test-sid';
+            const cidProvider = () => 'test-cid';
+            alternativeMediaController.setConfig({
+                mediaManager: mediaManagerMock,
+                cmcdSessionIdProvider: sidProvider,
+                cmcdContentIdProvider: cidProvider
+            });
+            alternativeMediaController.initialize();
+            expect(mediaManagerMock.setConfig.calledWith(sinon.match({
+                cmcdSessionIdProvider: sidProvider,
+                cmcdContentIdProvider: cidProvider
+            }))).to.be.true;
+        });
     });
 
     describe('Alternative MPD Event Triggering', function () {
@@ -133,6 +148,75 @@ describe('AlternativeMediaController', function () {
                 .catch((error) => {
                     done(error);
                 });
+
+            eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, mockEvent);
+        });
+
+        it('should NOT trigger AD_START immediately on alternative event', function () {
+            const mockEvent = {
+                event: {
+                    presentationTime: 10000,
+                    duration: 5000,
+                    id: 'test-event-no-immediate-start',
+                    eventStream: {
+                        schemeIdUri: Constants.ALTERNATIVE_MPD.URIS.REPLACE,
+                        timescale: 1000
+                    },
+                    alternativeMpd: {
+                        mode: Constants.ALTERNATIVE_MPD.MODES.REPLACE,
+                        url: 'http://example.com/alternative.mpd'
+                    }
+                }
+            };
+
+            let adStartTriggered = false;
+            eventBus.on(Constants.ALTERNATIVE_MPD.AD_START, () => {
+                adStartTriggered = true;
+            });
+
+            playbackControllerMock.getTime = sinon.stub().returns(10);
+            eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, mockEvent);
+
+            expect(adStartTriggered).to.be.false;
+        });
+
+        it('should trigger AD_START when playback starts on alternative player', function (done) {
+            const mockEvent = {
+                event: {
+                    presentationTime: 10000,
+                    duration: 5000,
+                    id: 'test-event-deferred-start',
+                    eventStream: {
+                        schemeIdUri: Constants.ALTERNATIVE_MPD.URIS.REPLACE,
+                        timescale: 1000
+                    },
+                    alternativeMpd: {
+                        mode: Constants.ALTERNATIVE_MPD.MODES.REPLACE,
+                        url: 'http://example.com/alternative.mpd'
+                    }
+                }
+            };
+
+            playbackControllerMock.getTime = sinon.stub().returns(10);
+
+            waitForEvent(Constants.ALTERNATIVE_MPD.CONTENT_START, eventBus)
+                .then((eventData) => {
+                    const altPlayer = eventData.player || mediaManagerMock.getAlternativePlayer();
+
+                    let adStartTriggered = false;
+                    const onAdStart = () => {
+                        adStartTriggered = true;
+                    };
+                    altPlayer.on(Constants.ALTERNATIVE_MPD.AD_START, onAdStart);
+
+                    // Simulation of playback starting
+                    altPlayer.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+                    expect(adStartTriggered).to.be.true;
+                    altPlayer.off(Constants.ALTERNATIVE_MPD.AD_START, onAdStart);
+                    done();
+                })
+                .catch(done);
 
             eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, mockEvent);
         });
@@ -301,11 +385,19 @@ describe('AlternativeMediaController', function () {
 
             playbackControllerMock.getTime = sinon.stub().returns(12);
 
+            let adEndCount = 0;
+            let adEndData = null;
+
             waitForEvent(Constants.ALTERNATIVE_MPD.CONTENT_START, eventBus)
                 .then((eventData) => {
                     const altPlayer = eventData.player || mediaManagerMock.getAlternativePlayer();
                     if (altPlayer) {
-                        altPlayer.triggerTimeUpdate(30);
+                        altPlayer.on(Constants.ALTERNATIVE_MPD.AD_END, (data) => {
+                            adEndCount++;
+                            adEndData = data;
+                        });
+                        // Simulate ad reaching completion
+                        altPlayer.triggerTimeUpdate(59.6);
                     } else {
                         done(new Error('Alternative player not available'));
                     }
@@ -318,12 +410,58 @@ describe('AlternativeMediaController', function () {
                 .then((eventData) => {
                     expect(eventData).to.exist;
                     expect(eventData.event).to.exist;
+                    expect(adEndCount).to.equal(1);
+                    expect(adEndData.completed).to.be.true;
                     expect(mediaManagerMock.switchBackToMainContent.calledOnce).to.be.true;
                     done();
                 })
                 .catch((error) => {
                     done(error);
                 });
+
+            eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, mockEvent);
+        });
+
+        it('should trigger AD_END with completed: false when ad is skipped', function (done) {
+            const mockEvent = {
+                event: {
+                    presentationTime: 10000,
+                    duration: 5000,
+                    id: 'test-event-skip',
+                    eventStream: {
+                        schemeIdUri: Constants.ALTERNATIVE_MPD.URIS.REPLACE,
+                        timescale: 1000
+                    },
+                    alternativeMpd: {
+                        mode: Constants.ALTERNATIVE_MPD.MODES.REPLACE,
+                        url: 'http://example.com/alternative.mpd',
+                        maxDuration: 30000
+                    }
+                }
+            };
+
+            playbackControllerMock.getTime = sinon.stub().returns(12);
+
+            let adEndData = null;
+
+            waitForEvent(Constants.ALTERNATIVE_MPD.CONTENT_START, eventBus)
+                .then((eventData) => {
+                    const altPlayer = eventData.player || mediaManagerMock.getAlternativePlayer();
+                    if (altPlayer) {
+                        altPlayer.on(Constants.ALTERNATIVE_MPD.AD_END, (data) => {
+                            adEndData = data;
+                        });
+                        // Simulate skip by forcing a switch back without reaching completion time
+                        alternativeMediaController.reset(); // This triggers switchBackToMainContent in this test context
+                    }
+                });
+
+            waitForEvent(Constants.ALTERNATIVE_MPD.CONTENT_END, eventBus, 1000)
+                .then(() => {
+                    expect(adEndData.completed).to.be.false;
+                    done();
+                })
+                .catch(done);
 
             eventBus.trigger(Constants.ALTERNATIVE_MPD.URIS.REPLACE, mockEvent);
         });

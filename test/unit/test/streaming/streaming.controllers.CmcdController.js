@@ -1,6 +1,6 @@
 import CmcdController from '../../../../src/streaming/controllers/CmcdController.js';
 import Settings from '../../../../src/core/Settings.js';
-import {HTTPRequest} from '../../../../src/streaming/vo/metrics/HTTPRequest.js';
+import { HTTPRequest } from '../../../../src/streaming/vo/metrics/HTTPRequest.js';
 import EventBus from '../../../../src/core/EventBus.js';
 import MediaPlayerEvents from '../../../../src/streaming/MediaPlayerEvents.js';
 import AbrControllerMock from '../../mocks/AbrControllerMock.js';
@@ -8,9 +8,9 @@ import DashMetricsMock from '../../mocks/DashMetricsMock.js';
 import PlaybackControllerMock from '../../mocks/PlaybackControllerMock.js';
 import ThroughputControllerMock from '../../mocks/ThroughputControllerMock.js';
 import ServiceDescriptionControllerMock from '../../mocks/ServiceDescriptionControllerMock.js';
-import {decodeCmcd} from '@svta/cml-cmcd';
+import { decodeCmcd } from '@svta/cml-cmcd';
 import StreamMock from '../../mocks/StreamMock.js';
-import {expect} from 'chai';
+import { expect } from 'chai';
 import sinon from 'sinon';
 
 const context = {};
@@ -513,7 +513,7 @@ describe('CmcdController', function () {
             cmcdController.initialize();
         });
 
-        afterEach(function() {
+        afterEach(function () {
             clock.restore();
         });
 
@@ -583,10 +583,10 @@ describe('CmcdController', function () {
         it('aggregated bitrate values ab, tab, lab should be present on active stream as inner lists', () => {
             // mocking active stream
             const streamMock = new StreamMock();
-            streamMock.getRepresentationsByType = function() {
+            streamMock.getRepresentationsByType = function () {
                 return [{ bitrateInKbit: 1000 }, { bitrateInKbit: 2000 }, { bitrateInKbit: 3000 }];
             }
-            streamMock.getCurrentRepresentationForType = function() {
+            streamMock.getCurrentRepresentationForType = function () {
                 return { bitrateInKbit: 2000 };
             }
 
@@ -1651,5 +1651,72 @@ describe('CmcdController', function () {
             expect(requestSent.body).to.exist;
         });
 
+    }); // Close CMCD v2: Manifest-based...
+
+    describe('getCmcdSessionId', () => {
+        it('should return null if cmcdReporter is not initialized', () => {
+            cmcdController.reset();
+            expect(cmcdController.getCmcdSessionId()).to.be.null;
+        });
+
+        it('should return the configured session ID', () => {
+            const sid = 'test-session-id';
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        enabled: true,
+                        sid: sid
+                    }
+                }
+            });
+            cmcdController.initialize();
+            expect(cmcdController.getCmcdSessionId()).to.equal(sid);
+        });
+
+        it('should return an auto-generated session ID if none is configured', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        enabled: true,
+                        sid: null
+                    }
+                }
+            });
+            cmcdController.initialize();
+            const sid = cmcdController.getCmcdSessionId();
+            expect(sid).to.be.a('string');
+            expect(sid).to.have.lengthOf(36); // UUID length
+        });
+
+        it('should prioritize settings session ID over manifest session ID', () => {
+            const settingsSid = 'settings-sid';
+            const manifestSid = 'manifest-sid';
+
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        enabled: true,
+                        sid: settingsSid
+                    }
+                }
+            });
+
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: manifestSid
+                    }
+                }
+            });
+
+            // Re-initialize to ensure reporter is created with the right config
+            cmcdController.initialize();
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            const sid = cmcdController.getCmcdSessionId();
+            expect(sid).to.equal(settingsSid);
+        });
     });
 });
