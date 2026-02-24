@@ -33,7 +33,7 @@ import MetricsReportingEvents from '../metrics/MetricsReportingEvents.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import MediaPlayerEvents from '../MediaPlayerEvents.js';
 import Constants from '../../streaming/constants/Constants.js';
-import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
+import { HTTPRequest } from '../vo/metrics/HTTPRequest.js';
 import {
     CMCD_PARAM,
     CmcdReporter,
@@ -335,7 +335,7 @@ function CmcdController() {
         }
     }
 
-    function _triggerCMCDDataGeneratedEvent(request){
+    function _triggerCMCDDataGeneratedEvent(request) {
         const effectiveMode = cmcdConfig.get('mode');
         const eventData = {
             url: request.url,
@@ -482,7 +482,7 @@ function CmcdController() {
     }
 
     function _onPlaybackWaiting() {
-        if (cmcdModel.wasPlaying()){
+        if (cmcdModel.wasPlaying()) {
             const mediaType = cmcdModel.getLastMediaTypeRequest();
             cmcdModel.onRebufferingStarted(mediaType);
             _onStateChange(Constants.CMCD_PLAYER_STATES.REBUFFERING);
@@ -518,11 +518,11 @@ function CmcdController() {
         return commonMediaRequest;
     }
 
-    function getCmcdResponseInterceptors(){
+    function getCmcdResponseInterceptors() {
         return [_cmcdResponseReceivedInterceptor];
     }
 
-    function _cmcdResponseReceivedInterceptor(response){
+    function _cmcdResponseReceivedInterceptor(response) {
         const requestType = response.request?.customData?.request?.type;
         if (requestType === HTTPRequest.CMCD_EVENT) {
             return response;
@@ -573,6 +573,38 @@ function CmcdController() {
         return cmcdModel.getCmcdParametersFromManifest();
     }
 
+    /**
+     * Returns the current CMCD session ID used by the reporter.
+     * This may be an auto-generated UUID if no sessionID was explicitly configured.
+     * @returns {string|null} The current session ID, or null if the reporter is not active.
+     */
+    function getCmcdSessionId() {
+        if (!cmcdReporter) {
+            return null;
+        }
+        return cmcdReporter.data?.sid || cmcdReporter.config?.sid || null;
+    }
+
+    /**
+     * Returns the current CMCD content ID used by the reporter.
+     * @returns {string|null} The current content ID, or null if the reporter is not active.
+     */
+    function getCmcdContentId() {
+        if (!cmcdReporter) {
+            return null;
+        }
+        return cmcdReporter.data?.cid || cmcdReporter.config?.cid || cmcdConfig.get('contentID') || null;
+    }
+
+    /**
+     * Forces the rebuilding of the CMCD reporter.
+     * Useful when settings change and the reporter needs to be recreated immediately.
+     */
+    function rebuildReporter() {
+        reporterNeedsRebuild = true;
+        _rebuildReporterIfNeeded();
+    }
+
     function reset() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, _onPlaybackRateChanged, this);
         eventBus.off(MediaPlayerEvents.MANIFEST_LOADED, _onManifestLoaded, this);
@@ -597,6 +629,9 @@ function CmcdController() {
         getCmcdRequestInterceptors,
         getCmcdResponseInterceptors,
         getCmcdParametersFromManifest,
+        getCmcdSessionId,
+        getCmcdContentId,
+        rebuildReporter,
         initialize,
         isCmcdEnabled,
         reset,
