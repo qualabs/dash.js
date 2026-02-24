@@ -46,7 +46,9 @@ function MediaManager() {
         logger,
         debug,
         prebufferedPlayers = new Map(),
-        prebufferCleanupInterval = null;
+        prebufferCleanupInterval = null,
+        cmcdSessionIdProvider = null,
+        cmcdContentIdProvider = null;
 
     const context = this.context;
 
@@ -74,6 +76,12 @@ function MediaManager() {
         if (!!config.alternativeContext && !alternativeContext) {
             alternativeContext = config.alternativeContext
         }
+        if (config.cmcdSessionIdProvider) {
+            cmcdSessionIdProvider = config.cmcdSessionIdProvider;
+        }
+        if (config.cmcdContentIdProvider) {
+            cmcdContentIdProvider = config.cmcdContentIdProvider;
+        }
     }
 
     function initialize() {
@@ -92,6 +100,59 @@ function MediaManager() {
         });
     }
 
+    function _applyMainPlayerCmcdData(player) {
+        const cmcdSettings = {};
+        
+        const sid = cmcdSessionIdProvider();
+        if (sid) {
+            cmcdSettings.sid = sid;
+        }
+
+        player.updateSettings({
+            streaming: {
+                cmcd: cmcdSettings
+            }
+        });
+
+        // Listen to MANIFEST_LOADED only once to load the initial period's id.
+        // Subsequent period changes are handled by the PERIOD_SWITCH events listeners
+        function onManifestLoaded(e) {
+            player.off(Events.MANIFEST_LOADED, onManifestLoaded);
+
+            const mainCid = cmcdContentIdProvider()
+            const isMainCidValid = mainCid && mainCid !== 'null' && mainCid !== 'undefined';
+
+            // Extract CMCD parameters from manifest loaded event
+            const manifestCmcdParams = e.data?.ServiceDescription?.[0]?.ClientDataReporting?.CMCDParameters;
+            const altCid = manifestCmcdParams?.contentID ?? null;
+            const isAltCidValid = altCid && altCid !== 'null' && altCid !== 'undefined';
+           
+            // Determine baseCid: prioritize main player's cid, fallback to alternative's configured cid
+            // Store baseCid on the player instance for successive period switches
+            const baseCid = isMainCidValid ? mainCid : (isAltCidValid ? altCid : null);
+            player.__cmcdBaseCid = baseCid;
+
+            const periods = e.data && e.data.Period;
+            if (periods && periods.length > 0) {
+                const firstPeriodId = periods[0].id;
+
+                if (baseCid) {
+                    player.updateSettings({
+                        streaming: {
+                            cmcd: {
+                                cid: `${baseCid}-${firstPeriodId}`
+                            }
+                        }
+                    });
+                }
+                player.refreshCmcdReporter();
+            } else {
+                logger.warn(`[MediaManager] MANIFEST_LOADED but periods array was empty`);
+            }
+        }
+
+        player.on(Events.MANIFEST_LOADED, onManifestLoaded);
+    }
 
     function prebufferAlternativeContent(playerId, alternativeMpdUrl) {
         try {
@@ -103,6 +164,7 @@ function MediaManager() {
 
             // Create a prebuffered player
             const prebufferedPlayer = MediaPlayer().create();
+            _applyMainPlayerCmcdData(prebufferedPlayer);
             prebufferedPlayer.initialize(null, alternativeMpdUrl, false, NaN);
             prebufferedPlayer.updateSettings({
                 streaming: {
@@ -126,7 +188,6 @@ function MediaManager() {
                 logger.error(`Prebuffering error for player ${playerId}:`, e);
                 cleanupPrebufferedContent(playerId);
             }, this);
-
         } catch (err) {
             logger.error('Error prebuffering alternative content:', err);
         }
@@ -153,6 +214,7 @@ function MediaManager() {
             altPlayer.off(Events.ERROR, onAlternativePlayerError, this);
         }
         altPlayer = MediaPlayer().create();
+        _applyMainPlayerCmcdData(altPlayer);
         altPlayer.updateSettings({
             streaming: {
                 cacheInitSegments: true
