@@ -35,7 +35,7 @@ import {
     CmcdStreamingFormat,
     toCmcdValue,
 } from '@svta/cml-cmcd';
-import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
+import { HTTPRequest } from '../vo/metrics/HTTPRequest.js';
 import MediaPlayerEvents from '../MediaPlayerEvents.js';
 import Utils from '../../core/Utils.js';
 import Constants from '../../streaming/constants/Constants.js';
@@ -574,11 +574,11 @@ function CmcdModel() {
 
     function _shouldIncludeDroppedFrames(mediaType) {
         return mediaType === Constants.VIDEO ||
-               mediaType === Constants.AUDIO ||
-               mediaType === Constants.OTHER;
+            mediaType === Constants.AUDIO ||
+            mediaType === Constants.OTHER;
     }
 
-    function getEventModeData(){
+    function getEventModeData() {
         const cmcdData = {
             ...getGenericCmcdData(),
             ..._getAggregatedBitrateData(),
@@ -604,6 +604,9 @@ function CmcdModel() {
         _streamType = undefined;
         _streamingFormat = undefined;
 
+        if (cmcdConfig) {
+            cmcdConfig.reset();
+        }
         _updateStreamProcessors();
     }
 
