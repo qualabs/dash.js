@@ -76,9 +76,9 @@ import TimelineConverter from '../dash/utils/TimelineConverter.js';
 import URIFragmentModel from './models/URIFragmentModel.js';
 import URLUtils from '../streaming/utils/URLUtils.js';
 import VideoModel from './models/VideoModel.js';
-import {HTTPRequest} from './vo/metrics/HTTPRequest.js';
-import {checkParameterType} from './utils/SupervisorTools.js';
-import {getVersionString} from '../core/Version.js';
+import { HTTPRequest } from './vo/metrics/HTTPRequest.js';
+import { checkParameterType } from './utils/SupervisorTools.js';
+import { getVersionString } from '../core/Version.js';
 import { Cta608Parser } from '@svta/cml-608';
 
 /**
@@ -404,7 +404,9 @@ function MediaPlayer() {
                 mediaPlayerFactory: FactoryMaker.getClassFactory(MediaPlayer)(),
                 playbackController,
                 alternativeContext: context,
-                logger
+                logger,
+                cmcdSessionIdProvider: () => getCmcdSessionId(),
+                cmcdContentIdProvider: () => getCmcdContentId()
             });
 
             if (!segmentBaseController) {
@@ -574,6 +576,49 @@ function MediaPlayer() {
      */
     function getVersion() {
         return getVersionString();
+    }
+
+    /**
+     * Returns the current CMCD session ID (sid) used by the main player's reporter.
+     * When no sessionID is configured explicitly, the reporter auto-generates a UUID;
+     * this method exposes that value so it can be shared with alternative media players.
+     *
+     * @returns {string|null} The active session ID, or null if CMCD is not initialized.
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function getCmcdSessionId() {
+        if (!cmcdController || !cmcdController.isCmcdEnabled()) {
+            return null;
+        }
+        return cmcdController.getCmcdSessionId();
+    }
+
+    /**
+     * Returns the current CMCD content ID (cid) used by the main player's reporter.
+     *
+     * @returns {string|null} The active content ID, or null if CMCD is not initialized.
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function getCmcdContentId() {
+        // debugger
+        if (!cmcdController || !cmcdController.isCmcdEnabled()) {
+            return null;
+        }
+        return cmcdController.getCmcdContentId();
+    }
+
+    /**
+     * Forces the rebuilding of the CMCD reporter.
+     * Useful when settings change and the reporter needs to be recreated immediately.
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function refreshCmcdReporter() {
+        if (cmcdController) {
+            cmcdController.rebuildReporter();
+        }
     }
 
     /**
@@ -2908,6 +2953,9 @@ function MediaPlayer() {
         getCurrentSteeringResponseData,
         getCurrentTextTrackIndex,
         getCurrentTrackFor,
+        getCmcdSessionId,
+        getCmcdContentId,
+        refreshCmcdReporter,
         getDashAdapter,
         getDashMetrics,
         getDebug,
