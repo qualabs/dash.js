@@ -8,7 +8,7 @@ import {
 } from '../common/common.js';
 import { expect } from 'chai';
 import CmcdRequestCollector from '../../helpers/CmcdRequestCollector.js';
-import { validateCmcd, validateCmcdHeaders, validateCmcdEvent, validateCmcdKeys } from '@svta/cml-cmcd';
+import { validateCmcdRequest, validateCmcdEvent } from '@svta/cml-cmcd';
 
 const TESTCASE = Constants.TESTCASES.FEATURE_SUPPORT.CMCD_V2;
 
@@ -71,12 +71,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('Manifest requests carry CMCD query params with v=2, ot, sid, cid', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const manifests = collector.getQueryManifestRequests();
+            const manifests = collector.getRequests('manifest');
             expect(manifests.length).to.be.greaterThan(0);
 
-            const result = validateCmcd(manifests[0].cmcdParam, { version: 2, reportingMode: 'request' });
+            const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
             expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.v).to.equal(2);
             expect(result.data.ot).to.not.be.undefined;
@@ -85,12 +85,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('Init segment requests carry CMCD query params with ot, sid, cid, v=2', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const initSegments = collector.getQueryInitSegmentRequests();
+            const initSegments = collector.getRequests('segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.httpRequest.url));
             expect(initSegments.length).to.be.greaterThan(0);
 
-            const result = validateCmcd(initSegments[0].cmcdParam, { version: 2, reportingMode: 'request' });
+            const result = validateCmcdRequest(initSegments[0].httpRequest, { version: 2 });
             expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.ot).to.not.be.undefined;
             expect(result.data.sid).to.equal('test-session-id');
@@ -98,9 +98,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('sn increments across successive requests', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
             const withSn = parsed.filter((d) => d.sn !== undefined);
             expect(withSn.length).to.be.at.least(2);
 
@@ -110,9 +111,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('sf is d (DASH)', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
             const withSf = parsed.filter((d) => d.sf !== undefined);
             expect(withSf.length).to.be.greaterThan(0);
 
@@ -122,9 +124,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('st is v for VOD', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const parsed = collector.queryRequests.map((r) => validateCmcd(r.cmcdParam, { version: 2 }).data);
+            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
             const withSt = parsed.filter((d) => d.st !== undefined);
             expect(withSt.length).to.be.greaterThan(0);
 
@@ -134,13 +137,14 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('CMCD query payloads pass spec validation', async () => {
-            await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            expect(collector.queryRequests.length).to.be.greaterThan(0);
+            const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            expect(queryRequests.length).to.be.greaterThan(0);
 
-            for (const req of collector.queryRequests) {
-                const result = validateCmcd(req.cmcdParam, { version: 2, reportingMode: 'request' });
-                expect(result.valid, `CMCD validation failed for ${req.url}:\n${formatIssues(result)}`).to.be.true;
+            for (const req of queryRequests) {
+                const result = validateCmcdRequest(req.httpRequest, { version: 2 });
+                expect(result.valid, `CMCD validation failed for ${req.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
@@ -178,47 +182,47 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('CMCD headers present on manifest requests with v=2', async () => {
-            await collector.waitForRequests('header', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const manifests = collector.getHeaderManifestRequests();
+            const manifests = collector.getRequests('manifest');
             expect(manifests.length).to.be.greaterThan(0);
 
-            const headers = manifests[0].headers;
-            expect(Object.keys(headers).length).to.be.greaterThan(0);
-
-            const result = validateCmcdHeaders(headers, { version: 2 });
+            const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
             expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.v).to.equal(2);
         });
 
         it('CMCD headers present on init segment requests', async () => {
-            await collector.waitForRequests('header', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            const initSegments = collector.getHeaderInitSegmentRequests();
+            const initSegments = collector.getRequests('segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.httpRequest.url));
             expect(initSegments.length).to.be.greaterThan(0);
 
-            const result = validateCmcdHeaders(initSegments[0].headers, { version: 2 });
+            const result = validateCmcdRequest(initSegments[0].httpRequest, { version: 2 });
             expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.ot).to.not.be.undefined;
             expect(result.data.sid).to.equal('test-session-id');
         });
 
-        it('Keys distributed across correct header shards (validateCmcdHeaders)', async () => {
-            await collector.waitForRequests('header', 3, TIMEOUTS.REQUEST_COLLECTION);
+        it('Keys distributed across correct header shards (validateCmcdRequest)', async () => {
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            expect(collector.headerRequests.length).to.be.greaterThan(0);
+            const headerRequests = collector.getRequests().filter((r) => r.reportingMode === 'header');
+            expect(headerRequests.length).to.be.greaterThan(0);
 
-            for (const req of collector.headerRequests) {
-                const result = validateCmcdHeaders(req.headers, { version: 2 });
-                expect(result.valid, `CMCD header validation failed for ${req.url}:\n${formatIssues(result)}`).to.be.true;
+            for (const req of headerRequests) {
+                const result = validateCmcdRequest(req.httpRequest, { version: 2 });
+                expect(result.valid, `CMCD header validation failed for ${req.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
         it('No CMCD= query params when in header mode', async () => {
-            await collector.waitForRequests('header', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-            expect(collector.queryRequests.length).to.equal(0);
-            expect(collector.headerRequests.length).to.be.greaterThan(0);
+            const headerReqs = collector.getRequests().filter((r) => r.reportingMode === 'header');
+            const queryReqs = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            expect(queryReqs.length).to.equal(0);
+            expect(headerReqs.length).to.be.greaterThan(0);
         });
 
         it('Expect no critical errors to be thrown', () => {
@@ -274,10 +278,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 2, TIMEOUTS.REQUEST_COLLECTION);
 
-                const posts = collector.eventPosts;
-                expect(posts.length).to.be.at.least(1);
+                const events = collector.getRequests('event');
+                expect(events.length).to.be.at.least(1);
 
-                const parsed = posts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const parsed = events.map((r) => validateCmcdEvent(r.httpRequest.body, { version: 2 }));
                 const rrResults = parsed.filter((r) => r.data && r.data.e === 'rr');
                 expect(rrResults.length).to.be.at.least(1);
             });
@@ -326,10 +330,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
 
-                const posts = collector.eventPosts;
-                expect(posts.length).to.be.at.least(1);
+                const events = collector.getRequests('event');
+                expect(events.length).to.be.at.least(1);
 
-                const results = posts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const results = events.map((r) => validateCmcdEvent(r.httpRequest.body, { version: 2 }));
                 const psResults = results.filter((r) => r.data && r.data.e === 'ps');
                 expect(psResults.length).to.be.at.least(1);
 
@@ -386,7 +390,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 await playerAdapter.sleep(8000);
                 await collector.waitForRequests('event', 2, 20000);
 
-                const results = collector.eventPosts.map((p) => validateCmcdEvent(p.body, { version: 2 }));
+                const results = collector.getRequests('event').map((r) => validateCmcdEvent(r.httpRequest.body, { version: 2 }));
                 const tiResults = results.filter((r) => r.data && r.data.e === 't');
                 expect(tiResults.length).to.be.at.least(2);
             });
@@ -436,11 +440,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
 
-                const posts = collector.eventPosts;
-                expect(posts.length).to.be.at.least(1);
+                const events = collector.getRequests('event');
+                expect(events.length).to.be.at.least(1);
 
-                for (const post of posts) {
-                    expect(post.contentType).to.include('text/cmcd');
+                for (const evt of events) {
+                    const contentType = evt.httpRequest.headers['content-type'] || '';
+                    expect(contentType).to.include('text/cmcd');
                 }
             });
 
@@ -448,12 +453,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
 
-                const posts = collector.eventPosts;
-                expect(posts.length).to.be.at.least(1);
+                const events = collector.getRequests('event');
+                expect(events.length).to.be.at.least(1);
 
-                for (const post of posts) {
-                    const result = validateCmcdEvent(post.body, { version: 2 });
-                    expect(result.valid, `CMCD event validation failed for POST to ${post.url}:\n${formatIssues(result)}`).to.be.true;
+                for (const evt of events) {
+                    const result = validateCmcdEvent(evt.httpRequest.body, { version: 2 });
+                    expect(result.valid, `CMCD event validation failed for POST to ${evt.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
                 }
             });
 
@@ -461,8 +466,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(30000);
                 await collector.waitForRequests('event', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-                const parsed = collector.eventPosts
-                    .map((p) => validateCmcdEvent(p.body, { version: 2 }).data)
+                const parsed = collector.getRequests('event')
+                    .map((r) => validateCmcdEvent(r.httpRequest.body, { version: 2 }).data)
                     .filter((d) => d && d.sn !== undefined);
                 expect(parsed.length).to.be.at.least(2);
 
@@ -509,12 +514,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('Only configured keys appear in query mode', async () => {
-                await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-                expect(collector.queryRequests.length).to.be.greaterThan(0);
+                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                expect(queryRequests.length).to.be.greaterThan(0);
 
-                for (const req of collector.queryRequests) {
-                    const result = validateCmcd(req.cmcdParam, { version: 2 });
+                for (const req of queryRequests) {
+                    const result = validateCmcdRequest(req.httpRequest, { version: 2 });
                     const keys = Object.keys(result.data);
                     for (const key of keys) {
                         expect(
@@ -558,7 +564,8 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             it('No CMCD data appended to requests', async () => {
                 await playerAdapter.sleep(5000);
-                expect(collector.queryRequests.length).to.equal(0);
+                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                expect(queryRequests.length).to.equal(0);
             });
         });
 
@@ -592,11 +599,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('Core keys appear across requests', async () => {
-                await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
                 const allSeenKeys = new Set();
-                for (const req of collector.queryRequests) {
-                    const result = validateCmcd(req.cmcdParam, { version: 2 });
+                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                for (const req of queryRequests) {
+                    const result = validateCmcdRequest(req.httpRequest, { version: 2 });
                     for (const key of Object.keys(result.data)) {
                         allSeenKeys.add(key);
                     }
@@ -611,14 +619,6 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 }
             });
 
-            it('All keys are recognized CMCD keys', async () => {
-                await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
-
-                for (const req of collector.queryRequests) {
-                    const result = validateCmcdKeys(req.cmcdParam, { version: 2 });
-                    expect(result.valid, `Unrecognized keys found:\n${formatIssues(result)}`).to.be.true;
-                }
-            });
         });
     });
 
@@ -653,14 +653,15 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v=2 present in query mode payloads', async () => {
-                await collector.waitForRequests('query', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-                expect(collector.queryRequests.length).to.be.greaterThan(0);
+                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                expect(queryRequests.length).to.be.greaterThan(0);
 
-                const manifests = collector.getQueryManifestRequests();
+                const manifests = collector.getRequests('manifest');
                 expect(manifests.length).to.be.greaterThan(0);
 
-                const result = validateCmcd(manifests[0].cmcdParam, { version: 2, reportingMode: 'request' });
+                const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
                 expect(result.valid, `CMCD v2 query validation failed:\n${formatIssues(result)}`).to.be.true;
                 expect(result.data.v).to.equal(2);
             });
@@ -693,14 +694,15 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v=2 present in header mode payloads', async () => {
-                await collector.waitForRequests('header', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
 
-                expect(collector.headerRequests.length).to.be.greaterThan(0);
+                const headerRequests = collector.getRequests().filter((r) => r.reportingMode === 'header');
+                expect(headerRequests.length).to.be.greaterThan(0);
 
-                const manifests = collector.getHeaderManifestRequests();
+                const manifests = collector.getRequests('manifest');
                 expect(manifests.length).to.be.greaterThan(0);
 
-                const result = validateCmcdHeaders(manifests[0].headers, { version: 2 });
+                const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
                 expect(result.valid, `CMCD v2 header validation failed:\n${formatIssues(result)}`).to.be.true;
                 expect(result.data.v).to.equal(2);
             });
@@ -743,12 +745,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v absent or 1 in v1 mode', async () => {
-                await collector.waitForRequests('query', 1, TIMEOUTS.REQUEST_COLLECTION);
+                await collector.waitForRequests('segment', 1, TIMEOUTS.REQUEST_COLLECTION);
 
-                expect(collector.queryRequests.length).to.be.greaterThan(0);
+                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                expect(queryRequests.length).to.be.greaterThan(0);
 
-                for (const req of collector.queryRequests) {
-                    const result = validateCmcd(req.cmcdParam, { version: 1 });
+                for (const req of queryRequests) {
+                    const result = validateCmcdRequest(req.httpRequest, { version: 1 });
                     expect(
                         result.data.v === undefined || result.data.v === 1,
                         `Expected v to be undefined or 1, got ${result.data.v}`

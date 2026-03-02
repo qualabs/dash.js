@@ -5,36 +5,24 @@ const CMCD_HEADER_NAMES = [
     'cmcd-status',
 ];
 
-function isManifestRequest(url) {
-    return /\.mpd/i.test(url);
+function classifyUrl(url, method) {
+    if (method === 'POST') return 'event';
+    if (/\.mpd/i.test(url)) return 'manifest';
+    if (/\.(m4s|m4v|m4a|mp4)/i.test(url)) return 'segment';
+    return 'unknown';
 }
 
-function isSegmentRequest(url) {
-    return /\.(m4s|m4v|m4a|mp4)/i.test(url);
-}
-
-function isInitSegmentRequest(url) {
-    return /_0\.(m4s|m4v|m4a|mp4)/i.test(url);
-}
-
-function isMediaRequest(url) {
-    return isManifestRequest(url) || isSegmentRequest(url);
-}
-
-function extractCmcdParam(url) {
-    try {
-        const urlObj = new URL(url);
-        return urlObj.searchParams.get('CMCD');
-    } catch {
-        return null;
-    }
+function detectReportingMode(url, headers) {
+    const hasCmcdHeaders = CMCD_HEADER_NAMES.some((name) => headers[name]);
+    if (hasCmcdHeaders) return 'header';
+    if (url.includes('CMCD=')) return 'query';
+    return null;
 }
 
 /**
- * Collects raw CMCD data from outgoing XHR requests by monkey-patching
- * XMLHttpRequest prototype methods. Stores raw strings/headers without
- * parsing — validation functions in the tests handle both parsing and
- * validation in a single pass.
+ * Collects CMCD request data from outgoing XHR requests by monkey-patching
+ * XMLHttpRequest prototype methods. Stores full httpRequest objects compatible
+ * with CML's validateCmcdRequest().
  *
  * For event target URLs, intercepts POST requests and simulates a 200
  * response to prevent actual network calls.
@@ -42,9 +30,7 @@ function extractCmcdParam(url) {
 class CmcdRequestCollector {
 
     constructor() {
-        this.queryRequests = [];
-        this.headerRequests = [];
-        this.eventPosts = [];
+        this.requests = [];
         this._resolvers = [];
         this._eventTargetUrls = [];
         this._origOpen = null;
@@ -91,11 +77,10 @@ class CmcdRequestCollector {
             );
 
             if (isEventTarget && method === 'POST') {
-                const contentType = headers['content-type'] || '';
-                self.eventPosts.push({
-                    url,
-                    body,
-                    contentType,
+                self.requests.push({
+                    httpRequest: { url, method, headers, body },
+                    type: 'event',
+                    reportingMode: 'event',
                     timestamp: Date.now(),
                 });
                 self._notifyResolvers('event');
@@ -119,38 +104,24 @@ class CmcdRequestCollector {
                             xhr.onloadend.call(xhr);
                         }
                     } catch (e) {
-                        // Log simulation errors to aid debugging
-                        console.error('Failed to simulate XHR response:',e);
+                        console.error('Failed to simulate XHR response:', e);
                     }
                 }, 0);
                 return;
             }
 
             // Passive collection for media requests
-            if (isMediaRequest(url)) {
-                // Query mode — store raw CMCD param string
-                if (url.includes('CMCD=')) {
-                    const cmcdParam = extractCmcdParam(url);
-                    if (cmcdParam) {
-                        self.queryRequests.push({ url, cmcdParam, timestamp: Date.now() });
-                        self._notifyResolvers('query');
-                    }
-                }
-
-                // Header mode — store raw CMCD header strings
-                const cmcdHeaders = {};
-                for (const name of CMCD_HEADER_NAMES) {
-                    if (headers[name]) {
-                        cmcdHeaders[name] = headers[name];
-                    }
-                }
-                if (Object.keys(cmcdHeaders).length > 0) {
-                    self.headerRequests.push({
-                        url,
-                        headers: cmcdHeaders,
+            const type = classifyUrl(url, method);
+            if (type === 'manifest' || type === 'segment') {
+                const reportingMode = detectReportingMode(url, headers);
+                if (reportingMode) {
+                    self.requests.push({
+                        httpRequest: { url, method, headers },
+                        type,
+                        reportingMode,
                         timestamp: Date.now(),
                     });
-                    self._notifyResolvers('header');
+                    self._notifyResolvers(type);
                 }
             }
 
@@ -177,22 +148,32 @@ class CmcdRequestCollector {
     }
 
     /**
+     * Get collected requests, optionally filtered by type.
+     * @param {'manifest'|'segment'|'event'|'unknown'} [type]
+     * @returns {Array}
+     */
+    getRequests(type) {
+        if (!type) return this.requests;
+        return this.requests.filter((r) => r.type === type);
+    }
+
+    /**
      * Wait until at least `count` requests of the given type have been collected.
-     * @param {'query'|'header'|'event'} type
+     * @param {'manifest'|'segment'|'event'|'unknown'} type
      * @param {number} count
      * @param {number} [timeout=15000]
      * @returns {Promise<Array>}
      */
     waitForRequests(type, count, timeout = 15000) {
-        const requests = this._getRequestsByType(type);
-        if (requests.length >= count) {
-            return Promise.resolve(requests);
+        const current = this.getRequests(type);
+        if (current.length >= count) {
+            return Promise.resolve(current);
         }
 
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
                 this._resolvers = this._resolvers.filter((r) => r !== entry);
-                resolve(this._getRequestsByType(type));
+                resolve(this.getRequests(type));
             }, timeout);
 
             const entry = {
@@ -207,55 +188,14 @@ class CmcdRequestCollector {
         });
     }
 
-    // Query mode filters
-    getQueryManifestRequests() {
-        return this.queryRequests.filter((r) => isManifestRequest(r.url));
-    }
-
-    getQuerySegmentRequests() {
-        return this.queryRequests.filter((r) => isSegmentRequest(r.url));
-    }
-
-    getQueryInitSegmentRequests() {
-        return this.queryRequests.filter((r) => isInitSegmentRequest(r.url));
-    }
-
-    // Header mode filters
-    getHeaderManifestRequests() {
-        return this.headerRequests.filter((r) => isManifestRequest(r.url));
-    }
-
-    getHeaderSegmentRequests() {
-        return this.headerRequests.filter((r) => isSegmentRequest(r.url));
-    }
-
-    getHeaderInitSegmentRequests() {
-        return this.headerRequests.filter((r) => isInitSegmentRequest(r.url));
-    }
-
     clear() {
-        this.queryRequests = [];
-        this.headerRequests = [];
-        this.eventPosts = [];
-    }
-
-    _getRequestsByType(type) {
-        switch (type) {
-            case 'query':
-                return this.queryRequests;
-            case 'header':
-                return this.headerRequests;
-            case 'event':
-                return this.eventPosts;
-            default:
-                return [];
-        }
+        this.requests = [];
     }
 
     _notifyResolvers(type) {
         this._resolvers = this._resolvers.filter((r) => {
             if (r.type !== type) return true;
-            const requests = this._getRequestsByType(r.type);
+            const requests = this.getRequests(r.type);
             if (requests.length >= r.count) {
                 r.resolve(requests);
                 return false;
