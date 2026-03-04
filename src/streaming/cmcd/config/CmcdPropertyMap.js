@@ -100,22 +100,22 @@ const CmcdPropertyMap = {
 
     /**
      * Session ID (sid)
-     * Priority: settings > manifest > null
+     * Priority: manifest > settings > null
      */
     sessionID: {
         version: [1, 2],
         sources: [
             {
-                path: 'settings.streaming.cmcd.sid',
+                path: 'manifestParams.sessionID',
                 priority: 1,
-                type: 'string'
+                type: 'string',
             },
             {
-                path: 'manifestParams.sessionID',
+                path: 'settings.streaming.cmcd.sid',
                 priority: 2,
                 type: 'string',
                 default: null
-            }            
+            }
         ]
     },
 
