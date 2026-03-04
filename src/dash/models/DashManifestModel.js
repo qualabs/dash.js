@@ -1350,7 +1350,8 @@ function DashManifestModel() {
                         event.duration = currentMpdEvent.duration / eventStream.timescale;
                     }
                     if (currentMpdEvent.hasOwnProperty(DashConstants.ID)) {
-                        event.id = parseInt(currentMpdEvent.id);
+                        const parsedId = parseInt(currentMpdEvent.id);
+                        event.id = isNaN(parsedId) ? currentMpdEvent.id : parsedId;
                     } else {
                         event.id = null;
                     }

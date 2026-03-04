@@ -53,7 +53,7 @@ function EventController() {
 
     const REMAINING_EVENTS_THRESHOLD = 300;
     const MAX_PRESENTATION_TIME_THRESHOLD = 2.0; // Maximum threshold in seconds to prevent false positives during seeks
-    
+
     const RETRIGGERABLES_SCHEMES = [
         Constants.ALTERNATIVE_MPD.URIS.REPLACE,
         Constants.ALTERNATIVE_MPD.URIS.INSERT
@@ -191,7 +191,7 @@ function EventController() {
                     const isRetriggerable = _isRetriggerable(event);
                     const hasNoJump = _hasNoJumpValue(event);
                     const hasExecuteOnce = _hasExecuteOnceValue(event);
-                    
+
                     // Check if event is ready to resolve (earliestResolutionTimeOffset feature)
                     if (_checkEventReadyToResolve(event, currentVideoTime)) {
                         _triggerEventReadyToResolve(event);
@@ -200,7 +200,7 @@ function EventController() {
                     if (isRetriggerable && _canEventRetrigger(event, currentVideoTime, presentationTimeThreshold, hasExecuteOnce)) {
                         event.triggeredStartEvent = false;
                     }
-                    
+
                     // Handle noJump events first - these ignore duration and trigger when skipping ahead
                     if (hasNoJump && _shouldTriggerNoJumpEvent(event, currentVideoTime, currentPeriodEvents)) {
                         event.triggeredNoJumpEvent = true;
@@ -486,10 +486,12 @@ function EventController() {
      */
     function _onPlaybackSeeked() {
         try {
-            // Ensure timer is properly reset after seek completes
+            // Back-date by one interval so the next timer tick has enough threshold to fire
+            // events at or just before the seek target (e.g. period-boundary events).
+            const refreshDelay = settings.get().streaming.events.eventControllerRefreshDelay;
             const currentTime = playbackController.getTime();
-            lastEventTimerCall = currentTime;
-            logger.debug(`Seek completed, lastEventTimerCall reset to ${currentTime}`);
+            lastEventTimerCall = currentTime - (refreshDelay / 1000);
+            logger.debug(`Seek completed, lastEventTimerCall reset to ${lastEventTimerCall}`);
         } catch (e) {
             logger.error(e);
         }
@@ -717,11 +719,11 @@ function EventController() {
 
             const schemeIdUri = event.eventStream.schemeIdUri;
             const eventsWithSameScheme = eventsInSamePeriod[schemeIdUri] || [];
-            
+
             // Get all events with noJump=1 from the same scheme that are not in the future
-            const noJump1Events = eventsWithSameScheme.filter(e => 
-                e.alternativeMpd && 
-                e.alternativeMpd.noJump === NO_JUMP_TRIGGER_ALL && 
+            const noJump1Events = eventsWithSameScheme.filter(e =>
+                e.alternativeMpd &&
+                e.alternativeMpd.noJump === NO_JUMP_TRIGGER_ALL &&
                 e.calculatedPresentationTime <= currentVideoTime
             );
 
@@ -769,11 +771,11 @@ function EventController() {
 
             const schemeIdUri = event.eventStream.schemeIdUri;
             const eventsWithSameScheme = eventsInSamePeriod[schemeIdUri] || [];
-            
+
             // Get all events with noJump=2 from the same scheme that are not in the future
-            const noJump2Events = eventsWithSameScheme.filter(e => 
-                e.alternativeMpd && 
-                e.alternativeMpd.noJump === NO_JUMP_TRIGGER_LAST && 
+            const noJump2Events = eventsWithSameScheme.filter(e =>
+                e.alternativeMpd &&
+                e.alternativeMpd.noJump === NO_JUMP_TRIGGER_LAST &&
                 e.calculatedPresentationTime <= currentVideoTime
             );
 
