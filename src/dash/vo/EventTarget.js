@@ -29,55 +29,34 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-import DescriptorType from './DescriptorType.js';
-import EventTarget from './EventTarget.js';
-import Constants from '../../streaming/constants/Constants.js';
-
 /**
  * @class
  * @ignore
  */
-class CMCDParameters extends DescriptorType {
+class EventTarget {
     constructor() {
-        super();
-        this.version = null;
-        this.sessionID = null;
-        this.contentID = null;
+        this.url = null;
+        this.timeInterval = 0;
         this.mode = null;
         this.keys = null;
-        this.includeInRequests = null;
-        this.reportingTargets = null;
+        this.events = null;
+        this.enabled = true;
+        this.batchSize = 0;
+        this.batchTimer = 0;
     }
 
     init(data) {
-        super.init(data);
-
         if (data) {
-            this.version = data.version ? parseInt(data.version) : null;
-            this.sessionID = data.sessionID;
-            this.contentID = data.contentID;
+            this.url = data.url;
+            this.timeInterval = data.timeInterval ? parseInt(data.timeInterval, 10) : 0;
             this.mode = data.mode ?? 'query';
             this.keys = data.keys ? data.keys.split(' ') : null;
-            this.includeInRequests = data.includeInRequests
-                ? data.includeInRequests.split(' ')
-                : [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
-            this.schemeIdUri = data.schemeIdUri;
-
-            // Version 2: Parse ReportingTargets with EventTargets
-            if (data.ReportingTargets && data.ReportingTargets.EventTarget) {
-                this.reportingTargets = [];
-                const eventTargets = Array.isArray(data.ReportingTargets.EventTarget)
-                    ? data.ReportingTargets.EventTarget
-                    : [data.ReportingTargets.EventTarget];
-
-                eventTargets.forEach(targetData => {
-                    const eventTarget = new EventTarget();
-                    eventTarget.init(targetData);
-                    this.reportingTargets.push(eventTarget);
-                });
-            }
+            this.events = data.events ? data.events.split(' ') : null;
+            this.enabled = data.enabled ?? true;
+            this.batchSize = data.batchSize ? parseInt(data.batchSize, 10) : 0;
+            this.batchTimer = data.batchTimer ? parseInt(data.batchTimer, 10) : 0;
         }
     }
 }
 
-export default CMCDParameters;
+export default EventTarget;

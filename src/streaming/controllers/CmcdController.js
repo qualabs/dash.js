@@ -425,7 +425,7 @@ function CmcdController() {
 
     function _checkTargetIncludeInRequests(targetIndex) {
         const targetAccessor = cmcdConfig.getTarget(targetIndex);
-        let enabledRequests = targetAccessor.get('targetIncludeOnRequests');
+        let enabledRequests = targetAccessor.get('targetIncludeInRequests');
 
         if (!enabledRequests) {
             return true;

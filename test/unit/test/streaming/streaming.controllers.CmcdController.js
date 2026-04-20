@@ -1436,4 +1436,220 @@ describe('CmcdController', function () {
             expect(result.url).to.not.include('CMCD=');
         });
     });
+
+    describe('CMCD v2: Manifest-based ReportingTargets Configuration', function () {
+        let urlLoaderMock;
+
+        beforeEach(function () {
+            urlLoaderMock = {
+                load: sinon.spy()
+            };
+
+            cmcdController.setConfig({
+                abrController: abrControllerMock,
+                dashMetrics: dashMetricsMock,
+                playbackController: playbackControllerMock,
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock,
+                urlLoader: urlLoaderMock
+            });
+        });
+
+        it('should use ReportingTargets from manifest when configured', () => {
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: 'manifest-session-123',
+                        contentID: 'manifest-content-456',
+                        reportingTargets: [{
+                            url: 'http://manifest.analytics.com/cmcd-collector',
+                            mode: 'query',
+                            keys: ['sid', 'cid', 'e', 'sta'],
+                            events: ['ps'],
+                            enabled: true,
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            // CMCD v2 Event Mode uses body transmission
+            expect(requestSent.url).to.equal('http://manifest.analytics.com/cmcd-collector');
+            expect(requestSent.body).to.exist;
+
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+
+            expect(metrics).to.have.property('e', 'ps');
+            expect(metrics).to.have.property('sid', 'manifest-session-123');
+            expect(metrics).to.have.property('cid', 'manifest-content-456');
+        });
+
+        it('should use manifest mode configuration (header) for event reporting', () => {
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: 'session-header-test',
+                        reportingTargets: [{
+                            url: 'http://manifest.analytics.com/cmcd-collector',
+                            mode: 'header',
+                            keys: ['sid', 'e'],
+                            events: ['ps'],
+                            enabled: true,
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+
+            // In header mode, CMCD should be in headers, not query params
+            expect(requestSent.url).to.equal('http://manifest.analytics.com/cmcd-collector');
+            expect(requestSent.headers).to.exist;
+        });
+
+        it('should filter events based on manifest configuration', () => {
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: 'session-filter-test',
+                        reportingTargets: [{
+                            url: 'http://manifest.analytics.com/cmcd-collector',
+                            mode: 'query',
+                            events: ['e'], // Only error events
+                            enabled: true,
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            // Trigger a playback playing event (not in the events list)
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+            expect(urlLoaderMock.load.called).to.be.false;
+
+            // Trigger an error event (in the events list)
+            const errorPayload = {
+                error: {
+                    code: 1,
+                    message: 'Test Error',
+                    data: {
+                        request: {
+                            type: 'segment'
+                        }
+                    }
+                }
+            };
+            eventBus.trigger(MediaPlayerEvents.ERROR, errorPayload);
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+        });
+
+        it('should support multiple ReportingTargets from manifest', () => {
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: 'multi-target-session',
+                        reportingTargets: [
+                            {
+                                url: 'http://target1.analytics.com/api',
+                                mode: 'query',
+                                events: ['ps'],
+                                enabled: true,
+                                timeInterval: 0
+                            },
+                            {
+                                url: 'http://target2.analytics.com/api',
+                                mode: 'query',
+                                events: ['ps'],
+                                enabled: true,
+                                timeInterval: 0
+                            }
+                        ]
+                    }
+                }
+            });
+
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledTwice).to.be.true;
+
+            const request1 = urlLoaderMock.load.firstCall.args[0].request;
+            expect(request1.url).to.equal('http://target1.analytics.com/api');
+            expect(request1.body).to.exist;
+
+            const request2 = urlLoaderMock.load.secondCall.args[0].request;
+            expect(request2.url).to.equal('http://target2.analytics.com/api');
+            expect(request2.body).to.exist;
+        });
+
+        it('should prioritize manifest targets over settings targets when both are configured', () => {
+            // Settings provide one target (lower priority - priority 2)
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        targets: [{
+                            url: 'http://settings.analytics.com/api',
+                            enabled: true,
+                            mode: 'query',
+                            events: ['ps'],
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+
+            serviceDescriptionControllerMock.applyServiceDescription({
+                clientDataReporting: {
+                    cmcdParameters: {
+                        version: 2,
+                        sessionID: 'manifest-session',
+                        reportingTargets: [{
+                            url: 'http://manifest.analytics.com/api',
+                            mode: 'query',
+                            events: ['ps'],
+                            enabled: true,
+                            timeInterval: 0
+                        }]
+                    }
+                }
+            });
+
+            // Trigger manifest loaded to update CMCD with manifest params
+            eventBus.trigger(MediaPlayerEvents.MANIFEST_LOADED, {});
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+
+            expect(requestSent.url).to.equal('http://manifest.analytics.com/api');
+            expect(requestSent.url).to.not.include('http://settings.analytics.com/api');
+            expect(requestSent.body).to.exist;
+        });
+
+    });
 });
