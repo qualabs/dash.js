@@ -39,8 +39,9 @@ import DashManifestModel from './models/DashManifestModel.js';
 import PatchManifestModel from './models/PatchManifestModel.js';
 import Representation from './vo/Representation.js';
 import {bcp47Normalize} from 'bcp-47-normalize';
-import {getId3Frames} from '@svta/common-media-library/id3/getId3Frames.js';
+import {getId3Frames} from '@svta/cml-id3';
 import Constants from '../streaming/constants/Constants.js';
+import Settings from '../core/Settings.js';
 
 /**
  * @module DashAdapter
@@ -51,6 +52,7 @@ function DashAdapter() {
     let instance,
         dashManifestModel,
         patchManifestModel,
+        settings,
         voPeriods,
         constants,
         cea608parser;
@@ -62,6 +64,7 @@ function DashAdapter() {
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
         patchManifestModel = PatchManifestModel(context).getInstance();
+        settings = Settings(context).getInstance();
         reset();
     }
 
@@ -107,7 +110,6 @@ function DashAdapter() {
         }
 
         const voAdaptations = dashManifestModel.getAdaptationsForPeriod(selectedVoPeriod);
-
         let realAdaptation = getMainAdaptationForType(type, streamInfo);
         if (!realAdaptation) {
             return null;
@@ -126,13 +128,12 @@ function DashAdapter() {
      */
     function getIsMain(adaptation) {
         return dashManifestModel.getRolesForAdaptation(adaptation).filter(function (role) {
-            return role.value === DashConstants.MAIN;
+            return role.schemeIdUri === Constants.DASH_ROLE_SCHEME_ID && role.value === DashConstants.MAIN;
         })[0];
     }
 
     /**
      * Returns the AdaptationSet for a given period index and a given mediaType.
-     * @param {number} periodIndex
      * @param {MediaType} type
      * @param {object} streamInfo
      * @returns {null|object} adaptation
@@ -248,6 +249,21 @@ function DashAdapter() {
             }
         }
 
+        if (settings.get().streaming.includePreselectionsInMediainfoArray) {
+            const voPreselections = dashManifestModel.getPreselectionsForPeriod(period);
+
+            for (i = 0, ln = voPreselections.length; i < ln; i++) {
+                const preselection = voPreselections[i];
+
+                if (preselection.hasOwnProperty('type') && preselection.type === type) {
+                    media = convertPreselectionToMediaInfo(voPreselections[i]);
+                    if (media) {
+                        mediaArr.push(media);
+                    }
+                }
+            }
+        }
+
         return mediaArr;
     }
 
@@ -308,6 +324,126 @@ function DashAdapter() {
 
         voPeriods = getRegularPeriods(newManifest);
     }
+
+    function mergeManifests(manifest, importedManifest, period, mpdHasDuration) {
+        const voPeriods = getRegularPeriods(manifest);
+        const periodIndex = voPeriods.findIndex(voperiod => voperiod.id === period.id);
+
+        if (periodIndex === -1) {
+            // Period not found
+            return;
+        }
+
+        let newPeriod = {};
+        const linkedPeriod = voPeriods[periodIndex];
+
+        if (importedManifest) {
+            // availabilityEndTime must be greater than current time
+            if (importedManifest.availabilityEndTime?.getTime() < Date.now()) {
+                return;
+            }
+
+            const importedPeriod = importedManifest.Period[0];
+
+            if (importedManifest.hasOwnProperty(DashConstants.PROFILES)) {
+                importedPeriod.profiles = importedManifest.profiles;
+
+                const existingProfiles = manifest.profiles ? manifest.profiles.split(',') : [];
+                const importedProfiles = importedManifest.profiles ? importedManifest.profiles.split(',') : [];
+                const uniqueProfiles = new Set([...existingProfiles, ...importedProfiles]);
+
+                manifest.profiles = Array.from(uniqueProfiles).join(',');
+            }
+
+            if (importedManifest.EssentialProperty) {
+                importedPeriod.EssentialProperty = importedPeriod.EssentialProperty ? importedManifest.EssentialProperty.concat(importedPeriod.EssentialProperty) : importedManifest.EssentialProperty;
+            }
+
+            if (importedManifest.SupplementalProperty) {
+                importedPeriod.SupplementalProperty = importedPeriod.SupplementalProperty ? importedManifest.SupplementalProperty.concat(importedPeriod.SupplementalProperty) : importedManifest.SupplementalProperty;
+            }
+
+            newPeriod = {
+                baseUri: importedManifest.baseUri,
+                minBufferTime: importedManifest.minBufferTime,
+                start: linkedPeriod.start ?? importedPeriod.start,
+                id: linkedPeriod.id ?? importedPeriod.id,
+                duration: linkedPeriod.duration,
+                ServiceDescription: period.ServiceDescription || [],
+                SupplementalProperty: period.SupplementalProperty || [],
+                EssentialProperty: period.EssentialProperty || [],
+                EventStream: period.EventStream || [],
+            };
+
+            // Update duration
+            if (importedPeriod.duration && importedPeriod.duration < linkedPeriod.duration) {
+                newPeriod.duration = importedPeriod.duration;
+                if (!mpdHasDuration) {
+                    manifest.mediaPresentationDuration += importedPeriod.duration - linkedPeriod.duration;
+                }
+            }
+
+            // Merge custom namespace properties
+            Object.keys(linkedPeriod)
+                .filter(name => name.includes(':'))
+                .forEach(name => newPeriod[name] = linkedPeriod[name]);
+
+            _mergeEquivalentProperties(newPeriod.ServiceDescription, importedPeriod.ServiceDescription, DashConstants.ID);
+            _mergeEquivalentProperties(newPeriod.SupplementalProperty, importedPeriod.SupplementalProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+            _mergeEquivalentProperties(newPeriod.EssentialProperty, importedPeriod.EssentialProperty, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+            _mergeEquivalentProperties(newPeriod.EventStream, importedPeriod.EventStream, Constants.SCHEME_ID_URI, DashConstants.VALUE);
+
+            removeEmptyProperties(newPeriod, [
+                DashConstants.SERVICE_DESCRIPTION,
+                DashConstants.SUPPLEMENTAL_PROPERTY,
+                DashConstants.ESSENTIAL_PROPERTY,
+                DashConstants.EVENT_STREAM
+            ]);
+
+            newPeriod.baseURL = importedManifest.baseUri;
+            if (importedManifest.BaseURL || importedPeriod.BaseURL) {
+                newPeriod.BaseURL = [...(importedManifest.BaseURL || []), ...(importedPeriod.BaseURL || [])].filter(Boolean);
+            }
+
+            newPeriod.AdaptationSet = importedPeriod.AdaptationSet;
+        } else {
+            newPeriod = { ...linkedPeriod };
+            delete newPeriod.ImportedMPD;
+            delete newPeriod.earliestResolutionTimeOffset;
+        }
+
+        if (newPeriod.minBufferTime && (newPeriod.AdaptationSet || newPeriod.duration === 0)) {
+            manifest.Period[periodIndex] = newPeriod;
+        } else {
+            manifest.Period.splice(periodIndex, 1);
+        }
+    }
+
+    function _mergeEquivalentProperties(targetArray, sourceArray, keyProp, valueProp) {
+        if (!sourceArray || !targetArray) {
+            return;
+        }
+
+        for (const item of sourceArray) {
+            const index = targetArray.findIndex(existingItem => existingItem[keyProp] === item[keyProp] && (!valueProp || existingItem[valueProp] === item[valueProp]));
+            if (index !== -1) {
+                // Replace existing entry
+                targetArray[index] = item;
+            } else {
+                targetArray.push(item);
+            }
+        }
+    }
+
+    // Helper function to remove empty properties
+    function removeEmptyProperties(obj, propertyNames) {
+        for (const prop of propertyNames) {
+            if (Array.isArray(obj[prop]) && obj[prop].length === 0) {
+                delete obj[prop];
+            }
+        }
+    }
+
 
     /**
      * Returns an array of streamInfo objects
@@ -388,16 +524,29 @@ function DashAdapter() {
     }
 
     /**
-     * Return all EssentialProperties of a Representation
-     * @param {object} representation
+     * Return all EssentialProperties of an AdaptationSet, Representation or Preselection
+     * @param {object} element
      * @return {array}
      */
-    function getEssentialPropertiesForRepresentation(representation) {
+    function getEssentialProperties(element) {
         try {
-            return dashManifestModel.getEssentialPropertiesForRepresentation(representation);
+            return dashManifestModel.getEssentialProperties(element);
         } catch (e) {
             return [];
         }
+    }
+
+    /**
+     * Return supplementalCodecs of a Representation
+     * @param {object} representation
+     * @returns {array}
+     */
+    function getSupplementalCodecs(representation) {
+        const supplementalCodecs = representation[DashConstants.SUPPLEMENTAL_CODECS];
+        if (!supplementalCodecs) {
+            return [];
+        }
+        return supplementalCodecs.split(' ').map((codec) => representation.mimeType + ';codecs="' + codec + '"');
     }
 
     /**
@@ -589,6 +738,18 @@ function DashAdapter() {
     }
 
     /**
+     * Returns all linked periods of the MPD
+     * @param {object} externalManifest Omit this value if no external manifest should be used
+     * @returns {Array} linked periods
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getLinkedPeriods(externalManifest) {
+        const mpd = getMpd(externalManifest);
+        return dashManifestModel.getLinkedPeriods(mpd);
+    }
+
+    /**
      * Returns all periods of the MPD
      * @param {object} externalManifest Omit this value if no external manifest should be used
      * @returns {Array} periods
@@ -739,6 +900,27 @@ function DashAdapter() {
     }
 
     /**
+     * Returns the codec for a given adaptation set and a given representation id.
+     * @param {object} preselection
+     * @param {object} adaptations
+     * @returns {String} codec
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getCodecForPreselection(preselection, adaptations) {
+        return dashManifestModel.getCodecForPreselection(preselection, adaptations);
+    }
+
+    /**
+     * Returns the framerate of a Representation as number
+     * @param representation
+     * @returns {number}
+     */
+    function getFramerate(representation) {
+        return dashManifestModel.getFramerate(representation);
+    }
+
+    /**
      * Returns the bandwidth for a given representation id and the corresponding period index
      * @param {number} representationId
      * @param {number} periodIdx
@@ -805,6 +987,43 @@ function DashAdapter() {
 
     function reset() {
         voPeriods = [];
+    }
+
+    /**
+     * Checks if the given Preselection is from the given media type
+     * @param {object} preselection
+     * @param {array} adaptations
+     * @param {string} type
+     * @return {boolean}
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getPreselectionIsTypeOf(preselection, adaptations, type) {
+        return dashManifestModel.getPreselectionIsTypeOf(preselection, adaptations, type);
+    }
+
+    /**
+     * returns the main AdaptationSet of a given Preselection
+     * @param {object} preselection
+     * @param {array} adaptations
+     * @return {object}
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getMainAdaptationSetForPreselection(preselection, adaptations) {
+        return dashManifestModel.getMainAdaptationSetForPreselection(preselection, adaptations);
+    }
+
+    /**
+     * returns common properties in form of a Representation of a given Preselection
+     * @param {object} preselection
+     * @param {array} adaptations
+     * @return {object}
+     * @memberOf module:DashAdapter
+     * @instance
+     */
+    function getCommonRepresentationForPreselection(preselection, adaptations) {
+        return dashManifestModel.getCommonRepresentationForPreselection(preselection, adaptations);
     }
 
     /**
@@ -979,7 +1198,9 @@ function DashAdapter() {
 
         mediaInfo.id = adaptation.id;
         mediaInfo.index = adaptation.index;
-        mediaInfo.type = adaptation.type;
+        mediaInfo.codec = dashManifestModel.getCodec(realAdaptation);
+        const enhancementCodecs = settings.get().streaming.enhancement.codecs;
+        mediaInfo.type = enhancementCodecs.some(codec => mediaInfo.codec?.includes(codec)) ? Constants.ENHANCEMENT : adaptation.type;
         mediaInfo.streamInfo = convertPeriodToStreamInfo(adaptation.period);
         mediaInfo.representationCount = dashManifestModel.getRepresentationCount(realAdaptation);
         mediaInfo.labels = dashManifestModel.getLabelsForAdaptation(realAdaptation);
@@ -1000,7 +1221,6 @@ function DashAdapter() {
             mediaInfo.audioChannelConfiguration = dashManifestModel.getAudioChannelConfigurationForRepresentation(realAdaptation.Representation[0]);
         }
         mediaInfo.roles = dashManifestModel.getRolesForAdaptation(realAdaptation);
-        mediaInfo.codec = dashManifestModel.getCodec(realAdaptation);
         mediaInfo.mimeType = dashManifestModel.getMimeType(realAdaptation);
         mediaInfo.contentProtection = dashManifestModel.getContentProtectionByAdaptation(realAdaptation);
         mediaInfo.bitrateList = dashManifestModel.getBitrateListForAdaptation(realAdaptation);
@@ -1013,18 +1233,45 @@ function DashAdapter() {
         }
 
         mediaInfo.isText = dashManifestModel.getIsText(realAdaptation);
-        mediaInfo.essentialProperties = dashManifestModel.getEssentialPropertiesForAdaptation(realAdaptation);
-        if ((!mediaInfo.essentialProperties || mediaInfo.essentialProperties.length === 0) && realAdaptation.Representation && realAdaptation.Representation.length > 0) {
-            mediaInfo.essentialProperties = _getCommonRepresentationEssentialProperties(mediaInfo, realAdaptation);
-        }
-        mediaInfo.supplementalProperties = dashManifestModel.getSupplementalPropertiesForAdaptation(realAdaptation);
-        if ((!mediaInfo.supplementalProperties || mediaInfo.supplementalProperties.length === 0) && realAdaptation.Representation && realAdaptation.Representation.length > 0) {
-            mediaInfo.supplementalProperties = _getCommonRepresentationSupplementalProperties(mediaInfo, realAdaptation);
-        }
-
+        mediaInfo.essentialProperties = dashManifestModel.getCombinedEssentialPropertiesForAdaptationSet(realAdaptation);
+        mediaInfo.supplementalProperties = dashManifestModel.getCombinedSupplementalPropertiesForAdaptationSet(realAdaptation);
         mediaInfo.isFragmented = dashManifestModel.getIsFragmented(realAdaptation);
         mediaInfo.isEmbedded = false;
         mediaInfo.adaptationSetSwitchingCompatibleIds = _getAdaptationSetSwitchingCompatibleIds(mediaInfo);
+        mediaInfo.segmentSequenceProperties = dashManifestModel.getSegmentSequencePropertiesForAdaptationSet(realAdaptation);
+
+        return mediaInfo;
+    }
+
+    function convertPreselectionToMediaInfo(preselection) {
+        if (!preselection) {
+            return null;
+        }
+
+        let mediaInfo = new MediaInfo();
+        const realPreselection = preselection.period.mpd.manifest.Period[preselection.period.index].Preselection[preselection.index];
+        const realAdaptation = preselection.period.mpd.manifest.Period[preselection.period.index].AdaptationSet;
+
+        // initialize mediaInfo with properties from main adaptation set
+        const adaptation = dashManifestModel.getAdaptationsForPeriod(preselection.period);
+        const mainAdaptation = dashManifestModel.getMainAdaptationSetForPreselection(realPreselection, adaptation);
+        mediaInfo = convertAdaptationToMediaInfo(mainAdaptation);
+
+        if (mediaInfo) {
+            mediaInfo.isPreselection = true;
+            mediaInfo.tag = preselection.tag;
+            mediaInfo.id = preselection.id;
+            mediaInfo.codec = dashManifestModel.getCodecForPreselection(realPreselection, realAdaptation);
+            mediaInfo.selectionPriority = dashManifestModel.getSelectionPriority(realPreselection);
+            mediaInfo.labels = dashManifestModel.getLabelsForAdaptation(realPreselection);
+            mediaInfo.lang = dashManifestModel.getLanguageForAdaptation(realPreselection);
+            mediaInfo.viewpoint = dashManifestModel.getViewpointForAdaptation(realPreselection);
+            mediaInfo.accessibility = dashManifestModel.getAccessibilityForAdaptation(realPreselection);
+            mediaInfo.audioChannelConfiguration = dashManifestModel.getAudioChannelConfigurationForAdaptation(realPreselection);
+            mediaInfo.roles = dashManifestModel.getRolesForAdaptation(realPreselection);
+            mediaInfo.essentialProperties = dashManifestModel.getCombinedEssentialPropertiesForAdaptationSet(realPreselection);
+            mediaInfo.supplementalProperties = dashManifestModel.getCombinedSupplementalPropertiesForAdaptationSet(realPreselection);
+        }
 
         return mediaInfo;
     }
@@ -1072,38 +1319,12 @@ function DashAdapter() {
     function _getNormalizedKeyIds(contentProtection) {
         const normalizedKeyIds = new Set();
         contentProtection.forEach((contentProtectionElement) => {
-            if (contentProtectionElement.cencDefaultKid) {
+            if (contentProtectionElement.cencDefaultKid && typeof contentProtectionElement.cencDefaultKid === 'string') {
                 normalizedKeyIds.add(contentProtectionElement.cencDefaultKid.replace(/-/g, '').toLowerCase());
             }
         })
 
         return normalizedKeyIds
-    }
-
-    function _getCommonRepresentationEssentialProperties(mediaInfo, realAdaptation) {
-        let arr = realAdaptation.Representation.map(repr => {
-            return dashManifestModel.getEssentialPropertiesForRepresentation(repr);
-        });
-
-        if (arr.every(v => JSON.stringify(v) === JSON.stringify(arr[0]))) {
-            // only output Representation.essentialProperties to mediaInfo, if they are present on all Representations
-            return arr[0];
-        }
-
-        return []
-    }
-
-    function _getCommonRepresentationSupplementalProperties(mediaInfo, realAdaptation) {
-        let arr = realAdaptation.Representation.map(repr => {
-            return dashManifestModel.getSupplementalPropertiesForRepresentation(repr);
-        });
-
-        if (arr.every(v => JSON.stringify(v) === JSON.stringify(arr[0]))) {
-            // only output Representation.supplementalProperties to mediaInfo, if they are present on all Representations
-            return arr[0];
-        }
-
-        return []
     }
 
     function _getAdaptationSetSwitchingCompatibleIds(mediaInfo) {
@@ -1117,8 +1338,8 @@ function DashAdapter() {
         });
         if (adaptationSetSwitching && adaptationSetSwitching.length > 0) {
             const ids = adaptationSetSwitching[0].value.toString().split(',')
-            adaptationSetSwitchingCompatibleIds = ids.map((id) => {
-                return id
+            adaptationSetSwitchingCompatibleIds = ids.filter((id) => {
+                return id !== mediaInfo.id
             })
         }
 
@@ -1221,16 +1442,19 @@ function DashAdapter() {
     instance = {
         applyPatchToManifest,
         areMediaInfosEqual,
+        convertAdaptationToMediaInfo,
         getAllMediaInfoForType,
         getAvailabilityStartTime,
         getBandwidthForRepresentation,
         getBaseURLsFromElement,
         getCodec,
+        getCodecForPreselection,
         getContentSteering,
         getDuration,
-        getEssentialPropertiesForRepresentation,
+        getEssentialProperties,
         getEvent,
         getEventsFor,
+        getFramerate,
         getIndexForRepresentation,
         getIsDVB,
         getIsDynamic,
@@ -1238,12 +1462,16 @@ function DashAdapter() {
         getIsTextTrack,
         getIsTypeOf,
         getLocation,
+        getLinkedPeriods,
         getMainAdaptationForType,
+        getMainAdaptationSetForPreselection,
+        getCommonRepresentationForPreselection,
         getManifestUpdatePeriod,
         getMediaInfoForType,
         getMpd,
         getPatchLocation,
         getPeriodById,
+        getPreselectionIsTypeOf,
         getProducerReferenceTimes,
         getPublishTime,
         getRealAdaptation,
@@ -1252,9 +1480,11 @@ function DashAdapter() {
         getRepresentationSortFunction,
         getStreamsInfo,
         getSuggestedPresentationDelay,
+        getSupplementalCodecs,
         getUTCTimingSources,
         getVoRepresentations,
         isPatchValid,
+        mergeManifests,
         reset,
         setConfig,
         updatePeriods,

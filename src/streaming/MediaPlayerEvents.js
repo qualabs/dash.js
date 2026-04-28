@@ -156,6 +156,11 @@ class MediaPlayerEvents extends EventsBase {
          * @event MediaPlayerEvents#MANIFEST_LOADED
          */
         this.MANIFEST_LOADED = 'manifestLoaded';
+        /**
+         * Triggered when TBD
+         * @event MediaPlayerEvents#MANIFEST_LOADED
+         */
+        this.ALTERNATIVE_MANIFEST_LOADED = 'alternativeManifestLoaded'
 
         /**
          * Triggered anytime there is a change to the overall metrics.
@@ -273,7 +278,7 @@ class MediaPlayerEvents extends EventsBase {
 
         /**
          * Triggered when a text track should be hidden
-         * @event MediaPlayerEvents#CUE_ENTER
+         * @event MediaPlayerEvents#CUE_EXIT
          */
         this.CUE_EXIT = 'cueExit'
 

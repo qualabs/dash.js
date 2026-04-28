@@ -29,7 +29,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { HTTPRequest } from './metrics/HTTPRequest.js';
+import {HTTPRequest} from './metrics/HTTPRequest.js';
 
 /**
  * @class
@@ -48,12 +48,14 @@ class FragmentRequest {
         this.endDate = null;
         this.firstByteDate = null;
         this.index = NaN;
+        this.isPartialSegmentRequest = false;
         this.mediaStartTime = NaN;
         this.mediaType = null;
-        this.quality = NaN;
+        this.presentationStartTime = NaN;
         this.range = null;
         this.representation = null;
         this.responseType = 'arraybuffer';
+        this.retryAttempts = 0;
         this.serviceLocation = null;
         this.startDate = null;
         this.startTime = NaN;
@@ -72,6 +74,7 @@ class FragmentRequest {
         this.url = info && info.url ? info.url : null;
         this.range = info && info.range ? info.range.start + '-' + info.range.end : null;
         this.mediaType = info && info.mediaType ? info.mediaType : null;
+        this.representation = info && info.representation ? info.representation : null;
     }
 }
 

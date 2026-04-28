@@ -1,17 +1,21 @@
 import Constants from '../src/Constants.js';
 import {getRandomNumber} from '../test/common/common.js';
-import {MediaPlayer, Debug} from '../../../dist/esm/dash.all.min.esm.js';
-import '../../../dist/dash.mss.min.js';
+import {MediaPlayer, Debug} from '../../../dist/modern/esm/dash.all.min.js';
+import '../../../dist/modern/esm/dash.mss.min.js';
 
 class DashJsAdapter {
 
     constructor() {
         this.player = null;
         this.videoElement = document.getElementById('video-element');
+        this.alternativeVideoElement = document.getElementById('alternative-video-element');
         this.ttmlRenderingDiv = document.getElementById('ttml-rendering-div');
         this.startedFragmentDownloads = [];
         this.logEvents = {};
         this.errorEvents = [];
+        this.registeredEvents = new Set();
+        this.triggeredEvents = new Map();
+        this._onEventTriggered = this._onEventTriggered.bind(this);
         this._onFragmentLoadedHandler = this._onFragmentLoaded.bind(this);
         this._onLogEvent = this._onLogEvent.bind(this);
         this._onErrorEvent = this._onErrorEvent.bind(this);
@@ -39,6 +43,15 @@ class DashJsAdapter {
                 cacheInitSegments: true
             }
         })
+    }
+
+    initForAlternativeMedia(mpd) {
+        this._initLogEvents();
+        this._createPlayerInstance();
+
+        this.player.initialize(this.videoElement, mpd, true);
+        this.player.setAlternativeVideoElement(this.alternativeVideoElement);
+        this._registerInternalEvents();
     }
 
     _initLogEvents() {
@@ -83,6 +96,8 @@ class DashJsAdapter {
     destroy() {
         this.logEvents = {};
         this.errorEvents = [];
+        this.registeredEvents.clear()
+        this.triggeredEvents.clear()
         if (this.player) {
             this._unregisterInternalEvents();
             this.player.resetSettings();
@@ -122,16 +137,34 @@ class DashJsAdapter {
         this.player.off(MediaPlayer.events.FRAGMENT_LOADING_STARTED, this._onFragmentLoadedHandler)
         this.player.off(MediaPlayer.events.LOG, this._onLogEvent)
         this.player.off(MediaPlayer.events.ERROR, this._onErrorEvent);
-
     }
 
     /**
      *
-     * @param type
+     * @param eventName
      * @param callback
      */
-    registerEvent(type, callback) {
-        this.player.on(type, callback)
+    registerEvent(eventName, callback) {
+        if (callback) {
+            this.player.on(eventName, callback)
+        }
+        if (!this.registeredEvents.has(eventName)) {
+            this.registeredEvents.add(eventName);
+            this.player.on(eventName, this._onEventTriggered)
+        }
+    }
+
+    _onEventTriggered(event) {
+        if (!this.triggeredEvents.has(event.type)) {
+            this.triggeredEvents.set(event.type, []);
+        }
+        this.triggeredEvents.get(event.type).push({
+            timestamp: Date.now(),
+        });
+    }
+
+    hasEventBeenTriggered(eventName) {
+        return this.triggeredEvents.has(eventName) && this.triggeredEvents.get(eventName).length > 0;
     }
 
     /**
@@ -141,6 +174,10 @@ class DashJsAdapter {
      */
     unregisterEvent(type, callback) {
         this.player.off(type, callback)
+        if (this.registeredEvents.has(type)) {
+            this.registeredEvents.delete(type);
+            this.player.off(type, this._onEventTriggered)
+        }
     }
 
     _onFragmentLoaded(e) {
@@ -454,6 +491,33 @@ class DashJsAdapter {
         })
     }
 
+    async replacedSegmentsInBuffer(maxNumberOfSegmentDownloadsToWait, timeoutValue, bufferInformation) {
+        return new Promise((resolve) => {
+            let timeout = null;
+
+            const _onComplete = (replaced = false) => {
+                clearTimeout(timeout);
+                timeout = null;
+                this.player.off(MediaPlayer.events.FRAGMENT_LOADING_COMPLETED, _onFragmentLoadingCompleted);
+                resolve(replaced);
+            }
+            const _onTimeout = () => {
+                _onComplete(false);
+            }
+            const _onFragmentLoadingCompleted = (e) => {
+                if (e && e.request && e.request.mediaType === Constants.DASH_JS.MEDIA_TYPES.VIDEO && !isNaN(e.request.presentationStartTime)) {
+                    if (e.request.presentationStartTime > bufferInformation.currentTime
+                        && e.request.presentationStartTime < bufferInformation.currentTime + bufferInformation.forwardBuffer
+                        && e.request.representation.id !== bufferInformation.currentRepresentation.id) {
+                        _onComplete(true);
+                    }
+                }
+            }
+            timeout = setTimeout(_onTimeout, timeoutValue);
+            this.player.on(MediaPlayer.events.FRAGMENT_LOADING_COMPLETED, _onFragmentLoadingCompleted);
+        })
+    }
+
     async isKeepingBackwardsBufferTarget(timeoutValue, target, tolerance) {
         return new Promise((resolve) => {
             let timeout = null;
@@ -572,7 +636,7 @@ class DashJsAdapter {
         })
     }
 
-    async waitForMediaSegmentDownload(timeoutValue) {
+    async waitForMediaSegmentDownload(timeoutValue, mediaType = 'all') {
         return new Promise((resolve) => {
             let timeout = null;
 
@@ -586,7 +650,7 @@ class DashJsAdapter {
                 _onComplete({});
             }
             const _onEvent = (e) => {
-                if (e.request.type === 'MediaSegment') {
+                if (e.request.type === 'MediaSegment' && (e.request.mediaType === mediaType || mediaType === 'all')) {
                     _onComplete(e);
                 }
             }
@@ -643,7 +707,7 @@ class DashJsAdapter {
 
             const _checkBuffer = () => {
                 const buffer = this.getBufferLengthByType();
-                if (buffer >= targetBuffer) {
+                if (buffer >= targetBuffer - tolerance) {
                     _onComplete(true);
                 }
             };

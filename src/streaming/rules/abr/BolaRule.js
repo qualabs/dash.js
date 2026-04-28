@@ -41,6 +41,7 @@ import Debug from '../../../core/Debug.js';
 import MediaPlayerEvents from '../../MediaPlayerEvents.js';
 import Constants from '../../constants/Constants.js';
 import AbrController from '../../controllers/AbrController.js';
+import Settings from '../../../core/Settings.js';
 
 // BOLA_STATE_ONE_BITRATE   : If there is only one bitrate (or initialization failed), always return NO_CHANGE.
 // BOLA_STATE_STARTUP       : Set placeholder buffer such that we download fragments at most recently measured throughput.
@@ -69,20 +70,22 @@ function BolaRule(config) {
 
     let instance,
         logger,
+        settings,
         bolaStateDict;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
+        settings = Settings(context).getInstance();
         resetInitialSettings();
         eventBus.on(MediaPlayerEvents.BUFFER_EMPTY, _onBufferEmpty, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKING, _onPlaybackSeeking, instance);
         eventBus.on(MediaPlayerEvents.METRIC_ADDED, _onMetricAdded, instance);
         eventBus.on(MediaPlayerEvents.QUALITY_CHANGE_REQUESTED, _onQualityChangeRequested, instance);
         eventBus.on(MediaPlayerEvents.FRAGMENT_LOADING_ABANDONED, _onFragmentLoadingAbandoned, instance);
-        eventBus.on(MediaPlayerEvents.NEW_TRACK_SELECTED, _onNewTrackSelected, instance);
         eventBus.on(Events.MEDIA_FRAGMENT_LOADED, _onMediaFragmentLoaded, instance);
         eventBus.on(Events.SETTING_UPDATED_MAX_BITRATE, _onMinMaxBitrateUpdated, instance);
         eventBus.on(Events.SETTING_UPDATED_MIN_BITRATE, _onMinMaxBitrateUpdated, instance);
+        eventBus.on(Events.VIDEO_ELEMENT_RESIZED, _onVideoElementResized, instance);
     }
 
     /**
@@ -391,7 +394,17 @@ function BolaRule(config) {
      * @private
      */
     function _onMinMaxBitrateUpdated() {
-        resetInitialSettings()
+        resetInitialSettings();
+    }
+
+    /**
+     * We need to reset to initial settings because the number of available Representations might have changed
+     * @private
+     */
+    function _onVideoElementResized() {
+        if (settings.get().streaming.abr.limitBitrateByPortal) {
+            resetInitialSettings();
+        }
     }
 
 
@@ -446,13 +459,12 @@ function BolaRule(config) {
         }
     }
 
-    function _onNewTrackSelected(e) {
-        if (!e || !e.currentMediaInfo) {
-            return;
+    function handleNewMediaInfo(newMediaInfo) {
+        if (!newMediaInfo || !newMediaInfo.streamInfo || !newMediaInfo.type) {
+            return
         }
-        const currentMediaInfo = e.currentMediaInfo;
-        if (bolaStateDict[currentMediaInfo.streamInfo.id] && bolaStateDict[currentMediaInfo.streamInfo.id][currentMediaInfo.type]) {
-            delete bolaStateDict[currentMediaInfo.streamInfo.id][currentMediaInfo.type];
+        if (bolaStateDict[newMediaInfo.streamInfo.id] && bolaStateDict[newMediaInfo.streamInfo.id][newMediaInfo.type]) {
+            delete bolaStateDict[newMediaInfo.streamInfo.id][newMediaInfo.type];
         }
     }
 
@@ -590,6 +602,7 @@ function BolaRule(config) {
                     break;
             }
 
+            switchRequest.priority = settings.get().streaming.abr.rules.bolaRule.priority;
             return switchRequest;
         } catch (e) {
             logger.error(e);
@@ -626,14 +639,15 @@ function BolaRule(config) {
         eventBus.off(MediaPlayerEvents.METRIC_ADDED, _onMetricAdded, instance);
         eventBus.off(MediaPlayerEvents.QUALITY_CHANGE_REQUESTED, _onQualityChangeRequested, instance);
         eventBus.off(MediaPlayerEvents.FRAGMENT_LOADING_ABANDONED, _onFragmentLoadingAbandoned, instance);
-        eventBus.off(MediaPlayerEvents.NEW_TRACK_SELECTED, _onNewTrackSelected, instance);
         eventBus.off(Events.MEDIA_FRAGMENT_LOADED, _onMediaFragmentLoaded, instance);
         eventBus.off(Events.SETTING_UPDATED_MAX_BITRATE, _onMinMaxBitrateUpdated, instance);
         eventBus.off(Events.SETTING_UPDATED_MIN_BITRATE, _onMinMaxBitrateUpdated, instance);
+        eventBus.off(Events.VIDEO_ELEMENT_RESIZED, _onVideoElementResized, instance);
     }
 
     instance = {
         getSwitchRequest,
+        handleNewMediaInfo,
         reset
     };
 

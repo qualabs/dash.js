@@ -28,11 +28,11 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import Segment from './vo/Segment.js';
 import DashJSError from '../streaming/vo/DashJSError.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import FragmentRequest from '../streaming/vo/FragmentRequest.js';
 import URLLoader from '../streaming/net/URLLoader.js';
+import FullSegment from './vo/FullSegment.js';
 
 function SegmentBaseLoader() {
 
@@ -128,7 +128,8 @@ function SegmentBaseLoader() {
             searching: false,
             bytesLoaded: 0,
             bytesToLoad: 1500,
-            mediaType: mediaType
+            mediaType: mediaType,
+            representation
         };
 
         logger.debug('Start searching for initialization.');
@@ -183,7 +184,8 @@ function SegmentBaseLoader() {
             searching: !hasRange,
             bytesLoaded: loadingInfo ? loadingInfo.bytesLoaded : 0,
             bytesToLoad: 1500,
-            mediaType: mediaType
+            mediaType: mediaType,
+            representation
         };
 
         const request = getFragmentRequest(info);
@@ -304,7 +306,7 @@ function SegmentBaseLoader() {
             duration = refs[i].subsegment_duration;
             size = refs[i].referenced_size;
 
-            segment = new Segment();
+            segment = new FullSegment();
             // note that we don't explicitly set segment.media as this will be
             // computed when all BaseURLs are resolved later
             segment.duration = duration;

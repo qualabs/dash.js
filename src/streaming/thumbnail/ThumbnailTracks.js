@@ -33,11 +33,13 @@ import DashConstants from '../../dash/constants/DashConstants.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import ThumbnailTrackInfo from '../vo/ThumbnailTrackInfo.js';
 import URLUtils from '../../streaming/utils/URLUtils.js';
-import {replaceIDForTemplate, getTimeBasedSegment} from '../../dash/utils/SegmentsUtils.js';
+import {getTimeBasedSegment, processUriTemplate} from '../../dash/utils/SegmentsUtils.js';
 import BoxParser from '../../streaming/utils/BoxParser.js';
 import XHRLoader from '../../streaming/net/XHRLoader.js';
 import DashHandler from '../../dash/DashHandler.js';
 import SegmentsController from '../../dash/controllers/SegmentsController.js';
+import CommonMediaRequest from '../vo/CommonMediaRequest.js';
+import CommonMediaResponse from '../vo/CommonMediaResponse.js';
 
 function ThumbnailTracks(config) {
     const context = this.context;
@@ -192,27 +194,31 @@ function ThumbnailTracks(config) {
                 representation.segments.some((ss) => {
                     if (ss.mediaStartTime <= time && ss.mediaStartTime + ss.duration > time) {
                         const baseURL = baseURLController.resolve(representation.path);
-                        loader.load({
+                        const commonMediaRequest = new CommonMediaRequest({
                             method: 'get',
                             url: baseURL.url,
-                            request: {
-                                range: ss.mediaRange,
-                                responseType: 'arraybuffer'
-                            },
-                            onload: function (e) {
-                                let info = boxParser.getSamplesInfo(e.target.response);
-                                let blob = new Blob([e.target.response.slice(info.sampleList[0].offset, info.sampleList[0].offset + info.sampleList[0].size)], { type: 'image/jpeg' });
-                                let imageUrl = window.URL.createObjectURL(blob);
-                                cache.push({
-                                    start: ss.mediaStartTime,
-                                    end: ss.mediaStartTime + ss.duration,
-                                    url: imageUrl
-                                });
-                                if (callback) {
-                                    callback(imageUrl);
+                            responseType: 'arraybuffer',
+                            customData: {
+                                request: {
+                                    range: ss.mediaRange,
+                                },
+                                onloadend: function (e) {
+                                    let info = boxParser.getSamplesInfo(e.target.response);
+                                    let blob = new Blob([e.target.response.slice(info.sampleList[0].offset, info.sampleList[0].offset + info.sampleList[0].size)], { type: 'image/jpeg' });
+                                    let imageUrl = window.URL.createObjectURL(blob);
+                                    cache.push({
+                                        start: ss.mediaStartTime,
+                                        end: ss.mediaStartTime + ss.duration,
+                                        url: imageUrl
+                                    });
+                                    if (callback) {
+                                        callback(imageUrl);
+                                    }
                                 }
-                            }
-                        });
+                            },
+                        })
+                        const commonMediaResponse = new CommonMediaResponse({ request: commonMediaRequest });
+                        loader.load(commonMediaRequest, commonMediaResponse);
                         return true;
                     }
                 });
@@ -232,16 +238,17 @@ function ThumbnailTracks(config) {
         for (i = 0, len = data.segments.length; i < len; i++) {
             s = data.segments[i];
 
-            seg = getTimeBasedSegment(
-                timelineConverter,
-                adapter.getIsDynamic(),
+            seg = getTimeBasedSegment({
+                durationInTimescale: s.duration,
+                fTimescale: s.timescale,
+                index: count,
+                isDynamic: adapter.getIsDynamic(),
+                mediaRange: s.mediaRange,
+                mediaTime: s.startTime,
+                mediaUrl: s.media,
                 representation,
-                s.startTime,
-                s.duration,
-                s.timescale,
-                s.media,
-                s.mediaRange,
-                count);
+                timelineConverter,
+            });
 
             if (seg) {
                 segments.push(seg);
@@ -260,7 +267,7 @@ function ThumbnailTracks(config) {
             return '';
         }
 
-        return replaceIDForTemplate(templateUrl, representation.id);
+        return processUriTemplate(templateUrl, representation.id);
     }
 
     function getTracks() {
@@ -325,6 +332,10 @@ function ThumbnailTracks(config) {
         representations = [];
         currentTrackIndex = -1;
         mediaInfo = null;
+        if (dashHandler) {
+            dashHandler.reset();
+            dashHandler = null;
+        }
     }
 
     instance = {

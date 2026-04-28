@@ -53,6 +53,7 @@ class HTTPRequest {
          * - Index Fragment
          * - Media Fragment
          * - Bitstream Switching Fragment
+         * - CMCD Response
          * - other
          * @public
          */
@@ -119,11 +120,6 @@ class HTTPRequest {
          */
         this._mediaduration = null;
         /**
-         * The media segment quality
-         * @public
-         */
-        this._quality = null;
-        /**
          * all the response headers from request.
          * @public
          */
@@ -172,6 +168,7 @@ class HTTPRequestTrace {
 }
 
 HTTPRequest.GET = 'GET';
+HTTPRequest.POST = 'POST';
 HTTPRequest.HEAD = 'HEAD';
 HTTPRequest.MPD_TYPE = 'MPD';
 HTTPRequest.XLINK_EXPANSION_TYPE = 'XLinkExpansion';
@@ -183,6 +180,7 @@ HTTPRequest.MSS_FRAGMENT_INFO_SEGMENT_TYPE = 'FragmentInfoSegment';
 HTTPRequest.DVB_REPORTING_TYPE = 'DVBReporting';
 HTTPRequest.LICENSE = 'license';
 HTTPRequest.CONTENT_STEERING_TYPE = 'ContentSteering';
+HTTPRequest.CMCD_EVENT = 'CmcdEvent';
 HTTPRequest.OTHER_TYPE = 'other';
 
 export {HTTPRequest, HTTPRequestTrace};

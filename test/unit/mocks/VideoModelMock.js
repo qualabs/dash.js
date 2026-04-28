@@ -112,7 +112,12 @@ class VideoModelMock {
     }
 
     pause() {
+        this.isplaying = false;
         this.ispaused = true;
+    }
+
+    isPlaying() {
+        return this.isplaying;
     }
 
     isPaused() {

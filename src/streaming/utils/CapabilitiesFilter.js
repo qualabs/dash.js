@@ -5,6 +5,8 @@ import EventBus from '../../core/EventBus.js';
 import Events from '../../core/events/Events.js';
 import DashConstants from '../../dash/constants/DashConstants.js';
 
+import getNChanFromAudioChannelConfig from './AudioChannelConfiguration.js';
+
 function CapabilitiesFilter() {
 
     const context = this.context;
@@ -74,6 +76,10 @@ function CapabilitiesFilter() {
                     if (settings.get().streaming.capabilities.filterUnsupportedEssentialProperties) {
                         _filterUnsupportedEssentialProperties(manifest);
                     }
+
+                    _removeMultiRepresentationPreselections(manifest);
+                    _removePreselectionWithNoAdaptationSet(manifest);
+
                     return _applyCustomFilters(manifest);
                 })
                 .then(() => {
@@ -95,6 +101,7 @@ function CapabilitiesFilter() {
         manifest.Period
             .forEach((period) => {
                 _filterUnsupportedAdaptationSetsOfPeriod(period, type);
+                _filterUnsupportedPreselectionsOfPeriod(period, type);
             })
     }
 
@@ -119,23 +126,74 @@ function CapabilitiesFilter() {
         })
     }
 
+    function _filterUnsupportedPreselectionsOfPeriod(period, type) {
+        if (!period || !period.Preselection || period.Preselection.length === 0) {
+            return;
+        }
+
+        period.Preselection = period.Preselection.filter((prsl) => {
+            if (adapter.getPreselectionIsTypeOf(prsl, period.AdaptationSet, type)) {
+                const prslCodec = adapter.getCodecForPreselection(prsl, period.AdaptationSet);
+                let isPrslCodecSupported = true;
+                if (prslCodec) {
+                    let commonRepresentation = adapter.getCommonRepresentationForPreselection(prsl, period.AdaptationSet);
+
+                    isPrslCodecSupported = _isCodecSupported(type, prsl, prslCodec, commonRepresentation);
+                }
+
+                if (!isPrslCodecSupported) {
+                    logger.warn(`[CapabilitiesFilter] Preselection@codecs ${prslCodec} not supported. Removing Preselection with ID ${prsl.id}`);
+                }
+
+                return isPrslCodecSupported;
+            } else {
+                return true;
+            }
+        })
+    }
+
     function _filterUnsupportedRepresentationsOfAdaptation(as, type) {
         if (!as.Representation || as.Representation.length === 0) {
             return;
         }
-        const configurations = [];
 
         as.Representation = as.Representation.filter((rep, i) => {
             const codec = adapter.getCodec(as, i, false);
-            const config = _createConfiguration(type, rep, codec);
+            const isMainCodecSupported = _isCodecSupported(type, rep, codec);
 
-            configurations.push(config);
-            const supported = capabilities.isCodecSupportedBasedOnTestedConfigurations(config, type);
-            if (!supported) {
-                logger.debug(`[CapabilitiesFilter] Codec ${configurations[i].codec} not supported. Removing Representation with ID ${rep.id}`);
+            let isSupplementalCodecSupported = _isSupplementalCodecSupported(rep, type);
+            if (isSupplementalCodecSupported) {
+                logger.debug(`[CapabilitiesFilter] Codec supported. Upgrading codecs string of Representation with ID ${rep.id}`);
+                rep.codecs = rep[DashConstants.SUPPLEMENTAL_CODECS]
             }
-            return supported
+
+            if (!isMainCodecSupported && !isSupplementalCodecSupported) {
+                logger.warn(`[CapabilitiesFilter] Codec ${codec} not supported. Removing Representation with ID ${rep.id}`);
+            }
+
+            return isMainCodecSupported || isSupplementalCodecSupported;
         });
+    }
+
+    function _isSupplementalCodecSupported(rep, type) {
+        let isSupplementalCodecSupported = false;
+        const supplementalCodecs = adapter.getSupplementalCodecs(rep);
+
+        if (supplementalCodecs.length > 0) {
+            if (supplementalCodecs.length > 1) {
+                logger.warn(`[CapabilitiesFilter] Multiple supplemental codecs not supported; using the first in list`);
+            }
+            const supplementalCodec = supplementalCodecs[0];
+            isSupplementalCodecSupported = _isCodecSupported(type, rep, supplementalCodec);
+        }
+
+        return isSupplementalCodecSupported
+    }
+
+    function _isCodecSupported(type, primaryElement, codec, prslCommonRepresentation = undefined) {
+        const config = _createConfiguration(type, primaryElement, codec, prslCommonRepresentation);
+
+        return capabilities.isCodecSupportedBasedOnTestedConfigurations(config, type);
     }
 
     function _getConfigurationsToCheck(manifest, type) {
@@ -147,58 +205,134 @@ function CapabilitiesFilter() {
         const configurations = [];
 
         manifest.Period.forEach((period) => {
-            period.AdaptationSet.forEach((as) => {
-                if (adapter.getIsTypeOf(as, type)) {
-                    as.Representation.forEach((rep, i) => {
-                        const codec = adapter.getCodec(as, i, false);
-                        const config = _createConfiguration(type, rep, codec);
-                        const configString = JSON.stringify(config);
+            if (!period.ImportedMPD) {
+                period.AdaptationSet.forEach((as) => {
+                    if (adapter.getIsTypeOf(as, type)) {
+                        as.Representation.forEach((rep, i) => {
+                            const codec = adapter.getCodec(as, i, false);
+                            _processCodecToCheck(type, rep, codec, configurationsSet, configurations);
 
-                        if (!configurationsSet.has(configString)) {
-                            configurationsSet.add(configString);
-                            configurations.push(config);
-                        }
-                    });
-                }
-            });
+                            const supplementalCodecs = adapter.getSupplementalCodecs(rep)
+                            if (supplementalCodecs.length > 0) {
+                                _processCodecToCheck(type, rep, supplementalCodecs[0], configurationsSet, configurations);
+                            }
+                        });
+                    }
+                });
+            }
+            if (period.Preselection && period.Preselection.length) {
+                period.Preselection.forEach((prsl) => {
+                    if (adapter.getPreselectionIsTypeOf(prsl, period.AdaptationSet, type)) {
+                        const prslCodec = adapter.getCodecForPreselection(prsl, period.AdaptationSet);
+                        const prslCommonRepresentation = adapter.getCommonRepresentationForPreselection(prsl, period.AdaptationSet);
+
+                        _processCodecToCheck(type, prsl, prslCodec, configurationsSet, configurations, prslCommonRepresentation);
+                    }
+                });
+            }
         });
 
         return configurations;
     }
 
+    function _processCodecToCheck(type, element, codec, configurationsSet, configurations, prslCommonRepresentation = undefined) {
+        /* el is either a Representation or Preselection element */
+        const config = _createConfiguration(type, element, codec, prslCommonRepresentation);
+        const configString = JSON.stringify(config);
 
-    function _createConfiguration(type, rep, codec) {
+        if (!configurationsSet.has(configString)) {
+            configurationsSet.add(configString);
+            configurations.push(config);
+        }
+    }
+
+    /* Build the configuration object for capability requests based on primary element (Representation or Preselection) */
+    /* In case Preselection elements are present, attributes of this element override their counterparts from the Representation element */
+    function _createConfiguration(type, primaryElement, codec, prslCommonRepresentation) {
         let config = null;
         switch (type) {
             case Constants.VIDEO:
-                config = _createVideoConfiguration(rep, codec);
+                config = _createVideoConfiguration(primaryElement, codec, prslCommonRepresentation);
                 break;
             case Constants.AUDIO:
-                config = _createAudioConfiguration(rep, codec);
+                config = _createAudioConfiguration(primaryElement, codec, prslCommonRepresentation);
                 break;
             default:
                 return config;
         }
 
-        return _addGenericAttributesToConfig(rep, config);
+        if (prslCommonRepresentation) {
+            config = _addGenericAttributesToConfig(prslCommonRepresentation, config);
+        }
+
+        return _addGenericAttributesToConfig(primaryElement, config);
     }
 
-    function _createVideoConfiguration(rep, codec) {
+    function _assignMissing(target, enhancement) {
+        for (const key in enhancement) {
+            if (Object.prototype.hasOwnProperty.call(enhancement, key) && !(key in target)) {
+                target[key] = enhancement[key];
+            }
+        }
+        return target;
+    }
+
+    function _createVideoConfiguration(primaryElement, codec, prslCommonRep) {
         let config = {
             codec: codec,
-            width: rep.width || null,
-            height: rep.height || null,
-            framerate: rep.frameRate || null,
-            bitrate: rep.bandwidth || null,
+            width: primaryElement ? primaryElement.width || null : null,
+            height: primaryElement ? primaryElement.height || null : null,
+            framerate: adapter.getFramerate(primaryElement) || null,
+            bitrate: primaryElement ? primaryElement.bandwidth || null : null,
             isSupported: true
         }
+
+        if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
+            if (!config.width) {
+                config.width = prslCommonRep.width || null;
+            }
+            if (!config.height) {
+                config.height = prslCommonRep.height || null;
+            }
+            if (!config.bitrate) {
+                config.bitrate = prslCommonRep.bandwidth || null;
+            }
+            if (!config.framerate) {
+                config.framerate = adapter.getFramerate(prslCommonRep) || null;
+            }
+        }
+
         if (settings.get().streaming.capabilities.filterVideoColorimetryEssentialProperties) {
-            Object.assign(config, _convertHDRColorimetryToConfig(rep));
+            Object.assign(config, _convertHDRColorimetryToConfig(primaryElement));
+
+            if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
+                let prslCommonRepresentationHDRColorimetryConfig = _convertHDRColorimetryToConfig(prslCommonRep);
+
+                // if either the properties of the Preselection or the CommonRepresentation is not supported, we can't mark the config as supported.
+                let isCommonRepCfgSupported = prslCommonRepresentationHDRColorimetryConfig.isSupported;
+                delete prslCommonRepresentationHDRColorimetryConfig.isSupported;
+                config.isSupported = config.isSupported && isCommonRepCfgSupported;
+
+                // asign only those attributes that are not present in config
+                _assignMissing(config, prslCommonRepresentationHDRColorimetryConfig);
+            }
         }
         let colorimetrySupported = config.isSupported;
 
         if (settings.get().streaming.capabilities.filterHDRMetadataFormatEssentialProperties) {
-            Object.assign(config, _convertHDRMetadataFormatToConfig(rep));
+            Object.assign(config, _convertHDRMetadataFormatToConfig(primaryElement));
+
+            if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
+                let prslCommonRepresentationHDRMetadataFormatConfig = _convertHDRMetadataFormatToConfig(prslCommonRep);
+
+                // if either the properties of the Preselection or the CommonRepresentation is not supported, we can't mark the config as supported.
+                let isCommonRepCfgSupported = prslCommonRepresentationHDRMetadataFormatConfig.isSupported;
+                delete prslCommonRepresentationHDRMetadataFormatConfig.isSupported;
+                config.isSupported = config.isSupported && isCommonRepCfgSupported;
+
+                // asign only those attributes that are not present in config
+                _assignMissing(config, prslCommonRepresentationHDRMetadataFormatConfig);
+            }
         }
         let metadataFormatSupported = config.isSupported;
 
@@ -272,20 +406,53 @@ function CapabilitiesFilter() {
         return cfg;
     }
 
-    function _createAudioConfiguration(rep, codec) {
-        const samplerate = rep.audioSamplingRate || null;
-        const bitrate = rep.bandwidth || null;
+    function _createAudioConfiguration(primaryElement, codec, prslCommonRep) {
+        let cfg = {
+            codec,
+            samplerate: primaryElement ? primaryElement.audioSamplingRate || null : null,
+            bitrate: primaryElement ? primaryElement.bandwidth || null : null,
+            isSupported: true,
+        };
+
+        if (primaryElement.tagName === DashConstants.PRESELECTION && prslCommonRep) {
+            if (!cfg.samplerate) {
+                cfg.samplerate = prslCommonRep.audioSamplingRate || null;
+            }
+            if (!cfg.bitrate) {
+                cfg.bitrate = prslCommonRep.bandwidth || null;
+            }
+        }
+
+        if (settings.get().streaming.capabilities.filterAudioChannelConfiguration) {
+            Object.assign(cfg, _convertAudioChannelConfigurationToConfig(primaryElement, prslCommonRep))
+        }
+
+        return cfg;
+    }
+
+    function _convertAudioChannelConfigurationToConfig(primaryElement, prslCommonRep) {
+
+        let audioChannelConfigs = primaryElement[DashConstants.AUDIO_CHANNEL_CONFIGURATION] || [];
+        let channels = null;
+
+        if (audioChannelConfigs.length == 0 && prslCommonRep) {
+            audioChannelConfigs = prslCommonRep[DashConstants.AUDIO_CHANNEL_CONFIGURATION] || []
+        }
+
+        const channelCounts = audioChannelConfigs.map(channelConfig => getNChanFromAudioChannelConfig(channelConfig, true));
+
+        // ensure that all AudioChannelConfiguration elements are the same value, otherwise ignore
+        if (channelCounts.every(e => e == channelCounts[0])) {
+            channels = channelCounts[0];
+        }
 
         return {
-            codec,
-            bitrate,
-            samplerate,
-            isSupported: true
-        };
+            channels
+        }
     }
 
     function _addGenericAttributesToConfig(rep, config) {
-        if (rep && rep[DashConstants.CONTENT_PROTECTION] && rep[DashConstants.CONTENT_PROTECTION].length > 0) {
+        if (protectionController && rep && rep[DashConstants.CONTENT_PROTECTION] && rep[DashConstants.CONTENT_PROTECTION].length > 0) {
             config.keySystemsMetadata = protectionController.getSupportedKeySystemMetadataFromContentProtection(rep[DashConstants.CONTENT_PROTECTION])
         }
         return config
@@ -298,33 +465,94 @@ function CapabilitiesFilter() {
         }
 
         manifest.Period.forEach((period) => {
-            period.AdaptationSet = period.AdaptationSet.filter((as) => {
+            if (!period.ImportedMPD) {
+                period.AdaptationSet = period.AdaptationSet.filter((as) => {
 
-                if (!as.Representation || as.Representation.length === 0) {
-                    return true;
-                }
+                    if (!as.Representation || as.Representation.length === 0) {
+                        return true;
+                    }
 
-                as.Representation = as.Representation.filter((rep) => {
-                    const essentialProperties = adapter.getEssentialPropertiesForRepresentation(rep);
+                    const adaptationSetEssentialProperties = adapter.getEssentialProperties(as);
+                    const doesSupportEssentialProperties = _doesSupportEssentialProperties(adaptationSetEssentialProperties);
 
-                    if (essentialProperties && essentialProperties.length > 0) {
-                        let i = 0;
-                        while (i < essentialProperties.length) {
-                            if (!capabilities.supportsEssentialProperty(essentialProperties[i])) {
-                                logger.debug('[Stream] EssentialProperty not supported: ' + essentialProperties[i].schemeIdUri);
-                                return false;
-                            }
-                            i += 1;
-                        }
+                    if (!doesSupportEssentialProperties) {
+                        return false;
+                    }
+
+                    as.Representation = as.Representation.filter((rep) => {
+                        const essentialProperties = adapter.getEssentialProperties(rep);
+                        return _doesSupportEssentialProperties(essentialProperties);
+                    });
+
+                    return as.Representation && as.Representation.length > 0;
+                });
+            }
+
+            if (period.Preselection && period.Preselection.length) {
+                period.Preselection = period.Preselection.filter(prsl => {
+                    const preselectionEssentialProperties = adapter.getEssentialProperties(prsl);
+                    const doesSupportEssentialProperties = _doesSupportEssentialProperties(preselectionEssentialProperties);
+
+                    if (!doesSupportEssentialProperties) {
+                        logger.warn(`[CapabilitiesFilter] removed Preselection (id: ${prsl.id}) with unsupported EssentialProperty`);
+                        return false;
                     }
 
                     return true;
-                });
-
-                return as.Representation && as.Representation.length > 0;
-            });
+                })
+            }
         });
+    }
 
+    function _doesSupportEssentialProperties(essentialProperties) {
+        if (!essentialProperties || essentialProperties.length === 0) {
+            return true
+        }
+
+        let i = 0;
+        while (i < essentialProperties.length) {
+            if (!capabilities.supportsEssentialProperty(essentialProperties[i])) {
+                logger.debug('[Stream] EssentialProperty not supported: ' + essentialProperties[i].schemeIdUri);
+                return false;
+            }
+            i += 1;
+        }
+
+        return true
+    }
+
+    function _removeMultiRepresentationPreselections(manifest) {
+        if (!manifest || !manifest.Period || manifest.Period.length === 0) {
+            return;
+        }
+
+        manifest.Period.forEach((period) => {
+            if (period.Preselection) {
+                period.Preselection = period.Preselection.filter((prsl) => {
+                    const len = String(prsl.preselectionComponents).split(' ').length;
+                    if (len !== 1) {
+                        logger.warn(`Multi-Representation Preselection (id: ${prsl.id}) removed as not supported.`);
+                    }
+                    return len === 1;
+                });
+            }
+        });
+    }
+
+    function _removePreselectionWithNoAdaptationSet(manifest) {
+        if (!manifest || !manifest.Period || manifest.Period.length === 0) {
+            return;
+        }
+
+        manifest.Period.forEach((period) => {
+            if (period.Preselection) {
+                period.Preselection = period.Preselection.filter((prsl) => {
+                    const prslComponents = String(prsl.preselectionComponents).split(' ');
+                    const adaptationSetIds = period.AdaptationSet.map(as => {return as.id});
+                    return prslComponents.every(c => {return adaptationSetIds.includes(c)});
+                });
+            }
+        });
     }
 
     function _applyCustomFilters(manifest) {
@@ -418,7 +646,7 @@ function CapabilitiesFilter() {
 
     instance = {
         setConfig,
-        filterUnsupportedFeatures
+        filterUnsupportedFeatures,
     };
 
     setup();

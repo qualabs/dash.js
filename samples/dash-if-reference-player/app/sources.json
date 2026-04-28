@@ -93,6 +93,11 @@
             "acronym": "ARTE",
             "name": "ARTE",
             "url": "https://www.arte.tv/en/"
+        },
+        "v-nova": {
+            "acronym": "V-Nova",
+            "name": "V-Nova",
+            "url": "https://v-nova.com/"
         }
     },
     "items": [
@@ -278,6 +283,11 @@
                 {
                     "url": "https://livesim2.dashif.org/livesim2/scte35_2/testpic_2s/Manifest.mpd",
                     "name": "SCTE35 events",
+                    "provider": "dashif"
+                },
+                {
+                    "url": "https://livesim.dashif.org/livesim2/annexI_dashjs=rocks/testpic_6s/Manifest.mpd?dashjs=rocks",
+                    "name": "Annex I query parameters in the Video AdaptationSet",
                     "provider": "dashif"
                 },
                 {
@@ -1101,6 +1111,16 @@
                     }
                 },
                 {
+                    "name": "Livesim 2 DRM EZDRM-2-keys-cbcs",
+                    "url": "https://livesim2.dashif.org/livesim2/drm_EZDRM-2-keys-cbcs/testpic_2s/Manifest.mpd",
+                    "provider": "dashif"
+                },
+                {
+                    "name": "Livesim 2 DRM EZDRM-1-key-cbcs",
+                    "url": "https://livesim2.dashif.org/livesim2/drm_EZDRM-1-key-cbcs/testpic_2s/Manifest.mpd",
+                    "provider": "dashif"
+                },
+                {
                     "name": "Livesim 2 ECCP with CBCS encryption and dashif:Laurl",
                     "url": "https://livesim2.dashif.org/livesim2/eccp_cbcs/testpic_2s/Manifest.mpd",
                     "provider": "dashif"
@@ -1286,6 +1306,21 @@
                         }
                     },
                     "provider": "microsoft"
+                }
+            ]
+        },
+        {
+            "name": "MPEG-5 Part 2 - LCEVC",
+            "submenu": [
+                {
+                    "url": "https://s3.eu-west-1.amazonaws.com/origin-prod-lon-v-nova.com/lcevcDualTrack/1080p30_4Mbps_no_dR/master.mpd",
+                    "name": "Scalable Carriage",
+                    "provider": "v-nova"
+                },
+                {
+                    "url": "https://s3.eu-west-1.amazonaws.com/origin-prod-lon-v-nova.com/lcevcDualTrack/1080p30_4Mbps_with_dR/master.mpd",
+                    "name": "Scalable with Debug Residuals",
+                    "provider": "v-nova"
                 }
             ]
         }

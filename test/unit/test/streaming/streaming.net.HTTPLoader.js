@@ -6,10 +6,11 @@ import MediaPlayerModelMock from '../../mocks/MediaPlayerModelMock.js';
 import ServiceDescriptionControllerMock from '../../mocks/ServiceDescriptionControllerMock.js';
 import {HTTPRequest} from '../../../../src/streaming/vo/metrics/HTTPRequest.js';
 import Settings from '../../../../src/core/Settings.js';
-import CmcdModel from '../../../../src/streaming/models/CmcdModel.js';
+import CmcdController from '../../../../src/streaming/controllers/CmcdController.js';
 import ClientDataReportingController from '../../../../src/streaming/controllers/ClientDataReportingController.js';
 
 import {expect} from 'chai';
+import {fakeXhr} from 'nise';
 import sinon from 'sinon';
 
 const context = {};
@@ -23,7 +24,7 @@ let settings = Settings(context).getInstance();
 describe('HTTPLoader', function () {
     let serviceDescriptionControllerMock = new ServiceDescriptionControllerMock();
     let clientDataReportingController,
-        cmcdModel;
+        cmcdController;
 
 
     beforeEach(function () {
@@ -32,19 +33,19 @@ describe('HTTPLoader', function () {
         errHandler = ErrorHandler(context).getInstance();
         dashMetrics = DashMetrics(context).getInstance();
         clientDataReportingController = ClientDataReportingController(context).getInstance();
-        cmcdModel = CmcdModel(context).getInstance();
+        cmcdController = CmcdController(context).getInstance();
 
         clientDataReportingController.setConfig({
             serviceDescriptionController: serviceDescriptionControllerMock,
         });
 
-        cmcdModel.setConfig({
+        cmcdController.setConfig({
             serviceDescriptionController: serviceDescriptionControllerMock,
         });
     });
 
     beforeEach(function () {
-        window.XMLHttpRequest = sinon.useFakeXMLHttpRequest();
+        window.XMLHttpRequest = fakeXhr.useFakeXMLHttpRequest();
 
         this.requests = [];
         window.XMLHttpRequest.onCreate = function (xhr) {
@@ -114,7 +115,7 @@ describe('HTTPLoader', function () {
             self.requests[0].respond(200);
             sinon.assert.calledOnce(callbackSucceeded);
             sinon.assert.calledOnce(callbackCompleted);
-            expect(callbackSucceeded.calledBefore(callbackCompleted)).to.be.true; // jshint ignore:line    
+            expect(callbackSucceeded.calledBefore(callbackCompleted)).to.be.true; // jshint ignore:line
         });
     });
 

@@ -46,16 +46,20 @@ const READY_STATES_TO_EVENT_NAMES = new Map([
 
 function VideoModel() {
 
-    let instance,
-        logger,
-        element,
+    let TTMLRenderingDiv,
         _currentTime,
-        setCurrentTimeReadyStateFunction,
-        TTMLRenderingDiv,
-        vttRenderingDiv,
+        element,
+        instance,
+        logger,
         overlayRenderingDiv,
         previousPlaybackRate,
-        timeout;
+        resizeObserver,
+        resumeReadyStateFunction,
+        setCurrentTimeReadyStateFunction,
+        settings,
+        timeout,
+        vttRenderingDiv;
+
 
     let overlayElements = [];
 
@@ -63,12 +67,23 @@ function VideoModel() {
 
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
-    const settings = Settings(context).getInstance();
     const stalledStreams = [];
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
+        settings = Settings(context).getInstance();
         _currentTime = NaN;
+        _createResizeObserver();
+    }
+
+    function _createResizeObserver() {
+        try {
+            resizeObserver = new ResizeObserver(() => {
+                eventBus.trigger(Events.VIDEO_ELEMENT_RESIZED);
+            });
+        } catch (e) {
+
+        }
     }
 
     function initialize() {
@@ -78,12 +93,29 @@ function VideoModel() {
     function reset() {
         clearTimeout(timeout);
         eventBus.off(Events.PLAYBACK_PLAYING, onPlaying, this);
+        stalledStreams.length = 0;
+        _disposeResizeObserver();
     }
 
-    function onPlaybackCanPlay() {
-        if (element) {
-            element.playbackRate = previousPlaybackRate || 1;
-            element.removeEventListener('canplay', onPlaybackCanPlay);
+    function _disposeResizeObserver() {
+        try {
+            if (resizeObserver && element) {
+                resizeObserver.unobserve(element);
+                resizeObserver.disconnect();
+                resizeObserver = null;
+            }
+        } catch (e) {
+
+        }
+    }
+
+    function setConfig(config) {
+        if (!config) {
+            return;
+        }
+
+        if (config.settings) {
+            settings = config.settings;
         }
     }
 
@@ -91,12 +123,16 @@ function VideoModel() {
         if (!element) {
             return;
         }
-        if (!ignoreReadyState && element.readyState <= 2 && value > 0) {
-            // If media element hasn't loaded enough data to play yet, wait until it has
-            element.addEventListener('canplay', onPlaybackCanPlay);
-        } else {
+
+        if (ignoreReadyState) {
             element.playbackRate = value;
+            return;
         }
+
+        // If media element hasn't loaded enough data to play yet, wait until it has
+        waitForReadyState(Constants.VIDEO_ELEMENT_READY_STATES.HAVE_FUTURE_DATA, () => {
+            element.playbackRate = value;
+        });
     }
 
     //TODO Move the DVR window calculations from MediaPlayer to Here.
@@ -178,12 +214,20 @@ function VideoModel() {
         //add check of value type
         if (value === null || value === undefined || (value && (/^(VIDEO|AUDIO)$/i).test(value.nodeName))) {
             element = value;
-            // Workaround to force Firefox to fire the canplay event.
-            if (element) {
-                element.preload = 'auto';
-            }
+            _registerResizeObserver(element);
         } else {
             throw VIDEO_MODEL_WRONG_ELEMENT_TYPE;
+        }
+    }
+
+    function _registerResizeObserver(element) {
+        try {
+            if (!resizeObserver || !element) {
+                return;
+            }
+            resizeObserver.observe(element);
+        } catch (e) {
+
         }
     }
 
@@ -276,12 +320,21 @@ function VideoModel() {
     }
 
     function addStalledStream(type) {
-
         if (type === null || !element || element.seeking || stalledStreams.indexOf(type) !== -1) {
             return;
         }
 
         stalledStreams.push(type);
+
+        if (settings.get().streaming.buffer.syntheticStallEvents.enabled && element && stalledStreams.length === 1 && (settings.get().streaming.buffer.syntheticStallEvents.ignoreReadyState || getReadyState() >= Constants.VIDEO_ELEMENT_READY_STATES.HAVE_FUTURE_DATA)) {
+            // Halt playback until nothing is stalled
+            previousPlaybackRate = element.playbackRate;
+            setPlaybackRate(0, true);
+
+            const event = document.createEvent('Event');
+            event.initEvent('waiting', true, false);
+            element.dispatchEvent(event);
+        }
     }
 
     function removeStalledStream(type) {
@@ -294,6 +347,26 @@ function VideoModel() {
             stalledStreams.splice(index, 1);
         }
 
+        if (settings.get().streaming.buffer.syntheticStallEvents.enabled && element && !isStalled()) {
+            const resume = () => {
+                setPlaybackRate(previousPlaybackRate || 1, settings.get().streaming.buffer.syntheticStallEvents.ignoreReadyState);
+
+                if (!element.paused) {
+                    const event = document.createEvent('Event');
+                    event.initEvent('playing', true, false);
+                    element.dispatchEvent(event);
+                }
+            }
+
+            if (settings.get().streaming.buffer.syntheticStallEvents.ignoreReadyState) {
+                resume();
+            } else {
+                if (resumeReadyStateFunction && resumeReadyStateFunction.func && resumeReadyStateFunction.event) {
+                    removeEventListener(resumeReadyStateFunction.event, resumeReadyStateFunction.func);
+                }
+                resumeReadyStateFunction = waitForReadyState(Constants.VIDEO_ELEMENT_READY_STATES.HAVE_FUTURE_DATA, resume);
+            }
+        }
     }
 
     function stallStream(type, isStalled) {
@@ -555,6 +628,7 @@ function VideoModel() {
         removeEventListener,
         removeOverlayElementById,
         reset,
+        setConfig,
         setCurrentTime,
         setDisableRemotePlayback,
         setElement,

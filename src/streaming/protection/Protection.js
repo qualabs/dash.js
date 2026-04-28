@@ -35,6 +35,7 @@ import ProtectionErrors from './errors/ProtectionErrors.js';
 import DefaultProtectionModel from './models/DefaultProtectionModel.js';
 import ProtectionModel_3Feb2014 from './models/ProtectionModel_3Feb2014.js';
 import ProtectionModel_01b from './models/ProtectionModel_01b.js';
+import FactoryMaker from '../../core/FactoryMaker.js';
 
 const APIS_ProtectionModel_01b = [
     // Un-prefixed as per spec
@@ -124,7 +125,7 @@ function Protection() {
         if (protectionModel) {
             controller = ProtectionController(context).create({
                 BASE64: config.BASE64,
-                cmcdModel: config.cmcdModel,
+                cmcdController: config.cmcdController,
                 constants: config.constants,
                 customParametersModel: config.customParametersModel,
                 debug: config.debug,
@@ -200,8 +201,8 @@ function Protection() {
 }
 
 Protection.__dashjs_factory_name = 'Protection';
-const factory = dashjs.FactoryMaker.getClassFactory(Protection);
+const factory = FactoryMaker.getClassFactory(Protection);
 factory.events = ProtectionEvents;
 factory.errors = ProtectionErrors;
-dashjs.FactoryMaker.updateClassFactory(Protection.__dashjs_factory_name, factory);
+FactoryMaker.updateClassFactory(Protection.__dashjs_factory_name, factory);
 export default factory;

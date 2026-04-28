@@ -32,12 +32,8 @@ import FragmentRequest from '../streaming/vo/FragmentRequest.js';
 import {HTTPRequest} from '../streaming/vo/metrics/HTTPRequest.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import MediaPlayerEvents from '../streaming/MediaPlayerEvents.js';
-import {
-    replaceIDForTemplate,
-    replaceTokenForTemplate,
-    unescapeDollarsInTemplate
-} from './utils/SegmentsUtils.js';
 import DashConstants from './constants/DashConstants.js';
+import {processUriTemplate} from './utils/SegmentsUtils.js';
 
 
 const DEFAULT_ADJUST_SEEK_TIME_THRESHOLD = 0.5;
@@ -145,44 +141,7 @@ function DashHandler(config) {
         request.representation = representation;
 
         if (_setRequestUrl(request, representation.initialization, representation)) {
-            request.url = replaceTokenForTemplate(request.url, 'Bandwidth', representation.bandwidth);
-            return request;
-        }
-    }
-
-    function _getRequestForSegment(mediaInfo, segment) {
-        if (segment === null || segment === undefined) {
-            return null;
-        }
-
-        const request = new FragmentRequest();
-        const representation = segment.representation;
-        const bandwidth = representation.bandwidth;
-        let url = segment.media;
-
-        url = replaceTokenForTemplate(url, 'Number', segment.replacementNumber);
-        url = replaceTokenForTemplate(url, 'Time', segment.replacementTime);
-        url = replaceTokenForTemplate(url, 'Bandwidth', bandwidth);
-        url = replaceIDForTemplate(url, representation.id);
-        url = unescapeDollarsInTemplate(url);
-
-        request.mediaType = getType();
-        request.bandwidth = representation.bandwidth;
-        request.type = HTTPRequest.MEDIA_SEGMENT_TYPE;
-        request.range = segment.mediaRange;
-        request.startTime = segment.presentationStartTime;
-        request.mediaStartTime = segment.mediaStartTime;
-        request.duration = segment.duration;
-        request.timescale = representation.timescale;
-        request.availabilityStartTime = segment.availabilityStartTime;
-        request.availabilityEndTime = segment.availabilityEndTime;
-        request.availabilityTimeComplete = representation.availabilityTimeComplete;
-        request.wallStartTime = segment.wallStartTime;
-        request.index = segment.index;
-        request.adaptationIndex = representation.adaptation.index;
-        request.representation = representation;
-
-        if (_setRequestUrl(request, url, representation)) {
+            request.url = processUriTemplate(request.url, representation.id, undefined, undefined, representation.bandwidth);
             return request;
         }
     }
@@ -249,6 +208,46 @@ function DashHandler(config) {
         return request;
     }
 
+    function _getRequestForSegment(mediaInfo, segment) {
+        if (segment === null || segment === undefined) {
+            return null;
+        }
+
+        const request = new FragmentRequest();
+        const representation = segment.representation;
+        const bandwidth = representation.bandwidth;
+        const url = processUriTemplate(
+            segment.media,
+            representation.id,
+            segment.replacementNumber,
+            segment.replacementSubNumber,
+            bandwidth,
+            segment.replacementTime
+        );
+
+        request.adaptationIndex = representation.adaptation.index;
+        request.availabilityEndTime = segment.availabilityEndTime;
+        request.availabilityStartTime = segment.availabilityStartTime;
+        request.availabilityTimeComplete = representation.availabilityTimeComplete;
+        request.bandwidth = representation.bandwidth;
+        request.duration = segment.duration;
+        request.index = segment.index;
+        request.isPartialSegmentRequest = segment.isPartialSegment;
+        request.mediaStartTime = segment.mediaStartTime;
+        request.mediaType = getType();
+        request.presentationStartTime = segment.presentationStartTime;
+        request.range = segment.mediaRange;
+        request.representation = representation;
+        request.startTime = segment.presentationStartTime;
+        request.timescale = representation.timescale;
+        request.type = HTTPRequest.MEDIA_SEGMENT_TYPE;
+        request.wallStartTime = segment.wallStartTime;
+
+        if (_setRequestUrl(request, url, representation)) {
+            return request;
+        }
+    }
+
     /**
      * This function returns the next segment request without modifying any internal variables. Any class (e.g CMCD Model) that needs information about the upcoming request should use this method.
      * @param {object} mediaInfo
@@ -257,16 +256,18 @@ function DashHandler(config) {
      */
     function getNextSegmentRequestIdempotent(mediaInfo, representation) {
         let request = null;
-        let indexToRequest = lastSegment ? lastSegment.index + 1 : 0;
+        let { indexToRequest, subNumberOfPartialSegmentToRequest } = _getIndicesToRequest(lastSegment);
         const segment = segmentsController.getSegmentByIndex(
             representation,
             indexToRequest,
-            lastSegment ? lastSegment.mediaStartTime : -1
+            subNumberOfPartialSegmentToRequest,
+            lastSegment
         );
         if (!segment) {
             return null;
         }
         request = _getRequestForSegment(mediaInfo, segment);
+
         return request;
     }
 
@@ -281,9 +282,50 @@ function DashHandler(config) {
             return null;
         }
 
-        let indexToRequest = lastSegment ? lastSegment.index + 1 : 0;
+        if (_hasMediaFinished(representation)) {
+            mediaHasFinished = true;
+            return null;
+        }
 
-        return _getRequest(mediaInfo, representation, indexToRequest);
+        let { indexToRequest, subNumberOfPartialSegmentToRequest } = _getIndicesToRequest(lastSegment);
+        return _getRequest(mediaInfo, representation, indexToRequest, subNumberOfPartialSegmentToRequest);
+    }
+
+    function _hasMediaFinished(representation) {
+        return representation && lastSegment && representation.endNumber && lastSegment.replacementNumber && lastSegment.replacementNumber >= representation.endNumber
+    }
+
+    function _getIndicesToRequest(lastSegment) {
+        // Default values if no last segment
+        if (!lastSegment) {
+            return { indexToRequest: 0, subNumberOfPartialSegmentToRequest: NaN };
+        }
+
+        // Handle partial segments
+        const isPartial = lastSegment.isPartialSegment;
+        const hasValidSubNumber = !isNaN(lastSegment.replacementSubNumber);
+        const hasValidPartialCount = !isNaN(lastSegment.totalNumberOfPartialSegments);
+
+        if (isPartial && hasValidSubNumber && hasValidPartialCount) {
+            const nextSubNumber = lastSegment.replacementSubNumber + 1;
+            if (nextSubNumber < lastSegment.totalNumberOfPartialSegments) {
+                return {
+                    indexToRequest: lastSegment.index,
+                    subNumberOfPartialSegmentToRequest: nextSubNumber
+                };
+            } else {
+                return {
+                    indexToRequest: lastSegment.index + 1,
+                    subNumberOfPartialSegmentToRequest: 0
+                };
+            }
+        }
+
+        // Default: next segment index
+        return {
+            indexToRequest: lastSegment.index + 1,
+            subNumberOfPartialSegmentToRequest: NaN
+        };
     }
 
     function repeatSegmentRequest(mediaInfo, representation) {
@@ -291,14 +333,20 @@ function DashHandler(config) {
             return null;
         }
 
-        let indexToRequest = lastSegment ? lastSegment.index : 0;
+        const indexToRequest = lastSegment ? lastSegment.index : 0;
+        const subNumberOfPartialSegmentToRequest = lastSegment && lastSegment.isPartialSegment && !isNaN(lastSegment.replacementSubNumber) ? lastSegment.replacementSubNumber : NaN;
 
-        return _getRequest(mediaInfo, representation, indexToRequest);
+        return _getRequest(mediaInfo, representation, indexToRequest, subNumberOfPartialSegmentToRequest);
     }
 
-    function _getRequest(mediaInfo, representation, indexToRequest) {
+    function _getRequest(mediaInfo, representation, indexToRequest, subNumberOfPartialSegmentToRequest) {
         let request = null;
-        const segment = segmentsController.getSegmentByIndex(representation, indexToRequest, lastSegment ? lastSegment.mediaStartTime : -1);
+        const segment = segmentsController.getSegmentByIndex(
+            representation,
+            indexToRequest,
+            subNumberOfPartialSegmentToRequest,
+            lastSegment
+        );
 
         // No segment found
         if (!segment) {
@@ -399,6 +447,10 @@ function DashHandler(config) {
         return lastSegment ? lastSegment.index : -1;
     }
 
+    function getLastSegment() {
+        return lastSegment;
+    }
+
     function _onDynamicToStatic() {
         logger.debug('Dynamic stream complete');
         mediaHasFinished = true;
@@ -407,6 +459,7 @@ function DashHandler(config) {
     instance = {
         getCurrentIndex,
         getInitRequest,
+        getLastSegment,
         getNextSegmentRequest,
         getNextSegmentRequestIdempotent,
         getSegmentRequestForTime,

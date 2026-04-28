@@ -30,6 +30,8 @@
  */
 
 import DescriptorType from './DescriptorType.js';
+import EventTarget from './EventTarget.js';
+import Constants from '../../streaming/constants/Constants.js';
 
 /**
  * @class
@@ -44,19 +46,36 @@ class CMCDParameters extends DescriptorType {
         this.mode = null;
         this.keys = null;
         this.includeInRequests = null;
+        this.reportingTargets = null;
     }
 
     init(data) {
         super.init(data);
 
         if (data) {
-            this.version = data.version;
+            this.version = data.version ? parseInt(data.version) : null;
             this.sessionID = data.sessionID;
             this.contentID = data.contentID;
             this.mode = data.mode ?? 'query';
             this.keys = data.keys ? data.keys.split(' ') : null;
-            this.includeInRequests = data.includeInRequests ? data.includeInRequests.split(' ') : ['segment'];
+            this.includeInRequests = data.includeInRequests
+                ? data.includeInRequests.split(' ')
+                : [Constants.CMCD_DEFAULT_INCLUDE_IN_REQUESTS];
             this.schemeIdUri = data.schemeIdUri;
+
+            // Version 2: Parse ReportingTargets with EventTargets
+            if (data.ReportingTargets && data.ReportingTargets.EventTarget) {
+                this.reportingTargets = [];
+                const eventTargets = Array.isArray(data.ReportingTargets.EventTarget)
+                    ? data.ReportingTargets.EventTarget
+                    : [data.ReportingTargets.EventTarget];
+
+                eventTargets.forEach(targetData => {
+                    const eventTarget = new EventTarget();
+                    eventTarget.init(targetData);
+                    this.reportingTargets.push(eventTarget);
+                });
+            }
         }
     }
 }

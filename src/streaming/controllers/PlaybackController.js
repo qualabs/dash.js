@@ -43,31 +43,31 @@ function PlaybackController() {
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
 
-    let instance,
-        logger,
-        streamController,
-        serviceDescriptionController,
+    let adapter,
+        availabilityStartTime,
         dashMetrics,
-        adapter,
-        videoModel,
-        timelineConverter,
-        wallclockTimeIntervalId,
-        liveDelay,
-        originalLiveDelay,
-        streamInfo,
+        initialCatchupModeActivated,
+        instance,
+        internalSeek,
         isDynamic,
-        playOnceInitialized,
         lastLivePlaybackTime,
         lastLiveUpdateTime,
-        availabilityStartTime,
-        availabilityTimeComplete,
+        liveDelay,
+        logger,
         lowLatencyModeEnabled,
-        seekTarget,
-        internalSeek,
-        playbackStalled,
         manifestUpdateInProgress,
-        initialCatchupModeActivated,
-        settings;
+        originalLiveDelay,
+        playOnceInitialized,
+        playbackStalled,
+        seekTarget,
+        serviceDescriptionController,
+        settings,
+        streamController,
+        streamInfo,
+        timelineConverter,
+        videoModel,
+        wallclockTimeIntervalId;
+
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
@@ -85,7 +85,6 @@ function PlaybackController() {
         originalLiveDelay = 0;
         availabilityStartTime = 0;
         manifestUpdateInProgress = false;
-        availabilityTimeComplete = true;
         lowLatencyModeEnabled = false;
         initialCatchupModeActivated = false;
         seekTarget = NaN;
@@ -267,6 +266,25 @@ function PlaybackController() {
         seek(seektime, stickToBuffered, internal, adjustLiveDelay);
     }
 
+    function seekToStartDvrWindow(stickToBuffered = false, internal = false, adjustLiveDelay = false) {
+        const dvrWindowStart = getDvrWindowStart();
+
+        if (dvrWindowStart === 0) {
+            return;
+        }
+
+        seek(dvrWindowStart, stickToBuffered, internal, adjustLiveDelay);
+    }
+
+    function getDvrWindowStart() {
+        if (!streamInfo || !videoModel || !isDynamic) {
+            return;
+        }
+        const type = streamController && streamController.hasVideoTrack() ? Constants.VIDEO : Constants.AUDIO;
+        const dvrInfo = dashMetrics.getCurrentDVRInfo(type);
+        return dvrInfo && dvrInfo.range ? dvrInfo.range.start : 0;
+    }
+    
     function _getDvrWindowEnd() {
         if (!streamInfo || !videoModel || !isDynamic) {
             return;
@@ -689,7 +707,9 @@ function PlaybackController() {
     function _onPlaybackSeeked() {
         logger.info('Native video element event: seeked');
         internalSeek = false;
-        eventBus.trigger(Events.PLAYBACK_SEEKED);
+        eventBus.trigger(Events.PLAYBACK_SEEKED, {
+            streamId: streamInfo.id
+        });
     }
 
     function _onPlaybackTimeUpdated() {
@@ -703,7 +723,9 @@ function PlaybackController() {
     }
 
     function _onPlaybackProgress() {
-        eventBus.trigger(Events.PLAYBACK_PROGRESS, { streamId: streamInfo.id });
+        if (streamInfo){
+            eventBus.trigger(Events.PLAYBACK_PROGRESS, { streamId: streamInfo.id });
+        }
     }
 
     function _onPlaybackRateChanged() {
@@ -828,7 +850,7 @@ function PlaybackController() {
     }
 
     /**
-     * We enable low latency playback if for the current representation availabilityTimeComplete is set to false
+     * We enable low latency playback if for the current representation availabilityTimeComplete is set to false or there is a k value larger than 1 in the segment template
      * @param e
      * @private
      */
@@ -838,8 +860,7 @@ function PlaybackController() {
             return;
         }
 
-        availabilityTimeComplete = e.currentRepresentation.availabilityTimeComplete;
-        lowLatencyModeEnabled = !availabilityTimeComplete;
+        lowLatencyModeEnabled = e.currentRepresentation.availabilityTimeComplete === false || e.currentRepresentation.k > 1;
 
         // If we enable low latency mode for the first time we also enable the catchup mechanism. This can be deactivated again for instance if the user seeks within the DVR window. We leave deactivation up to the application but also do not activate automatically again.
         if (lowLatencyModeEnabled && !initialCatchupModeActivated) {
@@ -878,75 +899,77 @@ function PlaybackController() {
     function addAllListeners() {
         videoModel.addEventListener('canplay', _onCanPlay);
         videoModel.addEventListener('canplaythrough', _onCanPlayThrough);
-        videoModel.addEventListener('play', _onPlaybackStart);
-        videoModel.addEventListener('waiting', _onPlaybackWaiting);
-        videoModel.addEventListener('playing', _onPlaybackPlaying);
-        videoModel.addEventListener('pause', _onPlaybackPaused);
+        videoModel.addEventListener('ended', _onNativePlaybackEnded);
         videoModel.addEventListener('error', _onPlaybackError);
-        videoModel.addEventListener('seeking', _onPlaybackSeeking);
-        videoModel.addEventListener('seeked', _onPlaybackSeeked);
-        videoModel.addEventListener('timeupdate', _onPlaybackTimeUpdated);
+        videoModel.addEventListener('loadeddata', _onPlaybackLoadedData);
+        videoModel.addEventListener('loadedmetadata', _onPlaybackMetaDataLoaded);
+        videoModel.addEventListener('pause', _onPlaybackPaused);
+        videoModel.addEventListener('play', _onPlaybackStart);
+        videoModel.addEventListener('playing', _onPlaybackPlaying);
         videoModel.addEventListener('progress', _onPlaybackProgress);
         videoModel.addEventListener('ratechange', _onPlaybackRateChanged);
-        videoModel.addEventListener('loadedmetadata', _onPlaybackMetaDataLoaded);
-        videoModel.addEventListener('loadeddata', _onPlaybackLoadedData);
+        videoModel.addEventListener('seeked', _onPlaybackSeeked);
+        videoModel.addEventListener('seeking', _onPlaybackSeeking);
         videoModel.addEventListener('stalled', onPlaybackStalled);
-        videoModel.addEventListener('ended', _onNativePlaybackEnded);
+        videoModel.addEventListener('timeupdate', _onPlaybackTimeUpdated);
         videoModel.addEventListener('volumechange', _onVolumeChanged);
+        videoModel.addEventListener('waiting', _onPlaybackWaiting);
     }
 
     function removeAllListeners() {
         videoModel.removeEventListener('canplay', _onCanPlay);
         videoModel.removeEventListener('canplaythrough', _onCanPlayThrough);
-        videoModel.removeEventListener('play', _onPlaybackStart);
-        videoModel.removeEventListener('waiting', _onPlaybackWaiting);
-        videoModel.removeEventListener('playing', _onPlaybackPlaying);
-        videoModel.removeEventListener('pause', _onPlaybackPaused);
+        videoModel.removeEventListener('ended', _onNativePlaybackEnded);
         videoModel.removeEventListener('error', _onPlaybackError);
-        videoModel.removeEventListener('seeking', _onPlaybackSeeking);
-        videoModel.removeEventListener('seeked', _onPlaybackSeeked);
-        videoModel.removeEventListener('timeupdate', _onPlaybackTimeUpdated);
+        videoModel.removeEventListener('loadeddata', _onPlaybackLoadedData);
+        videoModel.removeEventListener('loadedmetadata', _onPlaybackMetaDataLoaded);
+        videoModel.removeEventListener('pause', _onPlaybackPaused);
+        videoModel.removeEventListener('play', _onPlaybackStart);
+        videoModel.removeEventListener('playing', _onPlaybackPlaying);
         videoModel.removeEventListener('progress', _onPlaybackProgress);
         videoModel.removeEventListener('ratechange', _onPlaybackRateChanged);
-        videoModel.removeEventListener('loadedmetadata', _onPlaybackMetaDataLoaded);
-        videoModel.removeEventListener('loadeddata', _onPlaybackLoadedData);
+        videoModel.removeEventListener('seeked', _onPlaybackSeeked);
+        videoModel.removeEventListener('seeking', _onPlaybackSeeking);
         videoModel.removeEventListener('stalled', onPlaybackStalled);
-        videoModel.removeEventListener('ended', _onNativePlaybackEnded);
+        videoModel.removeEventListener('timeupdate', _onPlaybackTimeUpdated);
         videoModel.removeEventListener('volumechange', _onVolumeChanged);
+        videoModel.removeEventListener('waiting', _onPlaybackWaiting);
     }
 
     instance = {
-        initialize,
-        setConfig,
-        getTimeToStreamEnd,
-        getBufferLevel,
-        getPlaybackStalled,
-        getTime,
-        getLowLatencyModeEnabled,
-        getInitialCatchupModeActivated,
-        getIsManifestUpdateInProgress,
-        getPlaybackRate,
-        getPlayedRanges,
-        getEnded,
-        getIsDynamic,
-        getStreamController,
         computeAndSetLiveDelay,
-        getLiveDelay,
-        getOriginalLiveDelay,
+        getAvailabilityStartTime,
+        getBufferLevel,
         getCurrentLiveLatency,
-        play,
+        getDvrWindowStart,
+        getEnded,
+        getInitialCatchupModeActivated,
+        getIsDynamic,
+        getIsManifestUpdateInProgress,
+        getLiveDelay,
+        getLowLatencyModeEnabled,
+        getOriginalLiveDelay,
+        getPlaybackRate,
+        getPlaybackStalled,
+        getPlayedRanges,
+        getStreamController,
+        getStreamEndTime,
+        getTime,
+        getTimeToStreamEnd,
+        initialize,
         isPaused,
         isProgressing,
+        isSeeking,
         isStalled,
         pause,
-        isSeeking,
-        getStreamEndTime,
-        seek,
-        seekToOriginalLive,
-        seekToCurrentLive,
+        play,
         reset,
+        seek,
+        seekToCurrentLive,
+        seekToOriginalLive,
+        seekToStartDvrWindow,
+        setConfig,
         updateCurrentTime,
-        getAvailabilityStartTime
     };
 
     setup();
