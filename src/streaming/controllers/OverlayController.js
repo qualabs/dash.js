@@ -124,11 +124,18 @@ function OverlayController() {
         const currentTime = playbackController.getTime();
         overlayList.forEach((scheduledOverlay) => {
             const { eventId, duration, presentationTime, overlay, overlayElement } = scheduledOverlay;
-            if (!scheduledOverlay.started && _canSetOverlayElement(presentationTime, currentTime, duration)) {
-                scheduledOverlay.started = true;
-                _stylizeOverlayContainter(overlay);
-                overlayElement.loop = overlay.loop === 'true';
-                videoModel.setOverlayElement(overlayElement, eventId);
+            if (scheduledOverlay.started) { return };
+            if (!_canSetOverlayElement(presentationTime, currentTime, duration)) { return };
+            if (!scheduledOverlay.resolved) {
+                _stopOverlayEvent(eventId);
+                return;
+            }
+            scheduledOverlay.started = true;
+            _stylizeOverlayContainter(overlay, overlayElement);
+            overlayElement.loop = overlay.loop === 'true';
+            videoModel.setOverlayElement(overlayElement, eventId);
+            if (scheduledOverlay.blobUrl) {
+                overlayElement.src = scheduledOverlay.blobUrl;
             }
         });
     }
@@ -166,25 +173,61 @@ function OverlayController() {
     }
 
     function _overlayStartMode(event) {
-        let overlayElement
+        let overlayElement;
         if (event.overlay.mimeType === Constants.OVERLAY.VIDEO_MIMETYPE) {
             overlayElement = _createVideoOverlayElement(event);
         } else if (event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE) {
             overlayElement = _createIframeOverlayElement(event);
         }
-        _adaptOverlayElement(overlayElement, event.overlay.uri);
 
         const eventId = event.id ?? `${Utils.generateUuid()}`;
         const presentationTime = event.presentationTime / 1000;
-        overlayList.push({
+        const overlayEntry = {
             eventId,
             duration: event.duration,
             presentationTime,
             overlay: event.overlay,
             overlayElement,
-            started: false
-        });
+            started: false,
+            resolved: false,
+            abortController: null,
+            blobUrl: null
+        };
+        overlayList.push(overlayEntry);
+
+        const usePrefetch = event.overlay.mimeType === Constants.OVERLAY.IFRMAE_MIMETYPE
+            && event.overlay.earliestResolutionTime > 0;
+
+        if (usePrefetch) {
+            overlayElement.style.width = '100%';
+            overlayElement.style.height = '100%';
+            _prefetchIframeContent(overlayEntry, event.overlay.uri);
+        } else {
+            _adaptOverlayElement(overlayElement, event.overlay.uri);
+            overlayEntry.resolved = true;
+        }
+
         _initializeScheduler();
+    }
+
+    function _prefetchIframeContent(overlayEntry, uri) {
+        const abortController = new AbortController();
+        overlayEntry.abortController = abortController;
+
+        fetch(uri, { signal: abortController.signal })
+            .then((response) => {
+                if (!response.ok) { return };
+                return response.blob();
+            })
+            .then((blob) => {
+                if (!blob) { return };
+                const entry = overlayList.find(e => e.eventId === overlayEntry.eventId);
+                if (!entry) { return };
+                const blobUrl = URL.createObjectURL(blob);
+                entry.blobUrl = blobUrl;
+                entry.resolved = true;
+            })
+            .catch(() => {});
     }
 
     function _overlayExtendMode(event) {
@@ -202,10 +245,18 @@ function OverlayController() {
     }
 
     function _stopOverlayEvent(refId) {
+        const entry = overlayList.find(e => e.eventId === refId);
+        if (entry) {
+            if (entry.abortController) {
+                entry.abortController.abort();
+            }
+            if (entry.blobUrl) {
+                URL.revokeObjectURL(entry.blobUrl);
+            }
+        }
         videoModel.removeOverlayElementById(refId);
         configureVideoElementForOverlay();
-        // Do not filter if we want to reuse the overlays once they end.
-        overlayList = overlayList.filter((element) => element.eventId != refId);
+        overlayList = overlayList.filter((element) => element.eventId !== refId);
     }
 
     function _overlayEventIsFinished(presentationTime, duration, currentTime) {
@@ -271,11 +322,12 @@ function OverlayController() {
         if (!isNaN(z)) {
             overlayDiv.style['z-index'] = z;
         }
+        overlayDiv.style.overflow = 'hidden';
 
         if (SqueezeCurrent && z == -1) {
             const squeezeCurrent = SqueezeCurrent.percentage;
             videoElement.style.transition = 'transform';
-            videoElement.style['transform-origin'] = 'top left';
+            videoElement.style['transform-origin'] = SqueezeCurrent.origin ?? 'top left';
             videoElement.style.transform = `scale(${squeezeCurrent})`;
         }
 
