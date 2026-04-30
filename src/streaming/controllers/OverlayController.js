@@ -66,6 +66,7 @@ function OverlayController() {
         const parent = videoElement.parentElement;
         parent.style.position = 'relative';
         parent.style.overflow = 'hidden';
+        parent.style.isolation = 'isolate';
     }
 
     function setupOverlayEvents() {
