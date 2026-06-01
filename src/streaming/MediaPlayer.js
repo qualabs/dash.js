@@ -1634,6 +1634,7 @@ function MediaPlayer() {
             throw ELEMENT_NOT_ATTACHED_ERROR;
         }
 
+        
         overlayController.configureVideoElementForOverlay();
         videoModel.setOverlayRenderingDiv(overlayDiv);
 

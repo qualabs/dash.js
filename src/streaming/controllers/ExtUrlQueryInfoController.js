@@ -186,6 +186,12 @@ function ExtUrlQueryInfoController() {
                 if (inRequest) {
                     return mpdQueryStringInformation.queryParams;
                 }
+            } else if (request.type === HTTPRequest.OVERLAY_TYPE) {
+                const inRequest = mpdQueryStringInformation.includeInRequests &&
+                    mpdQueryStringInformation.includeInRequests.includes(Constants.OVERLAY.SCHEME_ID);
+                if (inRequest) {
+                    return mpdQueryStringInformation.queryParams;
+                }
             }
         } catch (e) {
             logger.error(e);

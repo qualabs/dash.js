@@ -182,5 +182,6 @@ HTTPRequest.LICENSE = 'license';
 HTTPRequest.CONTENT_STEERING_TYPE = 'ContentSteering';
 HTTPRequest.CMCD_EVENT = 'CmcdEvent';
 HTTPRequest.OTHER_TYPE = 'other';
+HTTPRequest.OVERLAY_TYPE = 'OverlayFetch';
 
 export {HTTPRequest, HTTPRequestTrace};

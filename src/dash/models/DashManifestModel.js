@@ -1358,6 +1358,7 @@ function DashManifestModel() {
                     if (currentMpdEvent.hasOwnProperty(DashConstants.OVERLAY)) {
                         event.overlay = currentMpdEvent.OverlayEvent;
                         if (event.overlay.earliestResolutionTime) {
+                            event.originalPresentationTime = event.calculatedPresentationTime;
                             event.calculatedPresentationTime -= event.overlay.earliestResolutionTime / eventStream.timescale;
                         }
                     }

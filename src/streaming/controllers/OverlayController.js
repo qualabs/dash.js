@@ -30,7 +30,9 @@
  */
 import Constants from '../constants/Constants.js';
 import EventBus from './../../core/EventBus.js';
+import ExtUrlQueryInfoController from './ExtUrlQueryInfoController.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
+import {HTTPRequest} from '../vo/metrics/HTTPRequest.js';
 import PlaybackController from './PlaybackController.js';
 import Utils from '../../core/Utils.js';
 
@@ -38,6 +40,7 @@ function OverlayController() {
 
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
+    const extUrlQueryInfoController = ExtUrlQueryInfoController(context).getInstance();
     const playbackController = PlaybackController(context).getInstance();
 
     let instance,
@@ -202,31 +205,54 @@ function OverlayController() {
         if (usePrefetch) {
             overlayElement.style.width = '100%';
             overlayElement.style.height = '100%';
-            _prefetchIframeContent(overlayEntry, event.overlay.uri);
+            _prefetchIframeContent(overlayEntry, _resolveOverlayUri(event.overlay.uri));
         } else {
-            _adaptOverlayElement(overlayElement, event.overlay.uri);
+            _adaptOverlayElement(overlayElement, _resolveOverlayUri(event.overlay.uri));
             overlayEntry.resolved = true;
         }
 
         _initializeScheduler();
     }
 
+    function _resolveOverlayUri(uri) {
+        const queryParams = extUrlQueryInfoController.getFinalQueryString({ type: HTTPRequest.OVERLAY_TYPE });
+        if (!queryParams) return uri;
+        const filtered = queryParams.filter(p => p.key !== 'CMCD');
+        if (!filtered.length) return uri;
+        return Utils.addAdditionalQueryParameterToUrl(uri, filtered);
+    }
+
     function _prefetchIframeContent(overlayEntry, uri) {
         const abortController = new AbortController();
         overlayEntry.abortController = abortController;
 
+        const tRequest = new Date();
         fetch(uri, { signal: abortController.signal })
             .then((response) => {
                 if (!response.ok) { return };
-                return response.blob();
+                const status = response.status;
+                return response.blob().then(blob => ({ blob, status }));
             })
-            .then((blob) => {
-                if (!blob) { return };
+            .then((result) => {
+                if (!result) { return };
+                const { blob, status } = result;
                 const entry = overlayList.find(e => e.eventId === overlayEntry.eventId);
                 if (!entry) { return };
                 const blobUrl = URL.createObjectURL(blob);
                 entry.blobUrl = blobUrl;
                 entry.resolved = true;
+                eventBus.trigger('metricAdded', {
+                    mediaType: null,
+                    metric: 'HttpList',
+                    value: {
+                        type: HTTPRequest.OVERLAY_TYPE,
+                        url: uri,
+                        responsecode: status,
+                        trequest: tRequest,
+                        _tfinish: new Date(),
+                        trace: [{ b: [blob.size] }]
+                    }
+                });
             })
             .catch(() => {});
     }

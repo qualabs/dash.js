@@ -191,6 +191,10 @@ function EventController() {
                     const isRetriggerable = _isRetriggerable(event);
                     const hasNoJump = _hasNoJumpValue(event);
                     const hasExecuteOnce = _hasExecuteOnceValue(event);
+                    const ertOffset = event.originalPresentationTime !== undefined
+                        ? event.originalPresentationTime - event.calculatedPresentationTime
+                        : 0;
+                    const effectiveThreshold = presentationTimeThreshold + ertOffset;
 
                     // Check if event is ready to resolve (earliestResolutionTimeOffset feature)
                     if (_checkEventReadyToResolve(event, currentVideoTime)) {
@@ -207,12 +211,12 @@ function EventController() {
                         _startEvent(event, MediaPlayerEvents.EVENT_MODE_ON_START);
                     }
                     // Handle regular events - these check duration and timing
-                    else if (event.calculatedPresentationTime <= currentVideoTime && event.calculatedPresentationTime + presentationTimeThreshold + duration >= currentVideoTime) {
+                    else if (event.calculatedPresentationTime <= currentVideoTime && event.calculatedPresentationTime + effectiveThreshold + duration >= currentVideoTime) {
                         _startEvent(event, MediaPlayerEvents.EVENT_MODE_ON_START);
                         if (hasNoJump) {
                             event.triggeredNoJumpEvent = true;
                         }
-                    } else if (_eventHasExpired(currentVideoTime, duration + presentationTimeThreshold, event.calculatedPresentationTime, isRetriggerable) || _eventIsInvalid(event)) {
+                    } else if (_eventHasExpired(currentVideoTime, duration + effectiveThreshold, event.calculatedPresentationTime, isRetriggerable) || _eventIsInvalid(event)) {
                         // Only remove non-retriggerables events or events with executeOnce that have been triggered
                         if (!isRetriggerable || (hasExecuteOnce && event.triggeredStartEvent)) {
                             logger.debug(`Removing event ${event.id} from period ${event.eventStream.period.id} as it is expired, invalid, or executeOnce`);
@@ -267,7 +271,10 @@ function EventController() {
                     let event = values[i];
                     const currentTime = playbackController.getTime();
                     const duration = !isNaN(event.duration) ? event.duration : 0;
-                    if (!_eventHasExpired(currentTime, duration, event.calculatedPresentationTime)) {
+                    const ertOffset = event.originalPresentationTime !== undefined
+                        ? event.originalPresentationTime - event.calculatedPresentationTime
+                        : 0;
+                    if (!_eventHasExpired(currentTime, duration + ertOffset, event.calculatedPresentationTime)) {
                         let result = _addOrUpdateEvent(event, inlineEvents[periodId], true);
 
                         if (result === EVENT_HANDLED_STATES.ADDED) {
@@ -303,7 +310,10 @@ function EventController() {
                 let event = values[i];
                 const currentTime = playbackController.getTime();
                 const duration = !isNaN(event.duration) ? event.duration : 0;
-                if (!_eventHasExpired(currentTime, duration, event.calculatedPresentationTime)) {
+                const ertOffset = event.originalPresentationTime !== undefined
+                    ? event.originalPresentationTime - event.calculatedPresentationTime
+                    : 0;
+                if (!_eventHasExpired(currentTime, duration + ertOffset, event.calculatedPresentationTime)) {
                     let result = _addOrUpdateEvent(event, inbandEvents[periodId], false);
 
                     if (result === EVENT_HANDLED_STATES.ADDED) {
