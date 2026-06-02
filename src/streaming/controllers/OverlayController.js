@@ -64,6 +64,9 @@ function OverlayController() {
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
         videoElement.style.display = 'block';
+        // Smooth squeezeback: animate the scale change (shrink on overlay start,
+        // grow back on overlay end) instead of snapping abruptly.
+        videoElement.style.transition = 'transform 0.6s ease-in-out';
         videoElement.style.transform = 'scale(1)';
 
         const parent = videoElement.parentElement;
@@ -273,17 +276,38 @@ function OverlayController() {
 
     function _stopOverlayEvent(refId) {
         const entry = overlayList.find(e => e.eventId === refId);
-        if (entry) {
-            if (entry.abortController) {
-                entry.abortController.abort();
-            }
-            if (entry.blobUrl) {
+
+        // Drop it from the schedule immediately so it isn't re-processed, but keep
+        // the ad element and its blob alive until the video has finished growing
+        // back to full size — so the ad never disappears before it is covered again.
+        overlayList = overlayList.filter((element) => element.eventId !== refId);
+
+        if (entry && entry.abortController) {
+            entry.abortController.abort();
+        }
+
+        const videoElement = videoModel.getElement();
+
+        // Start the grow-back animation with the ad still visible underneath.
+        configureVideoElementForOverlay();
+
+        let cleaned = false;
+        const cleanup = () => {
+            if (cleaned) { return; }
+            cleaned = true;
+            if (videoElement) { videoElement.removeEventListener('transitionend', onTransitionEnd); }
+            videoModel.removeOverlayElementById(refId);
+            if (entry && entry.blobUrl) {
                 URL.revokeObjectURL(entry.blobUrl);
             }
-        }
-        videoModel.removeOverlayElementById(refId);
-        configureVideoElementForOverlay();
-        overlayList = overlayList.filter((element) => element.eventId !== refId);
+        };
+        const onTransitionEnd = (e) => {
+            if (e && e.propertyName && e.propertyName !== 'transform') { return; }
+            cleanup();
+        };
+        if (videoElement) { videoElement.addEventListener('transitionend', onTransitionEnd); }
+        // Fallback in case transitionend never fires (e.g. no squeeze was applied).
+        setTimeout(cleanup, 700);
     }
 
     function _overlayEventIsFinished(presentationTime, duration, currentTime) {
@@ -353,7 +377,7 @@ function OverlayController() {
 
         if (SqueezeCurrent && z == -1) {
             const squeezeCurrent = SqueezeCurrent.percentage;
-            videoElement.style.transition = 'transform';
+            videoElement.style.transition = 'transform 0.6s ease-in-out';
             videoElement.style['transform-origin'] = SqueezeCurrent.origin ?? 'top left';
             videoElement.style.transform = `scale(${squeezeCurrent})`;
         }
