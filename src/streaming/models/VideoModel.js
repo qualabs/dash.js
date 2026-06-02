@@ -131,7 +131,12 @@ function VideoModel() {
 
         // If media element hasn't loaded enough data to play yet, wait until it has
         waitForReadyState(Constants.VIDEO_ELEMENT_READY_STATES.HAVE_FUTURE_DATA, () => {
-            element.playbackRate = value;
+            // The element may have been detached (reset/reload) between scheduling
+            // this deferred callback and the ready-state event firing — guard it,
+            // same as the synchronous null-check above (and setCurrentTime below).
+            if (element) {
+                element.playbackRate = value;
+            }
         });
     }
 
