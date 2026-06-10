@@ -35,7 +35,7 @@ import ManifestUpdater from '../ManifestUpdater.js';
 import EventBus from '../../core/EventBus.js';
 import Events from '../../core/events/Events.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
-import {PlayList, PlayListTrace} from '../vo/metrics/PlayList.js';
+import { PlayList, PlayListTrace } from '../vo/metrics/PlayList.js';
 import Debug from '../../core/Debug.js';
 import InitCache from '../utils/InitCache.js';
 import MediaPlayerEvents from '../MediaPlayerEvents.js';
@@ -435,11 +435,20 @@ function StreamController() {
 
             let keepBuffers = false;
             let representationsFromPreviousPeriod = [];
-            let sourceBufferSinksFromPreviousPeriod = _getSourceBufferSinksFromPreviousPeriod(previousStream);
+            // Only reuse the previous period's SourceBuffers when the platform supports
+            // SourceBuffer.changeType(). On platforms without it (e.g. Chrome 68 / LG WebOS <= 5)
+            // reusing a buffer across a period boundary fails with MEDIA_ERR_SRC_NOT_SUPPORTED at
+            // the first period transition, so fall back to a fresh-SourceBuffer ("cold") switch.
+            // This restores the pre-5.1.0 behaviour for those platforms while leaving the reuse
+            // path unchanged where changeType() is available.
+            let sourceBufferSinksFromPreviousPeriod = new Map();
             activeStream = targetStream;
 
             if (previousStream) {
                 keepBuffers = _canSourceBuffersBeKept(targetStream, previousStream);
+                if (capabilities.supportsChangeType()) {
+                    sourceBufferSinksFromPreviousPeriod = _getSourceBufferSinksFromPreviousPeriod(previousStream);
+                }
                 representationsFromPreviousPeriod = _getRepresentationsFromPreviousPeriod(previousStream);
                 previousStream.deactivate(keepBuffers);
             }
@@ -1649,6 +1658,10 @@ function StreamController() {
         }
     }
 
+    function getProtectionData() {
+        return protectionController ? protectionController.getProtectionData() : null;
+    }
+
     function resetInitialSettings() {
         streams = [];
         providedStartTime = NaN;
@@ -1743,6 +1756,7 @@ function StreamController() {
         getHasMediaOrInitialisationError,
         getInitialPlayback,
         getIsStreamSwitchInProgress,
+        getProtectionData,
         getStreamById,
         getStreamForTime,
         getStreams,
