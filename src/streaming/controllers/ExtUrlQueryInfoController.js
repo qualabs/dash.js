@@ -39,7 +39,8 @@ import Debug from '../../core/Debug.js';
 function ExtUrlQueryInfoController() {
     let instance,
         logger,
-        mpdQueryStringInformation;
+        mpdQueryStringInformation,
+        overlayEventStreamFinalQueryString;
     const context = this.context;
 
     function setup() {
@@ -116,6 +117,41 @@ function ExtUrlQueryInfoController() {
         }
     }
 
+    function _computeEventStreamFinalQueryString(manifest, mpdUrlQuery) {
+        let accumulated = '';
+        const periods = Array.isArray(manifest.Period) ? manifest.Period : [manifest.Period];
+        for (const period of periods) {
+            const eventStreams = period[DashConstants.EVENT_STREAM];
+            if (!eventStreams || !eventStreams.length) continue;
+            const esArray = Array.isArray(eventStreams) ? eventStreams : [eventStreams];
+            for (const es of esArray) {
+                if (es.schemeIdUri !== Constants.OVERLAY.SCHEME_ID) continue;
+                const sps = [
+                    ...(es[DashConstants.ESSENTIAL_PROPERTY] || []),
+                    ...(es[DashConstants.SUPPLEMENTAL_PROPERTY] || [])
+                ];
+                const urlParamSps = sps.filter(sp =>
+                    (sp.schemeIdUri === Constants.URL_QUERY_INFO_SCHEME && sp.UrlQueryInfo) ||
+                    (sp.schemeIdUri === Constants.EXT_URL_QUERY_INFO_SCHEME && sp.ExtUrlQueryInfo)
+                );
+                for (const sp of urlParamSps) {
+                    const queryInfo = sp.ExtUrlQueryInfo || sp.UrlQueryInfo;
+                    if (!queryInfo) continue;
+                    const includeInRequests = queryInfo.includeInRequests ?
+                        queryInfo.includeInRequests.split(' ') : [];
+                    if (!includeInRequests.includes(Constants.OVERLAY.SCHEME_ID)) continue;
+                    const dst = {};
+                    _generateInitialQueryString(sp, '', dst, mpdUrlQuery);
+                    _generateFinalQueryString(sp, dst, '');
+                    if (dst.finalQueryString) {
+                        accumulated = accumulated ? accumulated + '&' + dst.finalQueryString : dst.finalQueryString;
+                    }
+                }
+            }
+        }
+        return accumulated;
+    }
+
     function createFinalQueryStrings(manifest) {
         mpdQueryStringInformation = {
             origin: new URL(manifest.url).origin,
@@ -126,6 +162,7 @@ function ExtUrlQueryInfoController() {
         const initialMpdObject = { initialQueryString: '', includeInRequests: [] };
 
         _generateQueryParams(mpdQueryStringInformation, manifest, mpdUrlQuery, initialMpdObject, DashConstants.MPD);
+        overlayEventStreamFinalQueryString = _computeEventStreamFinalQueryString(manifest, mpdUrlQuery);
 
         manifest.Period.forEach((period) => {
             const periodObject = {
@@ -187,10 +224,19 @@ function ExtUrlQueryInfoController() {
                     return mpdQueryStringInformation.queryParams;
                 }
             } else if (request.type === HTTPRequest.OVERLAY_TYPE) {
+                let finalQueryString = null;
                 const inRequest = mpdQueryStringInformation.includeInRequests &&
                     mpdQueryStringInformation.includeInRequests.includes(Constants.OVERLAY.SCHEME_ID);
                 if (inRequest) {
-                    return mpdQueryStringInformation.queryParams;
+                    finalQueryString = mpdQueryStringInformation.finalQueryString;
+                }
+                if (overlayEventStreamFinalQueryString) {
+                    finalQueryString = finalQueryString
+                        ? finalQueryString + '&' + overlayEventStreamFinalQueryString
+                        : overlayEventStreamFinalQueryString;
+                }
+                if (finalQueryString) {
+                    return Utils.parseQueryParams(finalQueryString);
                 }
             }
         } catch (e) {
