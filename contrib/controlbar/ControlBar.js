@@ -459,8 +459,11 @@ export class ControlBar {
             return;
         }
         try {
+            // isPaused() returns null when the stream is not yet activated. Only an
+            // explicit `false` means playback is running, so treat null/undefined/true
+            // as paused and show the play icon.
             const isPaused = this.player.isPaused();
-            this.playPauseIcon.className = isPaused ? 'bi bi-play-fill' : 'bi bi-pause-fill';
+            this.playPauseIcon.className = isPaused === false ? 'bi bi-pause-fill' : 'bi bi-play-fill';
         } catch (e) {
             // Player not ready yet — default to play icon
             this.playPauseIcon.className = 'bi bi-play-fill';
@@ -512,8 +515,12 @@ export class ControlBar {
                 this.durationDisplay.classList.toggle('cb-at-live-edge', atLiveEdge);
             } else {
                 this.timeDisplay.textContent = formatTime(time);
-                this.durationDisplay.textContent = formatTime(duration);
                 this.durationDisplay.classList.remove('cb-live-indicator', 'cb-at-live-edge');
+                this.durationDisplay.textContent = formatTime(duration);
+                this.durationDisplay.appendChild(createElement('span', {
+                    className: 'cb-static-indicator',
+                    textContent: ' STATIC'
+                }));
 
                 // Show separator for VoD
                 if (this.timeSeparator) {
