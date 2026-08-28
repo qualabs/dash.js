@@ -1225,15 +1225,15 @@ function DashManifestModel() {
             mpd.manifest = manifest;
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_START_TIME)) {
-                mpd.availabilityStartTime = new Date(manifest.availabilityStartTime.getTime());
+                mpd.availabilityStartTime = new Date(manifest.availabilityStartTime);
             } else {
                 if (manifest.loadedTime) {
-                    mpd.availabilityStartTime = new Date(manifest.loadedTime.getTime());
+                    mpd.availabilityStartTime = new Date(manifest.loadedTime);
                 }
             }
 
             if (manifest.hasOwnProperty(DashConstants.AVAILABILITY_END_TIME)) {
-                mpd.availabilityEndTime = new Date(manifest.availabilityEndTime.getTime());
+                mpd.availabilityEndTime = new Date(manifest.availabilityEndTime);
             }
 
             if (manifest.hasOwnProperty(DashConstants.MINIMUM_UPDATE_PERIOD)) {

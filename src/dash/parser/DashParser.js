@@ -107,7 +107,11 @@ function DashParser(config) {
         let manifest;
         const startTime = window.performance.now();
 
-        manifest = parseXml(data);
+        if (typeof data === 'string') {
+            manifest = parseXml(data);
+        } else {
+            manifest = data;
+        }
 
         if (!manifest || (!manifest.MPD && !manifest.Patch)) {
             throw new Error('failed to parse the manifest');

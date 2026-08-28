@@ -131,7 +131,7 @@ function ManifestLoader(config) {
 
         urlLoader.load({
             request: request,
-            success: function (data, textStatus, responseURL) {
+            success: function (data, textStatus, responseURL, headers) {
                 // Manage situations in which success is called after calling reset
                 if (!xlinkController) {
                     return;
@@ -187,6 +187,18 @@ function ManifestLoader(config) {
                 xlinkController.setParser(parser);
 
                 try {
+                    if (typeof data === 'string') {
+                        const contentType = headers?.['content-type'] || headers?.['Content-Type'] || '';
+                        const isJson = contentType.includes('application/json');
+
+                        if (isJson) {
+                            try {
+                                data = JSON.parse(data);
+                            } catch (e) {
+                            }
+                        }
+                    }
+
                     manifest = parser.parse(data);
                 } catch (e) {
                     eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
