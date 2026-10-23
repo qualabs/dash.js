@@ -348,6 +348,10 @@ export interface RepresentationController {
 
     getRepresentationForQuality(quality: number): object | null;
 
+    isSegmentListMissing(newRep: Representation): boolean;
+
+    loadSegmentList(newRep: Representation): Promise<Representation> | null;
+
     prepareQualityChange(newRep: Representation): void;
 
     reset(): void;
@@ -1098,6 +1102,8 @@ export interface DashAdapter {
 
     getEventsFor(info: object, voRepresentation: object): Array<Event>;
 
+    getFragmentDurationForLiveDelayCalculation(streamInfo: object): number;
+
     getFramerate(representation: object): number;
 
     getIndexForRepresentation(representationId: string, periodIdx: number): number;
@@ -1672,6 +1678,7 @@ export class MediaPlayerSettingClass {
     };
     streaming?: {
         abandonLoadTimeout?: number,
+        seekDurationBackoff?: number,
         wallclockTimeUpdateInterval?: number,
         manifestUpdateRetryInterval?: number,
         liveUpdateTimeThresholdInMilliseconds?: number,
@@ -1771,7 +1778,8 @@ export class MediaPlayerSettingClass {
         scheduling?: {
             defaultTimeout?: number,
             lowLatencyTimeout?: number,
-            scheduleWhilePaused?: boolean
+            scheduleWhilePaused?: boolean,
+            segmentListRetryDelay?: number
         },
         text?: {
             defaultEnabled?: boolean,
@@ -1959,6 +1967,7 @@ export class MediaPlayerSettingClass {
             cid?: string | null,
             rtp?: number | null,
             rtpSafetyFactor?: number,
+            maxBufferedErrorCodes?: number,
             mode?: 'query' | 'header',
             enabledKeys?: Array<string>,
             includeInRequests?: Array<string>,
@@ -1969,8 +1978,12 @@ export class MediaPlayerSettingClass {
                 events?: Array<string>,
                 interval?: number,
                 enabledKeys?: Array<string>,
-                includeInRequests?: Array<string>,
+                responseReceivedTypes?: Array<string>,
                 batchSize?: number
+            }>,
+            customKeys?: Array<{
+                key: string,
+                value: string | number | boolean
             }>
         },
         cmsd?: {
@@ -1979,6 +1992,11 @@ export class MediaPlayerSettingClass {
                 applyMb: boolean,
                 etpWeightRatio?: number
             }
+        },
+        c2pa?: {
+            enabled?: boolean,
+            method?: 'auto' | '19.3' | '19.4',
+            mediaTypes?: Array<'video' | 'audio'>
         },
         defaultSchemeIdUri?: {
             viewpoint?: string,
@@ -2003,6 +2021,15 @@ export interface MediaFinishedInformation {
 }
 
 export type TrackSelectionFunction = (tracks: MediaInfo[]) => MediaInfo[];
+
+/**
+ * Validates a custom C2PA continuity method (C2PA 2.4 section 19.3). `validate` receives the
+ * `c2pa.livevideo.segment` assertion data and the manifest of the segment.
+ */
+export interface C2paContinuityValidator {
+    method: string;
+    validate: (assertionData: Record<string, unknown>, manifest: object) => boolean | Promise<boolean>;
+}
 
 export interface DvrWindow {
     end: number;
@@ -2275,6 +2302,8 @@ export interface MediaPlayerClass {
 
     reset(): void;
 
+    resetC2paContinuityValidator(): void;
+
     resetCustomInitialTrackSelectionFunction(fn: TrackSelectionFunction): void;
 
     resetSettings(): void;
@@ -2290,6 +2319,8 @@ export interface MediaPlayerClass {
     seekToPresentationTime(value: number): void;
 
     setAutoPlay(value: boolean): void;
+
+    setC2paContinuityValidator(validator: C2paContinuityValidator): void;
 
     setConfig(config: object): void;
 
@@ -2405,6 +2436,9 @@ export interface MediaPlayerEvents {
     BUFFER_LOADED: 'bufferLoaded';
     BUFFER_LEVEL_STATE_CHANGED: 'bufferStateChanged';
     BUFFER_LEVEL_UPDATED: 'bufferLevelUpdated';
+    C2PA_INIT_PROCESSED: 'c2paInitProcessed';
+    C2PA_SEGMENT_VALIDATED: 'c2paSegmentValidated';
+    C2PA_ERROR: 'c2paError';
     CAN_PLAY: 'canPlay';
     CAN_PLAY_THROUGH: 'canPlayThrough';
     CAPTION_RENDERED: 'captionRendered';
@@ -2887,7 +2921,7 @@ export interface MediaSettings {
     codec?: string;
     id?: string | number,
     index?: number;
-    lang?: string | RegExp;
+    lang?: string | string[] | RegExp;
     role?: { schemeIdUri?: string, value?: string } | string;
     viewpoint?: { schemeIdUri?: string, value?: string } | string;
 }
@@ -2967,7 +3001,7 @@ export interface Constants {
     CMCD_MODE_HEADERS: 'headers',
     CMCD_AVAILABLE_KEYS: ['br', 'd', 'ot', 'tb', 'bl', 'dl', 'mtp', 'nor', 'nrr', 'su', 'bs', 'rtp', 'cid', 'pr', 'sf', 'sid', 'st', 'v'],
     CMCD_V2_AVAILABLE_KEYS: ['msd', 'ltc'],
-    CMCD_AVAILABLE_REQUESTS: ['segment', 'mpd', 'xlink', 'steering', 'other'],
+    CMCD_AVAILABLE_REQUESTS: ['segment', 'mpd', 'xlink', 'steering', 'other', 'license'],
     INITIALIZE: 'initialize',
     TEXT_SHOWING: 'showing',
     TEXT_HIDDEN: 'hidden',
@@ -3111,6 +3145,7 @@ export interface ProtectionConstants {
     WIDEVINE_KEYSTEM_STRING: 'com.widevine.alpha',
     PLAYREADY_KEYSTEM_STRING: 'com.microsoft.playready',
     PLAYREADY_RECOMMENDATION_KEYSTEM_STRING: 'com.microsoft.playready.recommendation',
+    PLAYREADY_RECOMMENDATION_3000_KEYSTEM_STRING: 'com.microsoft.playready.recommendation.3000',
     WIDEVINE_UUID: 'edef8ba9-79d6-4ace-a3c8-27dcd51d21ed',
     PLAYREADY_UUID: '9a04f079-9840-4286-ab92-e65be0885f95',
     CLEARKEY_UUID: 'e2719d58-a985-b3c9-781a-b030af78d30e',
@@ -3155,6 +3190,8 @@ export interface AbrController {
     checkPlaybackQuality(type: string, streamId: string | number): boolean;
 
     clearDataForStream(streamId: string): void;
+
+    excludeRepresentation(representation: Representation, duration?: number): void;
 
     getAbandonmentStateFor(streamId: string, type: string): any | null;
 
@@ -3914,6 +3951,8 @@ export interface CustomParametersModel {
 
     getAbrCustomRules(): Array<object>;
 
+    getC2paContinuityValidator(): C2paContinuityValidator | null;
+
     getCustomCapabilitiesFilters(): Array<CapabilitiesFilterFunction>;
 
     getCustomInitialTrackSelectionFunction(): Function;
@@ -3956,9 +3995,13 @@ export interface CustomParametersModel {
 
     reset(): void;
 
+    resetC2paContinuityValidator(): void;
+
     resetCustomInitialTrackSelectionFunction(): void;
 
     restoreDefaultUTCTimingSources(): void;
+
+    setC2paContinuityValidator(validator: C2paContinuityValidator): void;
 
     setConfig(): void; // NOT IMPLEMENTED
     setCustomInitialTrackSelectionFunction(customFunc: Function): void;
@@ -5560,6 +5603,7 @@ export interface DVRInfo {
 }
 
 export interface HTTPRequest {
+    _cmsd: object | null;
     _fileLoaderType: string;
     _mediaduration: number | null;
     _quality: number | null;
@@ -5569,7 +5613,8 @@ export interface HTTPRequest {
     _stream: MediaType;
     _tfinish: Date | null;
     actualurl: string | null;
-    cmsd: object;
+    /** @deprecated since 5.3.0, use `_cmsd` instead. Will be removed in v6. */
+    readonly cmsd: object | null;
     interval: number | null;
     range: any[];
     responsecode: number | null;

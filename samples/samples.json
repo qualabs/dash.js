@@ -413,6 +413,19 @@
                 ]
             },
             {
+                "title": "PlayReady in Chrome",
+                "description": "Probes the supported PlayReady key system strings and plays PlayReady protected content, e.g. in Chrome on Windows using com.microsoft.playready.recommendation.3000.",
+                "href": "drm/playready-chrome.html",
+                "image": "lib/img/tos-2.jpg",
+                "labels": [
+                    "VoD",
+                    "DRM",
+                    "Playready",
+                    "Video",
+                    "Audio"
+                ]
+            },
+            {
                 "title": "Fairplay DRM",
                 "description": "Shows how to use dash.js to play streams with Fairplay DRM protection.",
                 "href": "drm/fairplay.html",
@@ -894,6 +907,28 @@
                     "Video",
                     "Audio"
                 ]
+            },
+            {
+                "title": "CMCD v2 error codes",
+                "description": "Shows how dash.js buffers player error codes (ec) per CMCD v2 report destination and reports each code once with the next report.",
+                "href": "cmcd/cmcd-v2-error-codes.html",
+                "image": "lib/img/bbb-1.jpg",
+                "labels": [
+                    "VoD",
+                    "Video",
+                    "Audio"
+                ]
+            },
+            {
+                "title": "CMCD custom keys",
+                "description": "Shows how to add custom keys, such as the player name and version from the SVTA CMCD custom keys registry, to CMCD reports.",
+                "href": "cmcd/cmcd-custom-keys.html",
+                "image": "lib/img/bbb-1.jpg",
+                "labels": [
+                    "VoD",
+                    "Video",
+                    "Audio"
+                ]
             }
         ]
     },
@@ -1006,6 +1041,22 @@
                 "image": "lib/img/bbb-1.jpg",
                 "labels": [
                     "Module",
+                    "Video",
+                    "Audio"
+                ]
+            }
+        ]
+    },
+    {
+        "section": "C2PA",
+        "samples": [
+            {
+                "title": "C2PA provenance validation",
+                "description": "Validates C2PA provenance of a live DASH stream per segment (§19.3 Manifest Box and §19.4 VSI), with runtime enable/disable and method selection, rendering a per-segment provenance indicator.",
+                "href": "c2pa/index.html",
+                "image": "lib/img/bbb-1.jpg",
+                "labels": [
+                    "Live",
                     "Video",
                     "Audio"
                 ]

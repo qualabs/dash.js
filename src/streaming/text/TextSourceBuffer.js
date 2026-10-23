@@ -55,6 +55,7 @@ function TextSourceBuffer(config) {
     const ttmlParser = config.ttmlParser;
     const streamInfo = config.streamInfo;
     const settings = config.settings;
+    const timelineConverter = config.timelineConverter;
 
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
@@ -343,9 +344,9 @@ function TextSourceBuffer(config) {
         let i, j, k;
 
         const captionArray = [];
+        const timestampOffset = _getTimestampOffset();
         for (i = 0; i < sampleList.length; i++) {
             const sample = sampleList[i];
-            const timestampOffset = _getTimestampOffset();
             const start = timestampOffset + sample.cts / timescale;
             const end = start + sample.duration / timescale;
             instance.buffered.add(start, end);
@@ -393,7 +394,9 @@ function TextSourceBuffer(config) {
             }
         }
         if (captionArray.length > 0) {
-            textTracks.addCaptions(currFragmentedTrackIdx, 0, captionArray);
+            // Cue times are period-local media times; the MSE timestamp offset (Period@start - presentationTimeOffset)
+            // maps them to presentation time. Required for multiperiod content, see #5087.
+            textTracks.addCaptions(currFragmentedTrackIdx, timestampOffset, captionArray);
         }
     }
 
@@ -466,12 +469,19 @@ function TextSourceBuffer(config) {
 
                 const allCcData = _extractCea608Data(bytes, samplesInfo.sampleList);
 
+                // _extractCea608Data returns null when there are no samples,
+                // which happens for any chunk that is not fragmented ISOBMFF.
+                if (!allCcData) {
+                    return;
+                }
+
                 for (let fieldNr = 0; fieldNr < embeddedCea608FieldParsers.length; fieldNr++) {
                     const ccData = allCcData.fields[fieldNr];
                     const fieldParser = embeddedCea608FieldParsers[fieldNr];
                     if (fieldParser) {
                         for (i = 0; i < ccData.length; i++) {
-                            fieldParser.addData(ccData[i][0] / embeddedTimescale, ccData[i][1]);
+                            const time = timelineConverter.calcPresentationTimeFromMediaTime(ccData[i][0] / embeddedTimescale, chunk.representation);
+                            fieldParser.addData(time, ccData[i][1]);
                         }
                     }
                 }
