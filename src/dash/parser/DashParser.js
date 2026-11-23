@@ -71,6 +71,7 @@ const arrayNodes = [
     DashConstants.SERVICE_DESCRIPTION,
     DashConstants.SUPPLEMENTAL_PROPERTY,
     DashConstants.UTC_TIMING,
+    DashConstants.VIEWPOINT,
 ];
 
 function DashParser(config) {
@@ -180,6 +181,12 @@ function DashParser(config) {
 
                 if (child.nodeName === '#text') {
                     node.__text = child.nodeValue;
+                    continue;
+                }
+
+                // Consumers read CDATA content (e.g. Event payloads) from __cdata
+                if (child.nodeName === '#cdata') {
+                    node.__cdata = (node.__cdata || '') + child.nodeValue;
                     continue;
                 }
 

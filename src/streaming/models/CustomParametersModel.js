@@ -38,19 +38,37 @@ import ExternalSubtitle from '../vo/ExternalSubtitle.js';
 
 const DEFAULT_XHR_WITH_CREDENTIALS = false;
 
+function createCallbackRegistry(callbacks = []) {
+    return {
+        add(callback) {
+            callbacks.push(callback);
+        },
+        getAll() {
+            return callbacks;
+        },
+        remove(callback) {
+            const index = callbacks.indexOf(callback);
+            if (index !== -1) {
+                callbacks.splice(index, 1);
+            }
+        }
+    };
+}
+
 function CustomParametersModel() {
 
     let instance,
         utcTimingSources,
         xhrWithCredentials,
-        requestInterceptors,
-        responseInterceptors,
-        licenseRequestFilters,
-        certificateRequestFilters,
-        certificateResponseFilters,
-        licenseResponseFilters,
-        customCapabilitiesFilters,
+        requestInterceptorRegistry,
+        responseInterceptorRegistry,
+        licenseRequestFilterRegistry,
+        certificateRequestFilterRegistry,
+        certificateResponseFilterRegistry,
+        licenseResponseFilterRegistry,
+        customCapabilitiesFilterRegistry,
         customInitialTrackSelectionFunction,
+        c2paContinuityValidator,
         externalSubtitles,
         customAbrRules,
         cmcdController;
@@ -67,18 +85,19 @@ function CustomParametersModel() {
     }
 
     function _resetInitialSettings() {
-        licenseRequestFilters = [];
-        licenseResponseFilters = [];
-        certificateRequestFilters = [];
-        certificateResponseFilters = [];
-        customCapabilitiesFilters = [];
+        licenseRequestFilterRegistry = createCallbackRegistry();
+        licenseResponseFilterRegistry = createCallbackRegistry();
+        certificateRequestFilterRegistry = createCallbackRegistry();
+        certificateResponseFilterRegistry = createCallbackRegistry();
+        customCapabilitiesFilterRegistry = createCallbackRegistry();
         customAbrRules = [];
         customInitialTrackSelectionFunction = null;
+        c2paContinuityValidator = null;
         utcTimingSources = [];
 
         // Initialize request interceptors with default CMCD interceptors
-        requestInterceptors = cmcdController.getCmcdRequestInterceptors();
-        responseInterceptors = cmcdController.getCmcdResponseReceivedInterceptors();
+        requestInterceptorRegistry = createCallbackRegistry(cmcdController.getCmcdRequestInterceptors());
+        responseInterceptorRegistry = createCallbackRegistry(cmcdController.getCmcdResponseReceivedInterceptors());
 
         externalSubtitles = new Set();
     }
@@ -97,7 +116,8 @@ function CustomParametersModel() {
     }
 
     /**
-     * Registers a custom initial track selection function. Only one function is allowed. Calling this method will overwrite a potentially existing function.
+     * Registers a custom initial track selection function. Only one function is allowed. Calling this method will
+     * overwrite a potentially existing function.
      * @param {function} customFunc - the custom function that returns the initial track
      */
     function setCustomInitialTrackSelectionFunction(customFunc) {
@@ -109,6 +129,30 @@ function CustomParametersModel() {
      */
     function resetCustomInitialTrackSelectionFunction() {
         customInitialTrackSelectionFunction = null;
+    }
+
+    /**
+     * Registers a validator for a custom C2PA continuity method (C2PA 2.4 section 19.3).
+     * Only one validator is allowed. Calling this method overwrites an existing validator.
+     * @param {object} validator - an object with a `method` string and a `validate(assertionData, manifest)` function
+     */
+    function setC2paContinuityValidator(validator) {
+        c2paContinuityValidator = validator;
+    }
+
+    /**
+     * Removes the custom C2PA continuity validator
+     */
+    function resetC2paContinuityValidator() {
+        c2paContinuityValidator = null;
+    }
+
+    /**
+     * Returns the custom C2PA continuity validator
+     * @return {object|null}
+     */
+    function getC2paContinuityValidator() {
+        return c2paContinuityValidator;
     }
 
     /**
@@ -124,7 +168,7 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getCertificateRequestFilters() {
-        return certificateRequestFilters;
+        return certificateRequestFilterRegistry.getAll();
     }
 
     /**
@@ -132,27 +176,30 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getCertificateResponseFilters() {
-        return certificateResponseFilters;
+        return certificateResponseFilterRegistry.getAll();
     }
 
     /**
-     * Registers a certificate request filter. This enables application to manipulate/overwrite any request parameter and/or request data.
-     * The provided callback function shall return a promise that shall be resolved once the filter process is completed.
+     * Registers a certificate request filter. This enables application to manipulate/overwrite any request parameter
+     * and/or request data.<br>
+     * The provided callback function shall return a promise that shall be resolved once the filter process is
+     * completed.<br>
      * The filters are applied in the order they are registered.
      * @param {function} filter - the license request filter callback
      */
     function registerCertificateRequestFilter(filter) {
-        certificateRequestFilters.push(filter);
+        certificateRequestFilterRegistry.add(filter);
     }
 
     /**
-     * Registers a certificate response filter. This enables application to manipulate/overwrite the response data
-     * The provided callback function shall return a promise that shall be resolved once the filter process is completed.
+     * Registers a certificate response filter. This enables application to manipulate/overwrite the response data<br>
+     * The provided callback function shall return a promise that shall be resolved once the filter process is
+     * completed.<br>
      * The filters are applied in the order they are registered.
      * @param {function} filter - the license response filter callback
      */
     function registerCertificateResponseFilter(filter) {
-        certificateResponseFilters.push(filter);
+        certificateResponseFilterRegistry.add(filter);
     }
 
     /**
@@ -160,7 +207,7 @@ function CustomParametersModel() {
      * @param {function} filter - the license request filter callback
      */
     function unregisterCertificateRequestFilter(filter) {
-        _unregisterFilter(certificateRequestFilters, filter);
+        certificateRequestFilterRegistry.remove(filter);
     }
 
     /**
@@ -168,7 +215,7 @@ function CustomParametersModel() {
      * @param {function} filter - the license response filter callback
      */
     function unregisterCertificateResponseFilter(filter) {
-        _unregisterFilter(certificateResponseFilters, filter);
+        certificateResponseFilterRegistry.remove(filter);
     }
 
     /**
@@ -176,7 +223,7 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getLicenseRequestFilters() {
-        return licenseRequestFilters;
+        return licenseRequestFilterRegistry.getAll();
     }
 
     /**
@@ -184,27 +231,30 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getLicenseResponseFilters() {
-        return licenseResponseFilters;
+        return licenseResponseFilterRegistry.getAll();
     }
 
     /**
-     * Registers a license request filter. This enables application to manipulate/overwrite any request parameter and/or request data.
-     * The provided callback function shall return a promise that shall be resolved once the filter process is completed.
+     * Registers a license request filter. This enables application to manipulate/overwrite any request parameter and/or
+     * request data.<br>
+     * The provided callback function shall return a promise that shall be resolved once the filter process is
+     * completed.<br>
      * The filters are applied in the order they are registered.
      * @param {function} filter - the license request filter callback
      */
     function registerLicenseRequestFilter(filter) {
-        licenseRequestFilters.push(filter);
+        licenseRequestFilterRegistry.add(filter);
     }
 
     /**
-     * Registers a license response filter. This enables application to manipulate/overwrite the response data
-     * The provided callback function shall return a promise that shall be resolved once the filter process is completed.
+     * Registers a license response filter. This enables application to manipulate/overwrite the response data<br>
+     * The provided callback function shall return a promise that shall be resolved once the filter process is
+     * completed.<br>
      * The filters are applied in the order they are registered.
      * @param {function} filter - the license response filter callback
      */
     function registerLicenseResponseFilter(filter) {
-        licenseResponseFilters.push(filter);
+        licenseResponseFilterRegistry.add(filter);
     }
 
     /**
@@ -212,7 +262,7 @@ function CustomParametersModel() {
      * @param {function} filter - the license request filter callback
      */
     function unregisterLicenseRequestFilter(filter) {
-        _unregisterFilter(licenseRequestFilters, filter);
+        licenseRequestFilterRegistry.remove(filter);
     }
 
     /**
@@ -220,7 +270,7 @@ function CustomParametersModel() {
      * @param {function} filter - the license response filter callback
      */
     function unregisterLicenseResponseFilter(filter) {
-        _unregisterFilter(licenseResponseFilters, filter);
+        licenseResponseFilterRegistry.remove(filter);
     }
 
     /**
@@ -228,17 +278,18 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getCustomCapabilitiesFilters() {
-        return customCapabilitiesFilters;
+        return customCapabilitiesFilterRegistry.getAll();
     }
 
     /**
-     * Registers a custom capabilities filter. This enables application to filter representations to use.
-     * The provided callback function shall return a boolean or promise resolving to a boolean based on whether or not to use the representation.
+     * Registers a custom capabilities filter. This enables application to filter representations to use.<br>
+     * The provided callback function shall return a boolean or promise resolving to a boolean based on whether or not
+     * to use the representation.<br>
      * The filters are applied in the order they are registered.
      * @param {function} filter - the custom capabilities filter callback
      */
     function registerCustomCapabilitiesFilter(filter) {
-        customCapabilitiesFilters.push(filter);
+        customCapabilitiesFilterRegistry.add(filter);
     }
 
     /**
@@ -246,27 +297,7 @@ function CustomParametersModel() {
      * @param {function} filter - the custom capabilities filter callback
      */
     function unregisterCustomCapabilitiesFilter(filter) {
-        _unregisterFilter(customCapabilitiesFilters, filter);
-    }
-
-    /**
-     * Unregister a filter from the list of existing filers.
-     * @param {array} filters
-     * @param {function} filter
-     * @private
-     */
-    function _unregisterFilter(filters, filter) {
-        let index = -1;
-        filters.some((item, i) => {
-            if (item === filter) {
-                index = i;
-                return true;
-            }
-        });
-        if (index < 0) {
-            return;
-        }
-        filters.splice(index, 1);
+        customCapabilitiesFilterRegistry.remove(filter);
     }
 
     /**
@@ -285,11 +316,12 @@ function CustomParametersModel() {
     }
 
     /**
-     * Add a custom ABR Rule
+     * Add a custom ABR Rule<br>
      * Rule will be apply on next stream if a stream is being played
      *
      * @param {string} type - rule type (one of ['qualitySwitchRules','abandonFragmentRules'])
-     * @param {string} rulename - name of rule (used to identify custom rule). If one rule of same name has been added, then existing rule will be updated
+     * @param {string} rulename - name of rule (used to identify custom rule). If one rule of same name has been added,
+     * then existing rule will be updated
      * @param {object} rule - the rule object instance
      * @throws {@link Constants#BAD_ARGUMENT_ERROR BAD_ARGUMENT_ERROR} if called with invalid arguments.
      */
@@ -348,23 +380,26 @@ function CustomParametersModel() {
     }
 
     /**
-     * Adds a request interceptor. This enables application to monitor, manipulate, overwrite any request parameter and/or request data.
-     * The provided callback function shall return a promise with updated request that shall be resolved once the process of the request is completed.
+     * Adds a request interceptor. This enables application to monitor, manipulate, overwrite any request parameter
+     * and/or request data.<br>
+     * The provided callback function shall return a promise with updated request that shall be resolved once the
+     * process of the request is completed.<br>
      * The interceptors are applied in the order they are added.
      * @param {function} interceptor - the request interceptor callback
      */
     function addRequestInterceptor(interceptor) {
-        requestInterceptors.push(interceptor);
+        requestInterceptorRegistry.add(interceptor);
     }
 
     /**
-     * Adds a response interceptor. This enables application to monitor, manipulate, overwrite the response data
-     * The provided callback function shall return a promise with updated response that shall be resolved once the process of the response is completed.
+     * Adds a response interceptor. This enables application to monitor, manipulate, overwrite the response data<br>
+     * The provided callback function shall return a promise with updated response that shall be resolved once the
+     * process of the response is completed.<br>
      * The interceptors are applied in the order they are added.
      * @param {function} interceptor - the response interceptor callback
      */
     function addResponseInterceptor(interceptor) {
-        responseInterceptors.push(interceptor);
+        responseInterceptorRegistry.add(interceptor);
     }
 
     /**
@@ -372,7 +407,7 @@ function CustomParametersModel() {
      * @param {function} interceptor - the request interceptor callback
      */
     function removeRequestInterceptor(interceptor) {
-        _unregisterFilter(requestInterceptors, interceptor);
+        requestInterceptorRegistry.remove(interceptor);
     }
 
     /**
@@ -380,7 +415,7 @@ function CustomParametersModel() {
      * @param {function} interceptor - the request interceptor callback
      */
     function removeResponseInterceptor(interceptor) {
-        _unregisterFilter(responseInterceptors, interceptor);
+        responseInterceptorRegistry.remove(interceptor);
     }
 
     /**
@@ -388,7 +423,7 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getRequestInterceptors() {
-        return requestInterceptors;
+        return requestInterceptorRegistry.getAll();
     }
 
     /**
@@ -396,7 +431,7 @@ function CustomParametersModel() {
      * @return {array}
      */
     function getResponseInterceptors() {
-        return responseInterceptors;
+        return responseInterceptorRegistry.getAll();
     }
 
     function addExternalSubtitle(externalSubtitleObj) {
@@ -514,6 +549,7 @@ function CustomParametersModel() {
         addUTCTimingSource,
         clearDefaultUTCTimingSources,
         getAbrCustomRules,
+        getC2paContinuityValidator,
         getCertificateRequestFilters,
         getCertificateResponseFilters,
         getCustomCapabilitiesFilters,
@@ -538,9 +574,11 @@ function CustomParametersModel() {
         removeResponseInterceptor,
         removeUTCTimingSource,
         reset,
+        resetC2paContinuityValidator,
         resetCustomInitialTrackSelectionFunction,
         resetPlaybackSessionSpecificSettings,
         restoreDefaultUTCTimingSources,
+        setC2paContinuityValidator,
         setConfig,
         setCustomInitialTrackSelectionFunction,
         setXHRWithCredentialsForType,

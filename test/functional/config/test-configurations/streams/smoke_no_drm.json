@@ -122,6 +122,17 @@
       ]
     },
     {
+      "name": "Segment Base, hierarchical SIDX, child SIDX boxes after the parent",
+      "type": "vod",
+      "url": "https://dash.akamaized.net/dashjs/multi-sidx/upfront/manifest.mpd",
+      "includedTestfiles": [
+        "playback/play",
+        "playback/pause",
+        "playback/seek",
+        "playback/seek-ended"
+      ]
+    },
+    {
       "name": "MPD Patching with $time",
       "url": "https://livesim2.dashif.org/livesim2/segtimeline_1/patch_60/testpic_2s/Manifest.mpd",
       "type": "live",
@@ -131,17 +142,6 @@
       "includedTestfiles": [
         "feature-support/mpd-patching"
       ]
-    },
-    {
-      "name": "Arte forced-subtitles",
-      "type": "vod",
-      "url": "https://arteamd1.akamaized.net/GPU/034000/034700/034755-230-A/221125154117/034755-230-A_8_DA_v20221125.mpd",
-      "includedTestfiles": [
-        "text/forced-subtitles"
-      ],
-      "testdata": {
-        "forcedSubtitles": {}
-      }
     },
     {
       "name": "BBC Multi Audio and Text",

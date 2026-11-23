@@ -295,6 +295,34 @@ describe('StreamController', function () {
                     eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
                 });
 
+                it('should clamp a seek time far beyond the last period to the end of content minus the seekDurationBackoff', function (done) {
+                    doneFn = function (err) {
+                        if (err) {
+                            done(err);
+                            return;
+                        }
+                        // activeStream is only assigned by _switchStream() right after INITIAL_STREAM_SWITCH is
+                        // triggered, so defer to the next tick to let that synchronous call complete first.
+                        setTimeout(() => {
+                            try {
+                                const seekEvent = { seekTime: 999999999 };
+                                eventBus.trigger(Events.PLAYBACK_SEEKING, seekEvent);
+                                const expectedTime = staticStreamInfo.start + staticStreamInfo.duration -
+                                    settings.get().streaming.seekDurationBackoff;
+                                expect(seekEvent.seekTime).to.equal(expectedTime);
+                                done();
+                            } catch (e) {
+                                done(e);
+                            }
+                        }, 0);
+                    };
+
+                    expectedStartTime = staticStreamInfo.start;
+                    getStreamsInfoStub.returns([staticStreamInfo]);
+
+                    eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
+                });
+
                 it('should start static stream at #t', function (done) {
                     doneFn = done;
 
@@ -314,6 +342,18 @@ describe('StreamController', function () {
                     uriFragmentModelMock.setURIFragmentData({ t: uriStartTime.toString() });
 
                     expectedStartTime = staticStreamInfo.start + uriStartTime;
+
+                    getStreamsInfoStub.returns([staticStreamInfo]);
+                    eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
+                });
+
+                it('should clamp the start time if #t is beyond the end of the content', function (done) {
+                    doneFn = done;
+
+                    uriFragmentModelMock.setURIFragmentData({ t: '999999999' });
+
+                    expectedStartTime = staticStreamInfo.start + staticStreamInfo.duration -
+                        settings.get().streaming.seekDurationBackoff;
 
                     getStreamsInfoStub.returns([staticStreamInfo]);
                     eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
@@ -381,6 +421,35 @@ describe('StreamController', function () {
                     expectedStartTime = liveStartTime;
 
                     getStreamsInfoStub.returns([dynamicStreamInfo]);
+                    eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
+                });
+
+                it('should not clamp a seek time beyond the announced end of a dynamic stream with finite duration', function (done) {
+                    doneFn = function (err) {
+                        if (err) {
+                            done(err);
+                            return;
+                        }
+                        setTimeout(() => {
+                            try {
+                                const seekEvent = { seekTime: 999999999 };
+                                eventBus.trigger(Events.PLAYBACK_SEEKING, seekEvent);
+                                expect(seekEvent.seekTime).to.equal(999999999);
+                                done();
+                            } catch (e) {
+                                done(e);
+                            }
+                        }, 0);
+                    };
+
+                    expectedStartTime = liveStartTime;
+                    // Planned-end live event: dynamic manifest with a finite announced duration
+                    getStreamsInfoStub.returns([{
+                        manifestInfo: { isDynamic: true, dvrWindowSize: 30, minBufferTime: 4 },
+                        start: 10,
+                        duration: 600,
+                        id: '1'
+                    }]);
                     eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
                 });
 
@@ -478,6 +547,100 @@ describe('StreamController', function () {
                     eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
                 });
             });
+        });
+    });
+
+    describe('period switch from an unencrypted to an encrypted period', function () {
+
+        const clearStreamInfo = {
+            manifestInfo: { isDynamic: false }, start: 0, duration: 10, id: 'clear', isEncrypted: false
+        };
+        const encryptedStreamInfo = {
+            manifestInfo: { isDynamic: false }, start: 10, duration: 10, id: 'encrypted', isEncrypted: true
+        };
+        const capabilitiesStub = {
+            isProtectionCompatible: (previousStreamInfo, newStreamInfo) => {
+                return !(!previousStreamInfo.isEncrypted && newStreamInfo.isEncrypted);
+            },
+            supportsChangeType: () => true
+        };
+        let getStreamsInfoStub;
+        let getIsDynamicStub;
+
+        /**
+         * Starts playback in the unencrypted period and reports it as completely buffered. The encrypted period is
+         * only preloaded into the existing SourceBuffers if the period switch can be seamless.
+         * @return {Promise<boolean>} true if the SourceBuffers are kept for the encrypted period
+         */
+        function _areSourceBuffersKeptForEncryptedPeriod() {
+            return new Promise((resolve) => {
+                const onStreamsComposed = () => {
+                    eventBus.off(Events.STREAMS_COMPOSED, onStreamsComposed);
+                    const [clearStream, encryptedStream] = streamController.getStreams();
+                    const startPreloadingStub = sinon.stub(encryptedStream, 'startPreloading').resolves();
+                    sinon.stub(clearStream, 'getHasFinishedBuffering').returns(true);
+
+                    // The StreamController checks if prebuffering can start right after triggering STREAMS_COMPOSED
+                    setTimeout(() => {
+                        resolve(startPreloadingStub.called);
+                    }, 0);
+                };
+                eventBus.on(Events.STREAMS_COMPOSED, onStreamsComposed);
+                eventBus.trigger(Events.TIME_SYNCHRONIZATION_COMPLETED);
+            });
+        }
+
+        beforeEach(function () {
+            settings.reset();
+            videoModelMock.time = -1;
+            dashMetricsMock.addDVRInfo('video', Date.now(), null, { start: 0, end: 20 });
+            delete protectionControllerMock.hasLicenseBeenApplied;
+            streamController.setConfig({
+                adapter: adapterMock,
+                manifestLoader: manifestLoaderMock,
+                timelineConverter: timelineConverterMock,
+                manifestModel: manifestModelMock,
+                errHandler: errHandlerMock,
+                dashMetrics: dashMetricsMock,
+                protectionController: protectionControllerMock,
+                videoModel: videoModelMock,
+                playbackController: playbackControllerMock,
+                baseURLController: baseUrlControllerMock,
+                capabilities: capabilitiesStub,
+                capabilitiesFilter: capabilitiesFilterMock,
+                textController: textControllerMock,
+                contentSteeringController: contentSteeringControllerMock,
+                settings: settings,
+                uriFragmentModel: uriFragmentModelMock,
+                serviceDescriptionController: ServiceDescriptionController(context).getInstance()
+            });
+            streamController.initialize(false);
+            getStreamsInfoStub = sinon.stub(adapterMock, 'getStreamsInfo').returns([clearStreamInfo, encryptedStreamInfo]);
+            getIsDynamicStub = sinon.stub(adapterMock, 'getIsDynamic').returns(false);
+        });
+
+        afterEach(function () {
+            streamController.reset();
+            getStreamsInfoStub.restore();
+            getIsDynamicStub.restore();
+            delete protectionControllerMock.hasLicenseBeenApplied;
+            uriFragmentModelMock.reset();
+        });
+
+        it('should not keep the SourceBuffers if no license has been applied', async function () {
+            protectionControllerMock.hasLicenseBeenApplied = () => false;
+
+            expect(await _areSourceBuffersKeptForEncryptedPeriod()).to.be.false;
+        });
+
+        it('should not keep the SourceBuffers if the ProtectionController can not report an applied license', async function () {
+            expect(await _areSourceBuffersKeptForEncryptedPeriod()).to.be.false;
+        });
+
+        it('should keep the SourceBuffers if a license has been applied', async function () {
+            protectionControllerMock.hasLicenseBeenApplied = () => true;
+
+            expect(await _areSourceBuffersKeptForEncryptedPeriod()).to.be.true;
         });
     });
 

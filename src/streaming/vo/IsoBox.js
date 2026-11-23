@@ -69,7 +69,9 @@ class IsoBox {
                 this.value = boxData.value;
                 this.timescale = boxData.timescale;
                 this.scheme_id_uri = boxData.scheme_id_uri;
-                this.presentation_time_delta = boxData.version === 1 ? boxData.presentation_time : boxData.presentation_time_delta;
+                this.presentation_time_delta = boxData.version === 1
+                    ? boxData.presentation_time
+                    : boxData.presentation_time_delta;
                 this.event_duration = boxData.event_duration;
                 this.message_data = boxData.message_data;
                 break;
@@ -121,6 +123,11 @@ class IsoBox {
                 this.ntp_timestamp_frac = boxData.ntp_timestamp_frac;
                 this.media_time = boxData.media_time;
                 this.flags = boxData.flags;
+                break;
+            case 'uuid':
+                // codem-isoboxer parses the 16-byte usertype for uuid boxes; expose it
+                // so callers (e.g. C2PA detection) can identify the box by its UUID.
+                this.usertype = boxData.usertype;
                 break;
         }
     }

@@ -109,7 +109,9 @@ function MediaSourceController() {
         }
 
         if (!_isBufferUpdating(mediaSource)) {
-            // Setting the duration below the highest presentation timestamp of any buffered coded frames throws an InvalidStateError. Clamp the duration to the highest buffered end time, for instance when applying the final duration after a transition from dynamic to static.
+            // Setting the duration below the highest presentation timestamp of any buffered coded frames throws an
+            // InvalidStateError. Clamp the duration to the highest buffered end time, for instance when applying the
+            // final duration after a transition from dynamic to static.
             const highestBufferedEnd = _getHighestBufferedEnd(mediaSource);
             if (highestBufferedEnd > value) {
                 value = highestBufferedEnd;
@@ -152,6 +154,7 @@ function MediaSourceController() {
 
     function signalEndOfStream(source) {
         if (!source || source.readyState !== 'open') {
+            logger.debug(`signalEndOfStream: not applicable, MediaSource readyState is ${source ? source.readyState : 'unavailable'}`);
             return;
         }
 
@@ -159,9 +162,11 @@ function MediaSourceController() {
 
         for (let i = 0; i < buffers.length; i++) {
             if (buffers[i].updating) {
+                logger.debug('signalEndOfStream: not applicable, a SourceBuffer is still updating');
                 return;
             }
             if (buffers[i].buffered.length === 0) {
+                logger.debug('signalEndOfStream: not applicable, a SourceBuffer holds no data');
                 return;
             }
         }

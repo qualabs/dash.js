@@ -31,7 +31,7 @@
 import EventsBase from './EventsBase.js';
 
 /**
- * These are internal events that should not be needed at the player level.
+ * These are internal events that should not be needed at the player level.<br>
  * If you find and event in here that you would like access to from MediaPlayer level
  * please add an issue at https://github.com/Dash-Industry-Forum/dash.js/issues/new
  * @class
@@ -72,6 +72,7 @@ class CoreEvents extends EventsBase {
         this.SERVICE_LOCATION_LOCATION_BLACKLIST_ADD = 'serviceLocationLocationBlacklistAdd';
         this.SERVICE_LOCATION_LOCATION_BLACKLIST_CHANGED = 'serviceLocationLocationBlacklistChanged';
         this.SETTING_UPDATED_ABR_ACTIVE_RULES = 'settingUpdatedAbrActiveRules';
+        this.SETTING_UPDATED_C2PA_ENABLED = 'settingUpdatedC2paEnabled';
         this.SETTING_UPDATED_CATCHUP_ENABLED = 'settingUpdatedCatchupEnabled';
         this.SETTING_UPDATED_LIVE_DELAY = 'settingUpdatedLiveDelay';
         this.SETTING_UPDATED_LIVE_DELAY_FRAGMENT_COUNT = 'settingUpdatedLiveDelayFragmentCount';

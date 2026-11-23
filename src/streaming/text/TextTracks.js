@@ -35,8 +35,8 @@ import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Debug from '../../core/Debug.js';
 import Utils from '../../core/Utils.js';
-import {CueIntervalTree} from './CueIntervalTree.js';
-import {renderHTML} from 'imsc';
+import { CueIntervalTree } from './CueIntervalTree.js';
+import { renderHTML } from 'imsc';
 
 const CUE_PROPS_TO_COMPARE = [
     'text',
@@ -84,6 +84,13 @@ function TextTracks(config) {
         resizeObserver,
         hasRequestAnimationFrame,
         currentCaptionEventCue;
+
+    /**
+     * Cues whose CUE_ENTER was dispatched and whose CUE_EXIT was not, i.e. the cues the application renders
+     * when streaming.text.dispatchForManualRendering is enabled.
+     * @type {Set<TextTrackCue>}
+     */
+    const dispatchedCues = new Set();
 
     /**
      * Data about cues for each track.
@@ -195,7 +202,9 @@ function TextTracks(config) {
                 const videoTextTrack = getTrackByIdx(idx);
                 if (videoTextTrack) {
                     const dispatchForManualRendering = settings.get().streaming.text.dispatchForManualRendering;
-                    videoTextTrack.mode = (idx === defaultIndex && !dispatchForManualRendering) ? Constants.TEXT_SHOWING : Constants.TEXT_HIDDEN;
+                    videoTextTrack.mode = (idx === defaultIndex && !dispatchForManualRendering)
+                        ? Constants.TEXT_SHOWING
+                        : Constants.TEXT_HIDDEN;
                     videoTextTrack.manualMode = (idx === defaultIndex) ? Constants.TEXT_SHOWING : Constants.TEXT_HIDDEN;
                 }
             }
@@ -224,7 +233,7 @@ function TextTracks(config) {
     }
 
     /**
-     * Updates all native `TextTrack`s with cues within a window around currentTime.
+     * Updates all native `TextTrack`s with cues within a window around currentTime.<br>
      * Only actually updates the TextTrack periodically, according to bufferPruningInterval setting.
      *
      * @param {number} currentTime - Current playback time
@@ -350,14 +359,23 @@ function TextTracks(config) {
                 use80Percent = true;
             }
 
-            const realVideoSize = getVideoVisibleVideoSize.call(this, clientWidth, clientHeight, videoWidth, videoHeight, aspectRatio, use80Percent);
+            const realVideoSize = getVideoVisibleVideoSize.call(
+                this,
+                clientWidth,
+                clientHeight,
+                videoWidth,
+                videoHeight,
+                aspectRatio,
+                use80Percent
+            );
 
             const newVideoWidth = realVideoSize.w;
             const newVideoHeight = realVideoSize.h;
             const newVideoLeft = realVideoSize.x;
             const newVideoTop = realVideoSize.y;
 
-            if (newVideoWidth != actualVideoWidth || newVideoHeight != actualVideoHeight || newVideoLeft != actualVideoLeft || newVideoTop != actualVideoTop || forceDrawing) {
+            if (newVideoWidth != actualVideoWidth || newVideoHeight != actualVideoHeight ||
+                newVideoLeft != actualVideoLeft || newVideoTop != actualVideoTop || forceDrawing) {
                 actualVideoLeft = newVideoLeft + videoOffsetLeft;
                 actualVideoTop = newVideoTop + videoOffsetTop;
                 actualVideoWidth = newVideoWidth;
@@ -370,7 +388,9 @@ function TextTracks(config) {
                         containerStyle.top = actualVideoTop + 'px';
                         containerStyle.width = actualVideoWidth + 'px';
                         containerStyle.height = actualVideoHeight + 'px';
-                        containerStyle.zIndex = (fullscreenAttribute && document[fullscreenAttribute]) || displayCCOnTop ? topZIndex : null;
+                        containerStyle.zIndex = (fullscreenAttribute && document[fullscreenAttribute]) || displayCCOnTop
+                            ? topZIndex
+                            : null;
                         eventBus.trigger(MediaPlayerEvents.CAPTION_CONTAINER_RESIZE);
                     }
                 }
@@ -404,7 +424,8 @@ function TextTracks(config) {
                     if (activeCue.linePadding.hasOwnProperty(key)) {
                         const valueLinePadding = activeCue.linePadding[key];
                         replaceValue = (valueLinePadding * cellUnit[0]).toString();
-                        // Compute the CellResolution unit in order to process properties using sizing (fontSize, linePadding, etc).
+                        // Compute the CellResolution unit in order to process properties using sizing (fontSize,
+                        // linePadding, etc).
                         const elementsSpan = document.getElementsByClassName('spanPadding');
                         for (let i = 0; i < elementsSpan.length; i++) {
                             elementsSpan[i].style.cssText = elementsSpan[i].style.cssText.replace(/(padding-left\s*:\s*)[\d.,]+(?=\s*px)/gi, '$1' + replaceValue);
@@ -452,6 +473,44 @@ function TextTracks(config) {
                                 elements[k].style.cssText = elements[k].style.cssText.replace(/(line-height\s*:\s*)[\d.,]+(?=\s*px)/gi, '$1' + replaceValue);
                             }
                         }
+                    }
+                }
+            }
+
+            // CEA-608 uses a fixed 32-column monospace grid, but the caption
+            // font is only sized by height (videoHeight/15), so its glyphs are
+            // narrower than a grid cell (videoWidth/32). Left-aligned at their
+            // start column, rows then drift left of where the 608 columns place
+            // them (e.g. a centered caption looks left-shifted). Stretch the
+            // wrapper so its widest row fills exactly the number of grid
+            // columns it occupies, anchored at its start column — offsetWidth
+            // is that widest row's natural width (and, unlike a client rect, is
+            // not affected by a transform left over from a previous
+            // activation), so the columns count must be the widest row's
+            // character count, not the concatenation of all <br>-separated
+            // rows. Scaling the wrapper (not letter-spacing) keeps every
+            // character's solid background rectangle contiguous with no gaps.
+            if (activeCue.isFromCEA608 && activeCue.cueHTMLElement) {
+                const wrappers = activeCue.cueHTMLElement.getElementsByClassName('cueUniWrapper');
+                for (let w = 0; w < wrappers.length; w++) {
+                    const wrapper = wrappers[w];
+                    let columns = 0;
+                    let rowLength = 0;
+                    for (let n = 0; n < wrapper.childNodes.length; n++) {
+                        const node = wrapper.childNodes[n];
+                        if (node.nodeName === 'BR') {
+                            columns = Math.max(columns, rowLength);
+                            rowLength = 0;
+                        } else {
+                            rowLength += node.textContent.length;
+                        }
+                    }
+                    columns = Math.max(columns, rowLength);
+                    const naturalWidth = wrapper.offsetWidth;
+                    if (columns > 0 && naturalWidth > 0) {
+                        const targetWidth = columns * cellUnit[0];
+                        wrapper.style.transformOrigin = 'left';
+                        wrapper.style.transform = 'scaleX(' + (targetWidth / naturalWidth) + ')';
                     }
                 }
             }
@@ -513,7 +572,7 @@ function TextTracks(config) {
     }
 
     /**
-     * Finds an existing cue in the interval tree that can be extended with the new cue.
+     * Finds an existing cue in the interval tree that can be extended with the new cue.<br>
      * Looks for cues that are adjacent and have identical content.
      *
      * @param {TextTrackCue} newCue - The new cue to potentially extend
@@ -529,9 +588,11 @@ function TextTracks(config) {
 
         for (const existingCue of adjacentCues) {
             // Check if cues are adjacent and have identical content
-            if (_areCuesAdjacent(newCue, existingCue) && _cuesContentAreEqual(newCue, existingCue, CUE_PROPS_TO_COMPARE)) {
+            if (_areCuesAdjacent(newCue, existingCue) &&
+                _cuesContentAreEqual(newCue, existingCue, CUE_PROPS_TO_COMPARE)) {
                 return existingCue;
-            } else if (_areCuesAdjacent(existingCue, newCue) && _cuesContentAreEqual(newCue, existingCue, CUE_PROPS_TO_COMPARE)) {
+            } else if (_areCuesAdjacent(existingCue, newCue) &&
+                _cuesContentAreEqual(newCue, existingCue, CUE_PROPS_TO_COMPARE)) {
                 return existingCue;
             }
         }
@@ -550,7 +611,7 @@ function TextTracks(config) {
     }
 
     /**
-     * Mutates and returns an existing cue by extending it with a new cue by merging their timing.
+     * Mutates and returns an existing cue by extending it with a new cue by merging their timing.<br>
      * Assumes that the two cues are adjacent and have identical content.
      *
      * @param {TextTrackCue} existingCue - The existing cue to extend
@@ -593,6 +654,7 @@ function TextTracks(config) {
         const track = getTrackByIdx(trackIdx);
         const cueData = tracksCueData.get(track);
         const dispatchForManualRendering = settings.get().streaming.text.dispatchForManualRendering;
+        const extendSegmentedCues = settings.get().streaming.text.extendSegmentedCues;
 
         if (!track || !cueData) {
             return;
@@ -607,11 +669,26 @@ function TextTracks(config) {
             const currentItem = captionData[item];
 
             track.cellResolution = currentItem.cellResolution;
-            track.isFromCEA608 = currentItem.isFromCEA608;
+            if (track.isFromCEA608 !== currentItem.isFromCEA608) {
+                // The 608 flag changes the caption box geometry in
+                // checkVideoSize (forced 3.5/3 aspect ratio, 80% box). It is
+                // only known once the first caption arrives — and can be stale
+                // from a previous stream, because native TextTrack objects are
+                // reused across streams — so the box must be recomputed
+                // whenever it flips, or the caption size depends on which
+                // stream was played before. 608 data is parsed from the
+                // video segments and appended for every embedded track, no
+                // matter which one is selected, so only recompute the box for
+                // the track that is actually being rendered.
+                track.isFromCEA608 = currentItem.isFromCEA608;
+                if (trackIdx === currentTrackIdx) {
+                    checkVideoSize.call(this, track, true);
+                }
+            }
 
             if (!isNaN(currentItem.start) && !isNaN(currentItem.end)) {
                 if (dispatchForManualRendering) {
-                    cue = _handleCaptionEvents(currentItem, timeOffset);
+                    cue = _handleCaptionEvents(currentItem, timeOffset, trackIdx);
                 } else if (_isHTMLCue(currentItem) && captionContainer) {
                     cue = _handleHtmlCaption(currentItem, timeOffset, track)
                 } else if (currentItem.data) {
@@ -620,7 +697,15 @@ function TextTracks(config) {
             }
 
             if (cue) {
-                if (settings.get().streaming.text.extendSegmentedCues) {
+                // CEA-608 captions use a paint-on model: each screen is a
+                // self-contained caption with its own explicit timing and is
+                // never split across segments. The extendSegmentedCues logic is
+                // meant to stitch segmented TTML/WebVTT cues back together, so it
+                // must not run for 608 or it would merge distinct captions
+                // (their rendered content lives in cueHTMLElement, which the cue
+                // equality check does not inspect) and only the first caption of
+                // each segment would ever be shown.
+                if (extendSegmentedCues && !currentItem.isFromCEA608) {
                     const cueToExtend = _findCueToExtend(cue, cueData.allCues);
                     if (cueToExtend) {
                         cueData.allCues.removeCue(cueToExtend);
@@ -636,28 +721,61 @@ function TextTracks(config) {
         invalidateCueWindow();
     }
 
-    function _handleCaptionEvents(currentItem, timeOffset) {
+    function _handleCaptionEvents(currentItem, timeOffset, trackIdx) {
         let cue = _getCueInformation(currentItem, timeOffset)
 
         cue.onenter = function () {
+            // The cues of every track that is not disabled are added to their native TextTrack,
+            // so they keep firing after another track has been selected. Only the cues of the
+            // selected track may be dispatched, otherwise the application renders the cues of
+            // all tracks that have been selected during playback at the same time. This is the
+            // equivalent of the mode check the tracks rendered by dash.js itself are doing.
+            if (trackIdx !== currentTrackIdx) {
+                return;
+            }
+
+            // Selecting a track replays the enter event of its active cues, see _dispatchActiveCues
+            if (dispatchedCues.has(cue)) {
+                return;
+            }
+
             // HTML Tracks don't trigger the onexit event when a new cue is entered,
             // we need to manually trigger it
             if (_isHTMLCue(currentItem) && currentCaptionEventCue && currentCaptionEventCue.cueID !== cue.cueID) {
-                _triggerCueExit(currentCaptionEventCue);
+                _exitDispatchedCue(currentCaptionEventCue);
             }
             // We need to delete the type attribute to be able to dispatch via th event bus
             delete cue.type;
 
             currentCaptionEventCue = cue;
+            dispatchedCues.add(cue);
             _triggerCueEnter(cue);
         }
 
         cue.onexit = function () {
-            _triggerCueExit(cue);
-            currentCaptionEventCue = null;
+            _exitDispatchedCue(cue);
         }
 
         return cue;
+    }
+
+    /*
+     * Only dispatches CUE_EXIT for cues the application received a CUE_ENTER for, and only once per CUE_ENTER.
+     * A cue can end after it was already exited, e.g. because a cue of another track was selected in between.
+     */
+    function _exitDispatchedCue(cue) {
+        if (!dispatchedCues.delete(cue)) {
+            return;
+        }
+
+        if (currentCaptionEventCue === cue) {
+            currentCaptionEventCue = null;
+        }
+        _triggerCueExit(cue);
+    }
+
+    function _exitAllDispatchedCues() {
+        Array.from(dispatchedCues).forEach(_exitDispatchedCue);
     }
 
     function _triggerCueEnter(cue) {
@@ -700,7 +818,8 @@ function TextTracks(config) {
             }
         };
 
-        // For imsc subs, this could be reassigned to not do anything if there is a cue that immediately follows this one
+        // For imsc subs, this could be reassigned to not do anything if there is a cue that immediately follows this
+        // one
         cue.onexit = function () {
             if (captionContainer) {
                 const divs = captionContainer.childNodes;
@@ -778,6 +897,7 @@ function TextTracks(config) {
         cue.cueID = currentItem.cueID;
         cue.scaleCue = _scaleCue.bind(self);
         //useful parameters for cea608 subtitles, not for TTML one.
+        cue.isFromCEA608 = currentItem.isFromCEA608;
         cue.cellResolution = currentItem.cellResolution;
         cue.lineHeight = currentItem.lineHeight;
         cue.linePadding = currentItem.linePadding;
@@ -792,7 +912,7 @@ function TextTracks(config) {
     }
 
     function _getCueInformationForNonHtml(currentItem, timeOffset) {
-        let cue = new Cue(currentItem.start - timeOffset, currentItem.end - timeOffset, currentItem.data);
+        let cue = new Cue(currentItem.start + timeOffset, currentItem.end + timeOffset, currentItem.data);
         cue.cueID = Utils.generateUuid();
         return cue;
     }
@@ -889,7 +1009,13 @@ function TextTracks(config) {
 
     function getTrackByIdx(idx) {
         return idx >= 0 && textTrackInfos[idx] ?
-            videoModel.getTextTrack(textTrackInfos[idx].kind, textTrackInfos[idx].id, textTrackInfos[idx].lang, textTrackInfos[idx].isTTML, textTrackInfos[idx].isEmbedded) : null;
+            videoModel.getTextTrack(
+                textTrackInfos[idx].kind,
+                textTrackInfos[idx].id,
+                textTrackInfos[idx].lang,
+                textTrackInfos[idx].isTTML,
+                textTrackInfos[idx].isEmbedded
+            ) : null;
     }
 
     function getCurrentTrackIdx() {
@@ -932,6 +1058,34 @@ function TextTracks(config) {
                 videoSizeCheckInterval = setInterval(checkVideoSize.bind(this, track), 500);
             }
         }
+
+        if (settings.get().streaming.text.dispatchForManualRendering) {
+            // The application only renders the cues of the selected track
+            _exitAllDispatchedCues();
+            _dispatchActiveCues(track);
+        }
+    }
+
+    /*
+     * The enter event of a cue that became active while its track was not selected was not
+     * dispatched, and the native TextTrack does not fire it again once the track is selected.
+     * Dispatch it now, otherwise the application shows nothing until the next cue enters.
+     */
+    function _dispatchActiveCues(track) {
+        const cueData = tracksCueData.get(track);
+
+        if (!cueData) {
+            return;
+        }
+
+        // The native TextTrack only contains the cues of the last cue window update, which does not run while
+        // paused, and no cues at all while the track is disabled. All cues of the track are in allCues.
+        const time = videoModel.getTime();
+        cueData.allCues.findCuesAtTime(time).forEach((cue) => {
+            if (typeof cue.onenter === 'function') {
+                cue.onenter();
+            }
+        });
     }
 
     function setCueStyleOnTrack(track) {
@@ -951,7 +1105,8 @@ function TextTracks(config) {
         if (!cue) {
             return false
         }
-        return (isNaN(start) || (strict ? cue.startTime : cue.endTime) >= start) && (isNaN(end) || (strict ? cue.endTime : cue.startTime) <= end);
+        return (isNaN(start) || (strict ? cue.startTime : cue.endTime) >= start) &&
+            (isNaN(end) || (strict ? cue.endTime : cue.startTime) <= end);
     }
 
     function _deleteTrackCues(track, start, end, strict = true) {
@@ -1020,6 +1175,7 @@ function TextTracks(config) {
         }
         currentTrackIdx = -1;
         clearCaptionContainer.call(this);
+        _exitAllDispatchedCues();
 
         // Clear all track data
         tracksCueData.clear();
